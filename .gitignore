@@ -1,0 +1,14 @@
+node_modules/
+functions/node_modules/
+functions/lib/
+.expo/
+dist/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+google-services.json
+GoogleService-Info.plist
+.env

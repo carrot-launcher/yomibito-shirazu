@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function isAuth() { return request.auth != null; }
+    function isGroupMember(groupId) {
+      return isAuth() && exists(/databases/$(db)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    }
+
+    match /users/{userId} {
+      allow read: if isAuth();
+      allow write: if request.auth.uid == userId;
+      match /myPosts/{myPostId} { allow read, write: if request.auth.uid == userId; }
+      match /bookmarks/{postId} { allow read, write: if request.auth.uid == userId; }
+      match /notifications/{notifId} {
+        allow read, update: if request.auth.uid == userId;
+      }
+    }
+
+    match /groups/{groupId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      match /members/{memberId} {
+        allow read: if isGroupMember(groupId);
+        allow create: if isAuth() && request.auth.uid == memberId;
+        allow update: if request.auth.uid == memberId;
+      }
+    }
+
+    match /posts/{postId} {
+      allow read: if isAuth() && isGroupMember(resource.data.groupId);
+      allow create: if isAuth() && isGroupMember(request.resource.data.groupId)
+                    && request.resource.data.body.size() <= 42;
+      match /private/{doc} { allow read: if false; allow write: if isAuth(); }
+      match /reactions/{reactionId} {
+        allow read: if false;
+        allow create: if isAuth() && isGroupMember(get(/databases/$(db)/documents/posts/$(postId)).data.groupId);
+        allow delete: if isAuth();
+      }
+      match /comments/{commentId} {
+        allow read: if isAuth() && isGroupMember(get(/databases/$(db)/documents/posts/$(postId)).data.groupId);
+        allow create: if isAuth() && isGroupMember(get(/databases/$(db)/documents/posts/$(postId)).data.groupId)
+                      && request.resource.data.body.size() <= 200;
+        match /private/{doc} { allow read: if false; allow write: if isAuth(); }
+      }
+    }
+  }
+}
