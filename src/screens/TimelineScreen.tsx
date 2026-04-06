@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, orderBy, query, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import GradientBackground from '../components/GradientBackground';
@@ -32,23 +32,31 @@ export default function TimelineScreen({ route, navigation }: any) {
   }, [groupId, alert, navigation]);
 
   useEffect(() => {
-    navigation.setOptions({
-      title: groupName,
-      headerRight: () => (
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 4 }}>
-          <TouchableOpacity onPress={() => navigation.navigate('GroupSettings', { groupId })} hitSlop={8} style={{ padding: 8 }}>
-            <MaterialCommunityIcons name="cog-outline" size={22} color="#2C2418" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('Compose', { preselectedGroupId: groupId })} hitSlop={8} style={{ padding: 8 }}>
-            <MaterialCommunityIcons name="pen" size={22} color="#2C2418" />
-          </TouchableOpacity>
-        </View>
-      ),
-    });
+    const updateHeader = async () => {
+      let name = groupName;
+      try {
+        const snap = await getDoc(doc(db, 'groups', groupId));
+        if (snap.exists()) name = snap.data().name || groupName;
+      } catch {}
+      navigation.setOptions({
+        title: name,
+        headerRight: () => (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 4 }}>
+            <TouchableOpacity onPress={() => navigation.navigate('GroupSettings', { groupId })} hitSlop={8} style={{ padding: 8 }}>
+              <MaterialCommunityIcons name="cog-outline" size={22} color="#2C2418" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('Compose', { preselectedGroupId: groupId })} hitSlop={8} style={{ padding: 8 }}>
+              <MaterialCommunityIcons name="pen" size={22} color="#2C2418" />
+            </TouchableOpacity>
+          </View>
+        ),
+      });
+    };
+    updateHeader();
     fetchPosts();
-    const unsub = navigation.addListener('focus', fetchPosts);
+    const unsub = navigation.addListener('focus', () => { updateHeader(); fetchPosts(); });
     return unsub;
-  }, [groupId, fetchPosts, navigation]);
+  }, [groupId, groupName, fetchPosts, navigation]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

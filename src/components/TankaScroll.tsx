@@ -80,10 +80,7 @@ function buildHtml(cards: TankaCard[], mode: string): string {
     font-size: 10px;
     color: #A69880;
     text-align: center;
-    max-width: 56px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    word-break: break-all;
   }
   .comment-count { font-size: 11px; color: #8B7E6A; }
   .time-ago { font-size: 10px; color: #A69880; margin-top: 2px; }
@@ -95,18 +92,6 @@ function buildHtml(cards: TankaCard[], mode: string): string {
     width: 100%;
     color: #A69880;
     font-size: 16px;
-  }
-  .group-reactions {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    align-items: center;
-  }
-  .group-reaction-row {
-    font-size: 10px;
-    color: #8B7E6A;
-    text-align: center;
-    white-space: nowrap;
   }
 </style>
 </head>
@@ -142,7 +127,6 @@ if (cards.length === 0) {
     displayCards = Object.values(grouped);
   }
 
-  const total = displayCards.length;
   displayCards.forEach((card, index) => {
     const el = document.createElement("div");
     el.className = "tanka-card";
