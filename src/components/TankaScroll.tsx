@@ -166,7 +166,8 @@ if (cards.length === 0) {
         .filter(([,v]) => v > 0)
         .map(([emoji, count]) => emoji + count)
         .join(' ');
-      const groupNames = card.groups.map(g => g.groupName).join('・');
+      let groupNames = card.groups.map(g => g.groupName).join('・');
+      if (groupNames.length > 50) groupNames = groupNames.slice(0, 50) + '…';
       metaHtml = '<div class="reactions">' +
         (reactions ? '<div class="reaction-item">' + reactions + '</div>' : '') +
         (totalComments > 0 ? '<div class="comment-count">評 ' + totalComments + '</div>' : '') +
@@ -175,7 +176,9 @@ if (cards.length === 0) {
     } else if (mode === 'bookmarks') {
       const d = new Date(card.bookmarkedAt || card.createdAt);
       const timeAgo = getTimeAgo(d);
-      metaHtml = '<div class="group-info">' + (card.groupName || '') + '</div>' +
+      let bmGroupName = card.groupName || '';
+      if (bmGroupName.length > 50) bmGroupName = bmGroupName.slice(0, 50) + '…';
+      metaHtml = '<div class="group-info">' + bmGroupName + '</div>' +
         '<div class="group-info">' + timeAgo + '</div>';
     }
 

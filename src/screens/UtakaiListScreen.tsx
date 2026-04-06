@@ -169,7 +169,7 @@ export default function UtakaiListScreen({ navigation }: any) {
       <Modal visible={showCreate} transparent animationType="fade">
         <View style={styles.modalOverlay}><View style={styles.modal}>
           <Text style={styles.modalTitle}>歌会を開く</Text>
-          <TextInput style={styles.input} placeholder="歌会の名前" value={newName} onChangeText={setNewName} placeholderTextColor="#A69880" />
+          <TextInput style={styles.input} placeholder="歌会の名前" value={newName} onChangeText={setNewName} placeholderTextColor="#A69880" maxLength={16} />
           <View style={styles.modalButtons}>
             <TouchableOpacity onPress={() => { setShowCreate(false); setNewName(''); }}><Text style={styles.cancelText}>やめる</Text></TouchableOpacity>
             <TouchableOpacity style={styles.confirmBtn} onPress={handleCreateStep1}><Text style={styles.confirmText}>次へ</Text></TouchableOpacity>
@@ -196,7 +196,7 @@ export default function UtakaiListScreen({ navigation }: any) {
             {pendingAction?.type === 'create' ? '歌会を開く' : `「${pendingAction?.groupName}」に参加`}
           </Text>
           <Text style={styles.modalHint}>この歌会でのあなたの名前を決めてください{'\n'}後から歌会設定で変更できます</Text>
-          <TextInput style={styles.input} placeholder="あなたの名前" value={memberDisplayName} onChangeText={setMemberDisplayName} placeholderTextColor="#A69880" maxLength={20} autoFocus />
+          <TextInput style={styles.input} placeholder="あなたの名前" value={memberDisplayName} onChangeText={setMemberDisplayName} placeholderTextColor="#A69880" maxLength={16} autoFocus />
           <View style={styles.modalButtons}>
             <TouchableOpacity onPress={() => { setShowSetName(false); setPendingAction(null); }}><Text style={styles.cancelText}>やめる</Text></TouchableOpacity>
             <TouchableOpacity style={[styles.confirmBtn, !memberDisplayName.trim() && { opacity: 0.4 }]} onPress={handleConfirmName} disabled={!memberDisplayName.trim()}>

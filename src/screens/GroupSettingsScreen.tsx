@@ -173,7 +173,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
       {isOwner && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>歌会の名前</Text>
-          <TextInput style={styles.input} value={editingName} onChangeText={setEditingName} maxLength={30} />
+          <TextInput style={styles.input} value={editingName} onChangeText={setEditingName} maxLength={16} />
           <TouchableOpacity
             style={[styles.saveBtn, savingGroupName && styles.saveBtnDisabled]}
             onPress={handleSaveGroupName} disabled={savingGroupName}
@@ -187,7 +187,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>この歌会でのあなたの名前</Text>
         <Text style={styles.hint}>この歌会でのみ使われる名前です。他の歌会には影響しません。</Text>
-        <TextInput style={styles.input} value={displayName} onChangeText={setDisplayName} placeholder="あなたの名前" placeholderTextColor="#A69880" maxLength={20} />
+        <TextInput style={styles.input} value={displayName} onChangeText={setDisplayName} placeholder="あなたの名前" placeholderTextColor="#A69880" maxLength={16} />
         <TouchableOpacity
           style={[styles.saveBtn, savingName && styles.saveBtnDisabled]}
           onPress={handleSaveDisplayName} disabled={savingName}
