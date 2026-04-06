@@ -10,6 +10,7 @@ import ComposeScreen from '../screens/ComposeScreen';
 import GroupSettingsScreen from '../screens/GroupSettingsScreen';
 import KashuScreen from '../screens/KashuScreen';
 import LoginScreen from '../screens/LoginScreen';
+import ScreenshotScreen from '../screens/ScreenshotScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import TankaDetailScreen from '../screens/TankaDetailScreen';
 import TayoriScreen from '../screens/TayoriScreen';
@@ -73,6 +74,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Compose" component={ComposeScreen} options={{ title: '詠む', presentation: 'modal' }} />
             <Stack.Screen name="TankaDetail" component={TankaDetailScreen} options={{ title: '' }} />
             <Stack.Screen name="GroupSettings" component={GroupSettingsScreen} options={{ title: '歌会設定' }} />
+            <Stack.Screen name="Screenshot" component={ScreenshotScreen} options={{ title: '', presentation: 'modal' }} />
           </>
         )}
       </Stack.Navigator>

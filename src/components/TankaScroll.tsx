@@ -242,6 +242,7 @@ export default function TankaScroll({ cards, onTap, mode }: Props) {
         showsHorizontalScrollIndicator={false}
         javaScriptEnabled={true}
         originWhitelist={['*']}
+        androidLayerType="software"
       />
     </View>
   );

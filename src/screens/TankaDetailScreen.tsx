@@ -106,7 +106,7 @@ function buildDetailHtml(body: string, comments: { body: string; time: string; i
 </head>
 <body>
 <div class="container" id="container">
-  <div class="tanka-section">${escapeHtml(body)}</div>
+  <div class="tanka-section" onclick="window.ReactNativeWebView.postMessage(JSON.stringify({action:'screenshot'}))">${escapeHtml(body)}</div>
   <div class="divider"></div>
   <div class="comments-section" id="comments"></div>
 </div>
@@ -354,7 +354,9 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   const handleWebViewMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      if (data.action === 'deleteComment') {
+      if (data.action === 'screenshot') {
+        navigation.navigate('Screenshot', { body: post!.body });
+      } else if (data.action === 'deleteComment') {
         handleDeleteComment(data.commentId);
       }
     } catch {}
@@ -422,6 +424,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
         showsHorizontalScrollIndicator={false}
         javaScriptEnabled={true}
         originWhitelist={['*']}
+        androidLayerType="software"
       />
     </View>
   );
