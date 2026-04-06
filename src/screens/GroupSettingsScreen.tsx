@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, color: '#2C2418', fontWeight: '500', marginBottom: 8 },
   hint: { fontSize: 12, color: '#8B7E6A', lineHeight: 18, marginBottom: 12 },
   codeRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  inviteCode: { fontSize: 24, color: '#2C2418', letterSpacing: 6, fontWeight: '500', flex: 1 },
+  inviteCode: { fontSize: 24, color: '#2C2418', letterSpacing: 6, fontFamily: 'UbuntuMono_400Regular', flex: 1 },
   copyBtn: { backgroundColor: '#2C2418', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
   copyBtnText: { color: '#F5F0E8', fontSize: 13 },
   input: { borderWidth: 1, borderColor: '#E8E0D0', borderRadius: 8, padding: 12, fontSize: 16, color: '#2C2418', marginBottom: 12 },

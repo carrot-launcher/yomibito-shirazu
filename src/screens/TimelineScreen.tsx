@@ -17,11 +17,11 @@ export default function TimelineScreen({ route, navigation }: any) {
       title: groupName,
       headerRight: () => (
         <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 4 }}>
-          <TouchableOpacity onPress={() => navigation.navigate('Compose', { preselectedGroupId: groupId })} hitSlop={8} style={{ padding: 8 }}>
-            <MaterialCommunityIcons name="pen" size={22} color="#2C2418" />
-          </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate('GroupSettings', { groupId })} hitSlop={8} style={{ padding: 8 }}>
             <MaterialCommunityIcons name="cog-outline" size={22} color="#2C2418" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Compose', { preselectedGroupId: groupId })} hitSlop={8} style={{ padding: 8 }}>
+            <MaterialCommunityIcons name="pen" size={22} color="#2C2418" />
           </TouchableOpacity>
         </View>
       ),

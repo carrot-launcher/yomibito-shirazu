@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Text, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts, NotoSerifJP_400Regular, NotoSerifJP_500Medium, NotoSerifJP_700Bold } from '@expo-google-fonts/noto-serif-jp';
+import { UbuntuMono_400Regular } from '@expo-google-fonts/ubuntu-mono';
 import { AlertProvider } from './src/components/CustomAlert';
 import { AuthProvider } from './src/hooks/useAuth';
 import AppNavigator from './src/navigation/AppNavigator';
@@ -33,6 +34,7 @@ export default function App() {
     NotoSerifJP_400Regular,
     NotoSerifJP_500Medium,
     NotoSerifJP_700Bold,
+    UbuntuMono_400Regular,
   });
 
   if (!fontsLoaded) {

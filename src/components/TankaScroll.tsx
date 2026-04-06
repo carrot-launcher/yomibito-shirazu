@@ -85,6 +85,7 @@ function buildHtml(cards: TankaCard[], mode: string): string {
     white-space: nowrap;
   }
   .comment-count { font-size: 11px; color: #8B7E6A; }
+  .time-ago { font-size: 10px; color: #A69880; margin-top: 2px; }
   .empty-state {
     display: flex;
     align-items: center;
@@ -156,10 +157,12 @@ if (cards.length === 0) {
         .filter(([,v]) => v > 0)
         .map(([emoji, count]) => emoji + count)
         .join(' ');
+      const timeAgo = getTimeAgo(new Date(card.createdAt));
       metaHtml = '<div class="reactions">' +
         (reactions ? '<div class="reaction-item">' + reactions + '</div>' : '') +
         (card.commentCount > 0 ? '<div class="comment-count">評 ' + card.commentCount + '</div>' : '') +
-        '</div>';
+        '</div>' +
+        '<div class="time-ago">' + timeAgo + '</div>';
     } else if (mode === 'myPosts' && card.groups) {
       metaHtml = '<div class="group-reactions">' +
         card.groups.map(g => {

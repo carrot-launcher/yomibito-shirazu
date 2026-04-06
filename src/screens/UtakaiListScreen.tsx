@@ -1,3 +1,4 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { arrayUnion, collection, doc, getDoc, getDocs, increment, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -24,6 +25,16 @@ export default function UtakaiListScreen({ navigation }: any) {
   const [joinCode, setJoinCode] = useState('');
   const [memberDisplayName, setMemberDisplayName] = useState('');
   const [pendingAction, setPendingAction] = useState<null | { type: 'create'; groupName: string } | { type: 'join'; groupId: string; groupName: string }>(null);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity onPress={() => setShowCreate(true)} hitSlop={8} style={{ padding: 8, marginRight: 8 }}>
+          <MaterialCommunityIcons name="plus" size={24} color="#2C2418" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   useEffect(() => {
     if (!user) return;
@@ -84,6 +95,15 @@ export default function UtakaiListScreen({ navigation }: any) {
     setShowSetName(true);
   };
 
+  const handleJoinCodeChange = (text: string) => {
+    // 全角→半角変換、大文字化、英数字のみ抽出、6文字制限
+    const halfWidth = text.replace(/[Ａ-Ｚａ-ｚ０-９]/g, (c) =>
+      String.fromCharCode(c.charCodeAt(0) - 0xFEE0)
+    );
+    const filtered = halfWidth.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    setJoinCode(filtered);
+  };
+
   // 歌会参加: まず招待コードを検証して、次に表示名を設定
   const handleJoinStep1 = async () => {
     if (!user || !joinCode.trim()) return;
@@ -130,18 +150,19 @@ export default function UtakaiListScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <FlatList data={groups} keyExtractor={item => item.id} contentContainerStyle={styles.list}
-        ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyText}>歌会がありません</Text><Text style={styles.emptySubtext}>下のボタンから歌会を開くか、招待コードで参加しましょう</Text></View>}
+        ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyText}>歌会がありません</Text><Text style={styles.emptySubtext}>右上の＋から歌会を開くか{'\n'}招待コードで参加しましょう</Text></View>}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Timeline', { groupId: item.id, groupName: item.name })}>
-            <Text style={styles.cardName}>{item.name}</Text>
-            <Text style={styles.cardMembers}>{item.memberCount}人の歌人</Text>
+            <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+            <Text style={styles.cardMembers}>{item.memberCount}人</Text>
           </TouchableOpacity>
-        )} />
-
-      <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => setShowJoin(true)}><Text style={styles.actionBtnText}>招待コードで参加</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => setShowCreate(true)}><Text style={styles.actionBtnText}>歌会を開く</Text></TouchableOpacity>
-      </View>
+        )}
+        ListFooterComponent={
+          <TouchableOpacity style={styles.joinLink} onPress={() => setShowJoin(true)}>
+            <Text style={styles.joinLinkText}>招待コードで参加</Text>
+          </TouchableOpacity>
+        }
+      />
 
       {/* 歌会作成モーダル */}
       <Modal visible={showCreate} transparent animationType="fade">
@@ -159,7 +180,7 @@ export default function UtakaiListScreen({ navigation }: any) {
       <Modal visible={showJoin} transparent animationType="fade">
         <View style={styles.modalOverlay}><View style={styles.modal}>
           <Text style={styles.modalTitle}>歌会に参加</Text>
-          <TextInput style={styles.input} placeholder="招待コード（6文字）" value={joinCode} onChangeText={setJoinCode} autoCapitalize="characters" maxLength={6} placeholderTextColor="#A69880" />
+          <TextInput style={[styles.input, styles.codeInput]} placeholder="招待コード（6文字）" value={joinCode} onChangeText={handleJoinCodeChange} autoCapitalize="characters" autoCorrect={false} placeholderTextColor="#A69880" />
           <View style={styles.modalButtons}>
             <TouchableOpacity onPress={() => { setShowJoin(false); setJoinCode(''); }}><Text style={styles.cancelText}>やめる</Text></TouchableOpacity>
             <TouchableOpacity style={styles.confirmBtn} onPress={handleJoinStep1}><Text style={styles.confirmText}>次へ</Text></TouchableOpacity>
@@ -189,21 +210,21 @@ export default function UtakaiListScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F0E8' },
-  list: { padding: 16, paddingBottom: 120 },
+  list: { padding: 16, paddingBottom: 24 },
   empty: { alignItems: 'center', marginTop: 80 },
   emptyText: { fontSize: 18, color: '#8B7E6A', marginBottom: 8 },
   emptySubtext: { fontSize: 13, color: '#A69880', textAlign: 'center', lineHeight: 20 },
-  card: { backgroundColor: '#FFFDF8', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#E8E0D0' },
-  cardName: { fontSize: 18, color: '#2C2418', fontWeight: '500', marginBottom: 4 },
-  cardMembers: { fontSize: 13, color: '#8B7E6A' },
-  buttonRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingBottom: 16 },
-  actionBtn: { flex: 1, backgroundColor: '#FFFDF8', borderRadius: 8, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E8E0D0' },
-  actionBtnText: { color: '#2C2418', fontSize: 14 },
+  card: { backgroundColor: '#FFFDF8', borderRadius: 12, paddingHorizontal: 18, paddingVertical: 14, marginBottom: 10, borderWidth: 1, borderColor: '#E8E0D0', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardName: { fontSize: 18, color: '#2C2418', fontFamily: 'NotoSerifJP_500Medium', flex: 1, marginRight: 12 },
+  cardMembers: { fontSize: 13, color: '#A69880' },
+  joinLink: { alignItems: 'center', paddingVertical: 16 },
+  joinLinkText: { color: '#8B7E6A', fontSize: 14 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
   modal: { backgroundColor: '#FFFDF8', borderRadius: 16, padding: 24, width: '85%' },
   modalTitle: { fontSize: 18, color: '#2C2418', fontWeight: '500', marginBottom: 8 },
   modalHint: { fontSize: 12, color: '#8B7E6A', lineHeight: 18, marginBottom: 16 },
   input: { borderWidth: 1, borderColor: '#E8E0D0', borderRadius: 8, padding: 12, fontSize: 16, color: '#2C2418', marginBottom: 20 },
+  codeInput: { fontFamily: 'UbuntuMono_400Regular', letterSpacing: 4, textAlign: 'center', fontSize: 20 },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 16, alignItems: 'center' },
   cancelText: { color: '#8B7E6A', fontSize: 15 },
   confirmBtn: { backgroundColor: '#2C2418', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
