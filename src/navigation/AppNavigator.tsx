@@ -39,7 +39,7 @@ function HomeTabs() {
       <Tab.Screen name="UtakaiTab" component={UtakaiListScreen}
         options={{ title: '歌会', tabBarIcon: ({ color }) => <MaterialCommunityIcons name="book-open-variant" size={22} color={color} /> }} />
       <Tab.Screen name="TayoriTab" component={TayoriScreen}
-        options={{ title: '便り', tabBarIcon: ({ color }) => <MaterialCommunityIcons name="bell-outline" size={22} color={color} /> }} />
+        options={{ title: 'たより', tabBarIcon: ({ color }) => <MaterialCommunityIcons name="email-outline" size={22} color={color} /> }} />
       <Tab.Screen name="KashuTab" component={KashuScreen}
         options={{ title: '歌集', tabBarIcon: ({ color }) => <MaterialCommunityIcons name="notebook-outline" size={22} color={color} /> }} />
       <Tab.Screen name="SettingsTab" component={SettingsScreen}

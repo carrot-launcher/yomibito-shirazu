@@ -5,8 +5,8 @@ import { View, Text, StyleSheet } from 'react-native';
 export default function TayoriScreen() {
   return (
     <View style={styles.container}>
-      <MaterialCommunityIcons name="bell-outline" size={48} color="#8B7E6A" style={{ marginBottom: 12 }} />
-      <Text style={styles.title}>便り</Text>
+      <MaterialCommunityIcons name="email-outline" size={48} color="#8B7E6A" style={{ marginBottom: 12 }} />
+      <Text style={styles.title}>たより</Text>
       <Text style={styles.subtitle}>Phase 2 で実装予定</Text>
       <Text style={styles.desc}>リアクションや評の通知が{'\n'}ここに一覧表示されます</Text>
     </View>

@@ -56,7 +56,7 @@ export default function SettingsScreen() {
         <Text style={styles.idHint}>他の歌人があなたを識別するためのIDです</Text>
       </View>
 
-      <Text style={styles.sectionTitle}>便りの設定</Text>
+      <Text style={styles.sectionTitle}>たよりの設定</Text>
       <Text style={styles.hint}>音やバイブの設定は端末のOS設定から変更できます。</Text>
 
       <View style={styles.switchRow}>
