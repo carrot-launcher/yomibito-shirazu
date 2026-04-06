@@ -337,48 +337,13 @@ export const dissolveGroup = onCall(
       throw new HttpsError("invalid-argument", "歌会の名前が一致しません");
     }
 
-    // 1. 歌会の全投稿を処理
-    if (deletePosts) {
-      const postsSnap = await db.collection("posts").where("groupId", "==", groupId).get();
-      for (const postDoc of postsSnap.docs) {
-        const postId = postDoc.id;
-
-        // リアクション削除
-        const reactionsSnap = await db.collection(`posts/${postId}/reactions`).get();
-        const batch1 = db.batch();
-        reactionsSnap.docs.forEach((d) => batch1.delete(d.ref));
-        if (reactionsSnap.size > 0) await batch1.commit();
-
-        // 評削除（+ private/author）
-        const commentsSnap = await db.collection(`posts/${postId}/comments`).get();
-        for (const commentDoc of commentsSnap.docs) {
-          const privSnap = await db.collection(`posts/${postId}/comments/${commentDoc.id}/private`).get();
-          const batchC = db.batch();
-          privSnap.docs.forEach((d) => batchC.delete(d.ref));
-          batchC.delete(commentDoc.ref);
-          await batchC.commit();
-        }
-
-        // private/author 削除
-        const authorSnap = await db.doc(`posts/${postId}/private/author`).get();
-        if (authorSnap.exists) await authorSnap.ref.delete();
-
-        // 投稿本体削除
-        await postDoc.ref.delete();
-      }
-    }
-
-    // 2. メンバー全員の joinedGroups から削除（myPostsは歌集に残す）
+    // 1. メンバー全員の joinedGroups から削除（先に実行し、ゾンビ化を防ぐ）
     const membersSnap = await db.collection(`groups/${groupId}/members`).get();
     for (const memberDoc of membersSnap.docs) {
       const userId = memberDoc.id;
-
-      // joinedGroups 更新
       await db.doc(`users/${userId}`).update({
         joinedGroups: admin.firestore.FieldValue.arrayRemove(groupId),
       });
-
-      // 歌を消す場合のみブックマークも削除
       if (deletePosts) {
         const bookmarksSnap = await db
           .collection(`users/${userId}/bookmarks`)
@@ -388,13 +353,40 @@ export const dissolveGroup = onCall(
         bookmarksSnap.docs.forEach((d) => batchB.delete(d.ref));
         if (bookmarksSnap.size > 0) await batchB.commit();
       }
-
-      // メンバードキュメント削除
       await memberDoc.ref.delete();
     }
 
-    // 3. 歌会本体を削除
+    // 2. 歌会本体を削除
     await db.doc(`groups/${groupId}`).delete();
+
+    // 3. 投稿を削除（個別にtry/catchし、1件の失敗で全体が止まらないように）
+    if (deletePosts) {
+      const postsSnap = await db.collection("posts").where("groupId", "==", groupId).get();
+      for (const postDoc of postsSnap.docs) {
+        try {
+          const postId = postDoc.id;
+          const reactionsSnap = await db.collection(`posts/${postId}/reactions`).get();
+          const batch1 = db.batch();
+          reactionsSnap.docs.forEach((d) => batch1.delete(d.ref));
+          if (reactionsSnap.size > 0) await batch1.commit();
+
+          const commentsSnap = await db.collection(`posts/${postId}/comments`).get();
+          for (const commentDoc of commentsSnap.docs) {
+            const privSnap = await db.collection(`posts/${postId}/comments/${commentDoc.id}/private`).get();
+            const batchC = db.batch();
+            privSnap.docs.forEach((d) => batchC.delete(d.ref));
+            batchC.delete(commentDoc.ref);
+            await batchC.commit();
+          }
+
+          const authorSnap = await db.doc(`posts/${postId}/private/author`).get();
+          if (authorSnap.exists) await authorSnap.ref.delete();
+          await postDoc.ref.delete();
+        } catch {
+          // 個別の投稿削除失敗は無視して続行
+        }
+      }
+    }
 
     return { success: true };
   }
