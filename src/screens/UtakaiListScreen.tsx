@@ -49,6 +49,9 @@ export default function UtakaiListScreen({ navigation }: any) {
       const groupIds: string[] = snap.data()?.joinedGroups || [];
       if (groupIds.length === 0) { setGroups([]); return; }
 
+      // joinedGroupsに含まれないグループをstateから除去
+      setGroups(prev => prev.filter(g => groupIds.includes(g.id)));
+
       // 各グループをリアルタイム監視
       const removedIds: string[] = [];
       for (const gid of groupIds) {
@@ -56,7 +59,10 @@ export default function UtakaiListScreen({ navigation }: any) {
           const memberSnap = await getDoc(doc(db, 'groups', gid, 'members', user.uid));
           if (!memberSnap.exists()) { removedIds.push(gid); continue; }
           const groupUnsub = onSnapshot(doc(db, 'groups', gid), (gSnap) => {
-            if (!gSnap.exists()) return;
+            if (!gSnap.exists()) {
+              setGroups(prev => prev.filter(g => g.id !== gid));
+              return;
+            }
             const groupData = { id: gSnap.id, ...gSnap.data() } as GroupDoc & { id: string };
             setGroups(prev => {
               const idx = prev.findIndex(g => g.id === gid);
