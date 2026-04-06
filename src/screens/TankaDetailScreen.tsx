@@ -161,7 +161,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
 
   const handleComment = async () => {
     if (!user || !commentText.trim() || submitting) return;
-    if (commentText.length > 200) { alert('200文字以内にしてください'); return; }
+    if (commentText.length > 500) { alert('500文字以内にしてください'); return; }
     setSubmitting(true);
     try {
       const commentRef = await addDoc(collection(db, 'posts', postId, 'comments'), {
@@ -286,7 +286,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
             onChangeText={setCommentText}
             placeholder="評を書く..."
             placeholderTextColor="#A69880"
-            multiline maxLength={200}
+            multiline maxLength={500}
           />
           <TouchableOpacity
             style={[styles.commentSubmit, !commentText.trim() && styles.commentSubmitDisabled]}
