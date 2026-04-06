@@ -146,7 +146,7 @@ if (cards.length === 0) {
   displayCards.forEach((card, index) => {
     const el = document.createElement("div");
     el.className = "tanka-card";
-    const fade = Math.max(0.55, 1 - (index / 8) * 0.65);
+    const fade = Math.max(0.65, 1 - (index / 10) * 0.55);
     el.style.opacity = fade;
     el.onclick = () => {
       window.ReactNativeWebView.postMessage(JSON.stringify({

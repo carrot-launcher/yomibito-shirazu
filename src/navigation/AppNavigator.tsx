@@ -1,27 +1,34 @@
-import React from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import React from 'react';
+import { Text } from 'react-native';
 
-import LoginScreen from '../screens/LoginScreen';
-import UtakaiListScreen from '../screens/UtakaiListScreen';
-import TimelineScreen from '../screens/TimelineScreen';
-import ComposeScreen from '../screens/ComposeScreen';
-import TankaDetailScreen from '../screens/TankaDetailScreen';
-import GroupSettingsScreen from '../screens/GroupSettingsScreen';
-import TayoriScreen from '../screens/TayoriScreen';
-import KashuScreen from '../screens/KashuScreen';
-import SettingsScreen from '../screens/SettingsScreen';
 import { useAuth } from '../hooks/useAuth';
+import ComposeScreen from '../screens/ComposeScreen';
+import GroupSettingsScreen from '../screens/GroupSettingsScreen';
+import KashuScreen from '../screens/KashuScreen';
+import LoginScreen from '../screens/LoginScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import TankaDetailScreen from '../screens/TankaDetailScreen';
+import TayoriScreen from '../screens/TayoriScreen';
+import TimelineScreen from '../screens/TimelineScreen';
+import UtakaiListScreen from '../screens/UtakaiListScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
+const HeaderTitle = ({ children }: { children: string }) => (
+  <Text style={{ fontFamily: 'NotoSerifJP_400Regular', fontWeight: '300', fontSize: 22, letterSpacing: 2, color: '#2C2418', includeFontPadding: false, textAlignVertical: 'center' }}>
+    {children}
+  </Text>
+);
+
 const commonHeaderStyle = {
   headerStyle: { backgroundColor: '#F5F0E8' },
   headerTintColor: '#2C2418',
-  headerTitleStyle: { fontFamily: 'NotoSerifJP_400Regular', fontWeight: '300' as const, letterSpacing: 2 },
+  headerTitle: (props: any) => <HeaderTitle>{props.children}</HeaderTitle>,
   headerShadowVisible: false,
 };
 
