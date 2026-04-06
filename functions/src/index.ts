@@ -1,8 +1,224 @@
 import * as admin from "firebase-admin";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 
 admin.initializeApp();
 const db = admin.firestore();
+
+// ===== 通知ヘルパー =====
+
+async function createNotification(
+  targetUserId: string,
+  type: "new_post" | "reaction" | "comment",
+  data: {
+    postId: string;
+    groupId: string;
+    groupName: string;
+    tankaBody: string;
+    emoji?: string;
+    commentBody?: string;
+  }
+) {
+  const userSnap = await db.doc(`users/${targetUserId}`).get();
+  const userData = userSnap.data();
+  if (!userData) return;
+
+  const settings = userData.notificationSettings || {};
+  if (type === "new_post" && !settings.newPost) return;
+  if (type === "reaction" && !settings.reaction) return;
+  if (type === "comment" && !settings.comment) return;
+
+  // FCM送信（毎回）
+  const fcmToken = userData.fcmToken;
+  if (fcmToken) {
+    let title = "";
+    let body = "";
+    let channelId = "";
+    switch (type) {
+      case "new_post":
+        title = `${data.groupName}に新しい歌が詠まれました`;
+        body = data.tankaBody.slice(0, 20);
+        channelId = "new-tanka";
+        break;
+      case "reaction":
+        title = "あなたの歌に🌸が届きました";
+        body = data.tankaBody.slice(0, 20);
+        channelId = "reactions";
+        break;
+      case "comment":
+        title = "あなたの歌に評が届きました";
+        body = (data.commentBody || "").slice(0, 20);
+        channelId = "comments";
+        break;
+    }
+    try {
+      await admin.messaging().send({
+        token: fcmToken,
+        notification: { title, body },
+        android: {
+          notification: {
+            channelId,
+            visibility: "private" as const,
+          },
+        },
+        data: { postId: data.postId, groupId: data.groupId, type },
+      });
+    } catch (e: any) {
+      if (
+        e.code === "messaging/invalid-registration-token" ||
+        e.code === "messaging/registration-token-not-registered"
+      ) {
+        await db.doc(`users/${targetUserId}`).update({ fcmToken: "" });
+      }
+    }
+  }
+
+  // たよりdoc作成（リアクションはまとめる）
+  if (type === "reaction") {
+    const lastReadAt =
+      userData.tayoriLastReadAt || new admin.firestore.Timestamp(0, 0);
+    const existing = await db
+      .collection(`users/${targetUserId}/notifications`)
+      .where("type", "==", "reaction")
+      .where("postId", "==", data.postId)
+      .where("createdAt", ">", lastReadAt)
+      .limit(1)
+      .get();
+
+    if (!existing.empty) {
+      await existing.docs[0].ref.update({
+        reactionCount: admin.firestore.FieldValue.increment(1),
+        createdAt: admin.firestore.Timestamp.now(),
+      });
+    } else {
+      await db.collection(`users/${targetUserId}/notifications`).add({
+        type: "reaction",
+        ...data,
+        reactionCount: 1,
+        createdAt: admin.firestore.Timestamp.now(),
+      });
+    }
+  } else {
+    await db.collection(`users/${targetUserId}/notifications`).add({
+      type,
+      ...data,
+      createdAt: admin.firestore.Timestamp.now(),
+    });
+  }
+}
+
+// ===== 通知トリガー =====
+
+/**
+ * onNewPost — 新しい歌が投稿されたとき、歌会メンバーに通知
+ * private/author の作成をトリガーにすることで、post本体が確実に存在する
+ */
+export const onNewPost = onDocumentCreated(
+  { document: "posts/{postId}/private/author", region: "asia-northeast1" },
+  async (event) => {
+    const authorId = event.data?.data()?.authorId;
+    const postId = event.params.postId;
+    if (!authorId) return;
+
+    const postSnap = await db.doc(`posts/${postId}`).get();
+    if (!postSnap.exists) return;
+    const post = postSnap.data()!;
+
+    const groupSnap = await db.doc(`groups/${post.groupId}`).get();
+    if (!groupSnap.exists) return;
+    const groupName = groupSnap.data()!.name || "";
+
+    const membersSnap = await db
+      .collection(`groups/${post.groupId}/members`)
+      .get();
+    await Promise.all(
+      membersSnap.docs
+        .filter((m) => m.id !== authorId)
+        .map((m) =>
+          createNotification(m.id, "new_post", {
+            postId,
+            groupId: post.groupId,
+            groupName,
+            tankaBody: post.body,
+          })
+        )
+    );
+  }
+);
+
+/**
+ * onNewReaction — リアクションが付いたとき、歌の詠み人に通知
+ */
+export const onNewReaction = onDocumentCreated(
+  {
+    document: "posts/{postId}/reactions/{reactionId}",
+    region: "asia-northeast1",
+  },
+  async (event) => {
+    const reactionData = event.data?.data();
+    const postId = event.params.postId;
+    if (!reactionData) return;
+
+    const authorSnap = await db.doc(`posts/${postId}/private/author`).get();
+    const authorId = authorSnap.data()?.authorId;
+    if (!authorId || authorId === reactionData.userId) return;
+
+    const postSnap = await db.doc(`posts/${postId}`).get();
+    if (!postSnap.exists) return;
+    const post = postSnap.data()!;
+
+    const groupSnap = await db.doc(`groups/${post.groupId}`).get();
+    const groupName = groupSnap.exists ? groupSnap.data()!.name || "" : "";
+
+    await createNotification(authorId, "reaction", {
+      postId,
+      groupId: post.groupId,
+      groupName,
+      tankaBody: post.body,
+      emoji: reactionData.emoji,
+    });
+  }
+);
+
+/**
+ * onNewComment — 評が付いたとき、歌の詠み人に通知
+ * comment/private/author の作成をトリガーにする
+ */
+export const onNewComment = onDocumentCreated(
+  {
+    document: "posts/{postId}/comments/{commentId}/private/author",
+    region: "asia-northeast1",
+  },
+  async (event) => {
+    const commentAuthorId = event.data?.data()?.authorId;
+    const { postId, commentId } = event.params;
+    if (!commentAuthorId) return;
+
+    const postAuthorSnap = await db.doc(`posts/${postId}/private/author`).get();
+    const postAuthorId = postAuthorSnap.data()?.authorId;
+    if (!postAuthorId || postAuthorId === commentAuthorId) return;
+
+    const postSnap = await db.doc(`posts/${postId}`).get();
+    if (!postSnap.exists) return;
+    const post = postSnap.data()!;
+
+    const commentSnap = await db
+      .doc(`posts/${postId}/comments/${commentId}`)
+      .get();
+    const commentBody = commentSnap.data()?.body || "";
+
+    const groupSnap = await db.doc(`groups/${post.groupId}`).get();
+    const groupName = groupSnap.exists ? groupSnap.data()!.name || "" : "";
+
+    await createNotification(postAuthorId, "comment", {
+      postId,
+      groupId: post.groupId,
+      groupName,
+      tankaBody: post.body,
+      commentBody,
+    });
+  }
+);
 
 /**
  * getReactionDetails — 詠み人のみリアクション詳細を取得

@@ -1,7 +1,44 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { Platform } from 'react-native';
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
 import { auth, db } from '../config/firebase';
+
+async function registerForPushNotifications(uid: string) {
+  try {
+    // Android通知チャネル設定
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('new-tanka', {
+        name: '新しい歌',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
+      });
+      await Notifications.setNotificationChannelAsync('reactions', {
+        name: 'リアクション',
+        importance: Notifications.AndroidImportance.LOW,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
+      });
+      await Notifications.setNotificationChannelAsync('comments', {
+        name: '評',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
+      });
+    }
+
+    const { status } = await Notifications.getPermissionsAsync();
+    let finalStatus = status;
+    if (status !== 'granted') {
+      const { status: newStatus } = await Notifications.requestPermissionsAsync();
+      finalStatus = newStatus;
+    }
+    if (finalStatus !== 'granted') return;
+
+    const token = await Notifications.getDevicePushTokenAsync();
+    await updateDoc(doc(db, 'users', uid), { fcmToken: token.data });
+  } catch {}
+}
 
 function generateUserCode(): string {
   // 6桁の数字コード（Discord風）
@@ -54,6 +91,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setUser(firebaseUser);
       setLoading(false);
+
+      // FCMトークン登録 + 通知チャネル設定
+      if (firebaseUser && Device.isDevice) {
+        registerForPushNotifications(firebaseUser.uid);
+      }
     });
     return unsubscribe;
   }, []);

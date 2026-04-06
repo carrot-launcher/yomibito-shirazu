@@ -6,6 +6,7 @@ import React from 'react';
 import { Text } from 'react-native';
 
 import { useAuth } from '../hooks/useAuth';
+import { useTayoriUnread } from '../hooks/useTayoriUnread';
 import ComposeScreen from '../screens/ComposeScreen';
 import GroupSettingsScreen from '../screens/GroupSettingsScreen';
 import KashuScreen from '../screens/KashuScreen';
@@ -34,6 +35,7 @@ const commonHeaderStyle = {
 };
 
 function HomeTabs() {
+  const unread = useTayoriUnread();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -47,7 +49,7 @@ function HomeTabs() {
       <Tab.Screen name="UtakaiTab" component={UtakaiListScreen}
         options={{ title: '歌会', tabBarIcon: ({ color }) => <MaterialCommunityIcons name="book-open-variant" size={22} color={color} /> }} />
       <Tab.Screen name="TayoriTab" component={TayoriScreen}
-        options={{ title: 'たより', tabBarIcon: ({ color }) => <MaterialCommunityIcons name="email-outline" size={22} color={color} /> }} />
+        options={{ title: 'たより', tabBarIcon: ({ color }) => <MaterialCommunityIcons name="email-outline" size={22} color={color} />, tabBarBadge: unread > 0 ? unread : undefined, tabBarBadgeStyle: { backgroundColor: '#C53030', fontSize: 11 } }} />
       <Tab.Screen name="KashuTab" component={KashuScreen}
         options={{ title: '歌集', tabBarIcon: ({ color }) => <MaterialCommunityIcons name="notebook-outline" size={22} color={color} /> }} />
       <Tab.Screen name="SettingsTab" component={SettingsScreen}

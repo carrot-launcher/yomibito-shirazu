@@ -75,7 +75,7 @@ export interface NotificationDoc {
   tankaBody: string;
   emoji?: string;
   commentBody?: string;
-  read: boolean;
+  reactionCount?: number;
   createdAt: Timestamp;
 }
 
