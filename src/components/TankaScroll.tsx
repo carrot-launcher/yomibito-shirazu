@@ -5,7 +5,7 @@ import { TankaCard } from '../types';
 
 interface Props {
   cards: TankaCard[];
-  onTap: (postId: string, groupId: string) => void;
+  onTap: (postId: string, groupId: string, batchId?: string) => void;
   mode: 'timeline' | 'myPosts' | 'bookmarks';
 }
 
@@ -149,10 +149,9 @@ if (cards.length === 0) {
     const fade = Math.max(0.6, 1 - (index / 12) * 0.6);
     el.style.opacity = fade;
     el.onclick = () => {
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        postId: card.postId,
-        groupId: card.groupId,
-      }));
+      const msg = { postId: card.postId, groupId: card.groupId };
+      if (mode === 'myPosts' && card.batchId) msg.batchId = card.batchId;
+      window.ReactNativeWebView.postMessage(JSON.stringify(msg));
     };
 
     let metaHtml = '';
@@ -168,18 +167,25 @@ if (cards.length === 0) {
         '</div>' +
         '<div class="time-ago">' + timeAgo + '</div>';
     } else if (mode === 'myPosts' && card.groups) {
-      metaHtml = '<div class="group-reactions">' +
-        card.groups.map(g => {
-          const r = Object.entries(g.reactionSummary || {})
-            .filter(([,v]) => v > 0)
-            .map(([emoji, count]) => emoji + count)
-            .join('');
-          return '<div class="group-reaction-row">' + g.groupName +
-            (r ? ' ' + r : '') +
-            (g.commentCount > 0 ? ' 評 ' + g.commentCount : '') +
-            '</div>';
-        }).join('') +
-        '</div>';
+      // Merge reactions and comments across all groups
+      const merged = {};
+      let totalComments = 0;
+      card.groups.forEach(g => {
+        Object.entries(g.reactionSummary || {}).forEach(([emoji, count]) => {
+          merged[emoji] = (merged[emoji] || 0) + count;
+        });
+        totalComments += g.commentCount || 0;
+      });
+      const reactions = Object.entries(merged)
+        .filter(([,v]) => v > 0)
+        .map(([emoji, count]) => emoji + count)
+        .join(' ');
+      const groupNames = card.groups.map(g => g.groupName).join('・');
+      metaHtml = '<div class="reactions">' +
+        (reactions ? '<div class="reaction-item">' + reactions + '</div>' : '') +
+        (totalComments > 0 ? '<div class="comment-count">評 ' + totalComments + '</div>' : '') +
+        '</div>' +
+        '<div class="group-info">' + groupNames + '</div>';
     } else if (mode === 'bookmarks') {
       const d = new Date(card.bookmarkedAt || card.createdAt);
       const timeAgo = getTimeAgo(d);
@@ -222,17 +228,19 @@ function getTimeAgo(date) {
 export default function TankaScroll({ cards, onTap, mode }: Props) {
   const webViewRef = useRef<WebView>(null);
   const html = buildHtml(cards, mode);
+  const webViewKey = cards.map(c => `${c.postId}:${c.commentCount || 0}:${JSON.stringify(c.reactionSummary || {})}`).join(',');
 
   const handleMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      onTap(data.postId, data.groupId);
+      onTap(data.postId, data.groupId, data.batchId);
     } catch {}
   };
 
   return (
     <View style={styles.container}>
       <WebView
+        key={webViewKey}
         ref={webViewRef}
         source={{ html }}
         style={styles.webview}

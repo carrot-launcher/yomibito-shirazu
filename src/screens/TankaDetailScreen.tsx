@@ -139,7 +139,7 @@ setTimeout(() => { document.body.scrollLeft = document.body.scrollWidth; }, 50);
 }
 
 export default function TankaDetailScreen({ route, navigation }: any) {
-  const { postId, groupId } = route.params;
+  const { postId, groupId, batchId } = route.params;
   const { user } = useAuth();
   const [post, setPost] = useState<PostDoc | null>(null);
   const [deleted, setDeleted] = useState(false);
@@ -149,10 +149,24 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [groupExists, setGroupExists] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [batchPostIds, setBatchPostIds] = useState<string[]>([]);
+  const [extraReactions, setExtraReactions] = useState(0);
   const { alert } = useAlert();
   const webViewRef = useRef<WebView>(null);
+  const fromMyPosts = !!route.params.fromMyPosts;
 
-  // 投稿データ
+  // batchIdがある場合、全postIdを取得
+  useEffect(() => {
+    if (!batchId || !user) { setBatchPostIds([postId]); return; }
+    getDocs(query(collection(db, 'users', user.uid, 'myPosts'), where('batchId', '==', batchId)))
+      .then(snap => {
+        const ids = snap.docs.map(d => (d.data() as any).postId);
+        setBatchPostIds(ids.length > 0 ? ids : [postId]);
+      })
+      .catch(() => setBatchPostIds([postId]));
+  }, [batchId, user, postId]);
+
+  // 投稿データ（メインpost）
   useEffect(() => {
     return onSnapshot(doc(db, 'posts', postId), (snap) => {
       if (snap.exists()) {
@@ -166,31 +180,57 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     });
   }, [postId]);
 
-  // 評一覧
+  // batchIdがある場合、他postのリアクション数を取得
   useEffect(() => {
-    const q = query(collection(db, 'posts', postId, 'comments'), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, (snap) => {
-      setComments(snap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
-    });
-  }, [postId]);
+    if (batchPostIds.length <= 1) { setExtraReactions(0); return; }
+    const otherIds = batchPostIds.filter(id => id !== postId);
+    Promise.all(otherIds.map(id => getDoc(doc(db, 'posts', id)).catch(() => null)))
+      .then(snaps => {
+        let total = 0;
+        snaps.forEach(snap => {
+          if (snap?.exists()) {
+            total += (snap.data() as PostDoc).reactionSummary?.[REACTION_EMOJI] || 0;
+          }
+        });
+        setExtraReactions(total);
+      });
+  }, [batchPostIds, postId]);
 
-  // 自分のリアクション状態を確認
+  // 評一覧（全postの評をマージ）
   useEffect(() => {
-    if (!user) return;
-    const reactionRef = doc(db, 'posts', postId, 'reactions', `${user.uid}_${REACTION_EMOJI}`);
-    getDoc(reactionRef).then(snap => {
-      setHasReacted(snap.exists());
-    }).catch(() => {
-      setHasReacted(false);
+    if (batchPostIds.length === 0) return;
+    const unsubs = batchPostIds.map(pid => {
+      const q = query(collection(db, 'posts', pid, 'comments'), orderBy('createdAt', 'desc'));
+      return onSnapshot(q, (snap) => {
+        const newComments = snap.docs.map(d => ({ id: d.id, postId: pid, ...d.data() } as any));
+        setComments(prev => {
+          const others = prev.filter((c: any) => c.postId !== pid);
+          return [...others, ...newComments].sort((a, b) =>
+            (b.createdAt?.toDate?.()?.getTime() || 0) - (a.createdAt?.toDate?.()?.getTime() || 0)
+          );
+        });
+      }, () => {});
     });
-  }, [user, postId]);
+    return () => unsubs.forEach(u => u());
+  }, [batchPostIds]);
+
+  // 自分のリアクション状態を確認（いずれかのpostにリアクション済みか）
+  useEffect(() => {
+    if (!user || batchPostIds.length === 0) return;
+    Promise.all(batchPostIds.map(pid =>
+      getDoc(doc(db, 'posts', pid, 'reactions', `${user.uid}_${REACTION_EMOJI}`)).catch(() => null)
+    )).then(snaps => {
+      setHasReacted(snaps.some(s => s?.exists()));
+    });
+  }, [user, batchPostIds]);
 
   // 栞の状態
   useEffect(() => {
     if (!user) return;
     return onSnapshot(
       doc(db, 'users', user.uid, 'bookmarks', postId),
-      (snap) => setIsBookmarked(snap.exists())
+      (snap) => setIsBookmarked(snap.exists()),
+      () => {}
     );
   }, [user, postId]);
 
@@ -242,9 +282,10 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   };
 
   const handleDelete = async () => {
+    const isBatch = !!batchId;
     alert(
       'この歌を削除しますか？',
-      'この歌会からこの歌が削除されます。リアクションや評も削除されます。',
+      isBatch ? 'すべての歌会からこの歌が削除されます。' : 'この歌会からこの歌が削除されます。リアクションや評も削除されます。',
       [
         { text: 'やめる', style: 'cancel' },
         {
@@ -253,7 +294,13 @@ export default function TankaDetailScreen({ route, navigation }: any) {
             try {
               const functions = getFunctions(undefined, 'asia-northeast1');
               const deletePostFn = httpsCallable(functions, 'deletePost');
-              await deletePostFn({ postId });
+              if (isBatch && user) {
+                const myPostsSnap = await getDocs(query(collection(db, 'users', user.uid, 'myPosts'), where('batchId', '==', batchId)));
+                const postIds = myPostsSnap.docs.map(d => (d.data() as any).postId);
+                await Promise.all(postIds.map(pid => deletePostFn({ postId: pid })));
+              } else {
+                await deletePostFn({ postId });
+              }
               navigation.goBack();
             } catch (e: any) {
               const msg = e.message?.includes('permission-denied')
@@ -280,7 +327,9 @@ export default function TankaDetailScreen({ route, navigation }: any) {
             try {
               const functions = getFunctions(undefined, 'asia-northeast1');
               const deleteCommentFn = httpsCallable(functions, 'deleteComment');
-              await deleteCommentFn({ postId, commentId });
+              const comment = comments.find(c => c.id === commentId);
+              const targetPostId = (comment as any)?.postId || postId;
+              await deleteCommentFn({ postId: targetPostId, commentId });
             } catch (e: any) {
               const msg = e.message?.includes('permission-denied')
                 ? '自分の評のみ削除できます'
@@ -342,7 +391,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     return `${Math.floor(hr / 24)}日前`;
   };
 
-  const reactionCount = post.reactionSummary?.[REACTION_EMOJI] || 0;
+  const reactionCount = (post.reactionSummary?.[REACTION_EMOJI] || 0) + extraReactions;
 
   const commentData = comments.map(c => ({
     id: c.id,
@@ -367,27 +416,31 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     <GradientBackground style={styles.container}>
       <View style={styles.topBar}>
         <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={[styles.reactionBtn, hasReacted && styles.reactionBtnActive]}
-            onPress={groupExists ? handleReaction : undefined}
-            activeOpacity={groupExists ? 0.2 : 1}
-          >
-            <Text style={styles.reactionEmoji}>{REACTION_EMOJI}</Text>
-            {reactionCount > 0 && <Text style={styles.reactionCount}>{reactionCount}</Text>}
-          </TouchableOpacity>
+          {!fromMyPosts && (
+            <TouchableOpacity
+              style={[styles.reactionBtn, hasReacted && styles.reactionBtnActive]}
+              onPress={groupExists ? handleReaction : undefined}
+              activeOpacity={groupExists ? 0.2 : 1}
+            >
+              <Text style={styles.reactionEmoji}>{REACTION_EMOJI}</Text>
+              {reactionCount > 0 && <Text style={styles.reactionCount}>{reactionCount}</Text>}
+            </TouchableOpacity>
+          )}
 
-          <TouchableOpacity
-            style={[styles.bookmarkBtn, isBookmarked && styles.bookmarkBtnActive]}
-            onPress={handleBookmark}
-          >
-            <MaterialCommunityIcons name={isBookmarked ? 'bookmark' : 'bookmark-outline'} size={20} color="#2C2418" />
-          </TouchableOpacity>
+          {!fromMyPosts && (
+            <TouchableOpacity
+              style={[styles.bookmarkBtn, isBookmarked && styles.bookmarkBtnActive]}
+              onPress={handleBookmark}
+            >
+              <MaterialCommunityIcons name={isBookmarked ? 'bookmark' : 'bookmark-outline'} size={20} color="#2C2418" />
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
             <MaterialCommunityIcons name="delete-outline" size={20} color="#2C2418" />
           </TouchableOpacity>
 
-          <Text style={styles.commentLabel}>評 {post.commentCount || 0}</Text>
+          <Text style={styles.commentLabel}>評 {comments.length}</Text>
         </View>
 
         {groupExists && (

@@ -1,24 +1,54 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Text, TouchableOpacity, StyleSheet, View } from 'react-native';
 import GradientBackground from '../components/GradientBackground';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import TankaScroll from '../components/TankaScroll';
-import { TankaCard, MyPostDoc, BookmarkDoc } from '../types';
+import { TankaCard, MyPostDoc, BookmarkDoc, PostDoc } from '../types';
 
 export default function KashuScreen({ navigation }: any) {
   const { user } = useAuth();
   const [tab, setTab] = useState<'myPosts' | 'bookmarks'>('myPosts');
   const [myPosts, setMyPosts] = useState<TankaCard[]>([]);
   const [bookmarks, setBookmarks] = useState<TankaCard[]>([]);
+  const baseCardsRef = useRef<TankaCard[]>([]);
+
+  const enrichPosts = useCallback(async (cards: TankaCard[]) => {
+    const enriched = await Promise.all(cards.map(async (card) => {
+      try {
+        const postSnap = await getDoc(doc(db, 'posts', card.postId));
+        if (postSnap.exists()) {
+          const postData = postSnap.data() as PostDoc;
+          return { ...card, reactionSummary: postData.reactionSummary || {}, commentCount: postData.commentCount || 0 };
+        }
+      } catch {}
+      return card;
+    }));
+    setMyPosts(enriched);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
     return onSnapshot(query(collection(db, 'users', user.uid, 'myPosts'), orderBy('createdAt', 'desc')), (snap) => {
-      setMyPosts(snap.docs.map(d => { const data = d.data() as MyPostDoc; return { postId: data.postId, groupId: data.groupId, body: data.tankaBody, createdAt: data.createdAt?.toDate() || new Date(), reactionSummary: {}, commentCount: 0, groupName: data.groupName, batchId: data.batchId }; }));
+      const baseCards = snap.docs.map(d => {
+        const data = d.data() as MyPostDoc;
+        return { postId: data.postId, groupId: data.groupId, body: data.tankaBody, createdAt: data.createdAt?.toDate() || new Date(), reactionSummary: {} as any, commentCount: 0, groupName: data.groupName, batchId: data.batchId };
+      });
+      baseCardsRef.current = baseCards;
+      setMyPosts(baseCards);
+      enrichPosts(baseCards);
     });
-  }, [user]);
+  }, [user, enrichPosts]);
+
+  // 画面に戻ったときにリアクション・評を再取得
+  useEffect(() => {
+    return navigation.addListener('focus', () => {
+      if (baseCardsRef.current.length > 0) {
+        enrichPosts(baseCardsRef.current);
+      }
+    });
+  }, [navigation, enrichPosts]);
 
   useEffect(() => {
     if (!user) return;
@@ -27,7 +57,7 @@ export default function KashuScreen({ navigation }: any) {
     });
   }, [user]);
 
-  const handleTap = (postId: string, groupId: string) => navigation.navigate('TankaDetail', { postId, groupId });
+  const handleTap = (postId: string, groupId: string, batchId?: string) => navigation.navigate('TankaDetail', { postId, groupId, batchId, fromMyPosts: tab === 'myPosts' });
 
   return (
     <GradientBackground style={styles.container}>
