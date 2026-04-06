@@ -25,6 +25,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useAlert } from '../components/CustomAlert';
+import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { CommentDoc, PostDoc, REACTION_EMOJI } from '../types';
@@ -363,7 +364,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   };
 
   return (
-    <View style={styles.container}>
+    <GradientBackground style={styles.container}>
       <View style={styles.topBar}>
         <View style={styles.actionRow}>
           <TouchableOpacity
@@ -426,7 +427,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
         originWhitelist={['*']}
         androidLayerType="software"
       />
-    </View>
+    </GradientBackground>
   );
 }
 

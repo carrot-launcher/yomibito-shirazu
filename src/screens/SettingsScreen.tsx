@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Switch, ScrollView,
 } from 'react-native';
+import GradientBackground from '../components/GradientBackground';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useAlert } from '../components/CustomAlert';
 import { signOut } from 'firebase/auth';
@@ -50,6 +51,7 @@ export default function SettingsScreen() {
   };
 
   return (
+    <GradientBackground>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* 歌人ID */}
       <View style={styles.idCard}>
@@ -91,11 +93,12 @@ export default function SettingsScreen() {
         <Text style={styles.logoutText}>ログアウト</Text>
       </TouchableOpacity>
     </ScrollView>
+    </GradientBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F0E8' },
+  container: { flex: 1, backgroundColor: 'transparent' },
   content: { padding: 20, paddingBottom: 40 },
   idCard: {
     backgroundColor: '#FFFDF8', borderRadius: 12, padding: 16,

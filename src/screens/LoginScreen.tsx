@@ -3,6 +3,7 @@ import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '../components/CustomAlert';
+import GradientBackground from '../components/GradientBackground';
 import { auth, WEB_CLIENT_ID } from '../config/firebase';
 
 GoogleSignin.configure({ webClientId: WEB_CLIENT_ID });
@@ -24,13 +25,13 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <GradientBackground style={styles.container}>
       <Text style={styles.title}>詠み人知らず</Text>
       <Text style={styles.subtitle}>匿名で短歌を詠み合う</Text>
       <TouchableOpacity style={styles.button} onPress={handleGoogleSignIn}>
         <Text style={styles.buttonText}>Google でログイン</Text>
       </TouchableOpacity>
-    </View>
+    </GradientBackground>
   );
 }
 

@@ -3,6 +3,7 @@ import { arrayUnion, collection, doc, getDoc, getDocs, increment, onSnapshot, qu
 import React, { useEffect, useState } from 'react';
 import { FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '../components/CustomAlert';
+import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { GroupDoc } from '../types';
@@ -148,7 +149,7 @@ export default function UtakaiListScreen({ navigation }: any) {
   };
 
   return (
-    <View style={styles.container}>
+    <GradientBackground style={styles.container}>
       <FlatList data={groups} keyExtractor={item => item.id} contentContainerStyle={styles.list}
         ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyText}>歌会がありません</Text><Text style={styles.emptySubtext}>右上の＋から歌会を開くか{'\n'}招待コードで参加しましょう</Text></View>}
         renderItem={({ item }) => (
@@ -204,7 +205,7 @@ export default function UtakaiListScreen({ navigation }: any) {
           </View>
         </View></View>
       </Modal>
-    </View>
+    </GradientBackground>
   );
 }
 

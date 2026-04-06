@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text, TouchableOpacity, StyleSheet, View } from 'react-native';
+import GradientBackground from '../components/GradientBackground';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
@@ -29,13 +30,13 @@ export default function KashuScreen({ navigation }: any) {
   const handleTap = (postId: string, groupId: string) => navigation.navigate('TankaDetail', { postId, groupId });
 
   return (
-    <View style={styles.container}>
+    <GradientBackground style={styles.container}>
       <View style={styles.segmentBar}>
         <TouchableOpacity style={[styles.segment, tab === 'myPosts' && styles.segmentActive]} onPress={() => setTab('myPosts')}><Text style={[styles.segmentText, tab === 'myPosts' && styles.segmentTextActive]}>自分の歌</Text></TouchableOpacity>
         <TouchableOpacity style={[styles.segment, tab === 'bookmarks' && styles.segmentActive]} onPress={() => setTab('bookmarks')}><Text style={[styles.segmentText, tab === 'bookmarks' && styles.segmentTextActive]}>栞</Text></TouchableOpacity>
       </View>
       <TankaScroll cards={tab === 'myPosts' ? myPosts : bookmarks} onTap={handleTap} mode={tab} />
-    </View>
+    </GradientBackground>
   );
 }
 

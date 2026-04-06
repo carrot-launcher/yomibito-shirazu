@@ -3,6 +3,7 @@ import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from 'fireba
 import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '../components/CustomAlert';
+import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 
@@ -76,7 +77,7 @@ export default function ComposeScreen({ route, navigation }: any) {
   }, [body, submitting, handleSubmit]);
 
   return (
-    <View style={styles.container}>
+    <GradientBackground style={styles.container}>
       <View style={styles.topBar}>
         <View style={styles.groupList}>
           {groups.map(g => (
@@ -100,7 +101,7 @@ export default function ComposeScreen({ route, navigation }: any) {
         />
         <Text style={styles.hint}>改行・半角スペースは全角スペースに変換されます</Text>
       </View>
-    </View>
+    </GradientBackground>
   );
 }
 

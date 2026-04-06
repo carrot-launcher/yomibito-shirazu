@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useAlert } from '../components/CustomAlert';
+import GradientBackground from '../components/GradientBackground';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_WIDTH = SCREEN_WIDTH - 48;
@@ -147,7 +148,7 @@ export default function ScreenshotScreen({ route }: any) {
   const html = buildScreenshotHtml(body);
 
   return (
-    <View style={styles.container}>
+    <GradientBackground style={styles.container}>
       <View style={styles.cardWrapper}>
         {mounted ? (
           <WebView
@@ -170,7 +171,7 @@ export default function ScreenshotScreen({ route }: any) {
           <Text style={styles.saveBtnText}>画像を保存</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </GradientBackground>
   );
 }
 

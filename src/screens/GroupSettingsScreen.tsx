@@ -3,6 +3,7 @@ import * as Clipboard from 'expo-clipboard';
 import { arrayRemove, collection, deleteDoc, doc, getDoc, getDocs, increment, updateDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
+import GradientBackground from '../components/GradientBackground';
 import {
   Modal,
   ScrollView,
@@ -155,6 +156,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
   };
 
   return (
+    <GradientBackground>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* 招待コード */}
       <View style={styles.section}>
@@ -327,11 +329,12 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
         </View>
       </Modal>
     </ScrollView>
+    </GradientBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F0E8' },
+  container: { flex: 1, backgroundColor: 'transparent' },
   content: { padding: 20, paddingBottom: 60 },
   section: {
     backgroundColor: '#FFFDF8', borderRadius: 12, padding: 16,

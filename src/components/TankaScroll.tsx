@@ -24,7 +24,7 @@ function buildHtml(cards: TankaCard[], mode: string): string {
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
     height: 100%;
-    background: #F5F0E8;
+    background: transparent;
     font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho Pro", serif;
     overflow-x: auto;
     overflow-y: hidden;
@@ -250,5 +250,5 @@ export default function TankaScroll({ cards, onTap, mode }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  webview: { flex: 1, backgroundColor: '#F5F0E8' },
+  webview: { flex: 1, backgroundColor: 'transparent' },
 });
