@@ -3,7 +3,7 @@ import { Timestamp } from 'firebase/firestore';
 // ===== Firestore ドキュメント型 =====
 
 export interface UserDoc {
-  defaultDisplayName: string;
+  userCode: string;               // 固有ID（6桁数字）
   fcmToken: string;
   joinedGroups: string[];
   notificationSettings: {
@@ -19,11 +19,13 @@ export interface GroupDoc {
   inviteCode: string;
   memberCount: number;
   createdBy: string;
+  bannedUsers?: Record<string, { displayName: string; userCode: string }>;
   createdAt: Timestamp;
 }
 
 export interface MemberDoc {
   displayName: string;
+  userCode: string;
   joinedAt: Timestamp;
   role: 'owner' | 'member';
 }
@@ -79,16 +81,7 @@ export interface NotificationDoc {
 
 // ===== UI用型 =====
 
-export const REACTION_EMOJIS = ['🌸', '😢', '💫', '😊', '🤔'] as const;
-export type ReactionEmoji = typeof REACTION_EMOJIS[number];
-
-export const REACTION_LABELS: Record<ReactionEmoji, string> = {
-  '🌸': '美しい',
-  '😢': '切ない',
-  '💫': 'すごい',
-  '😊': 'あたたかい',
-  '🤔': '深い',
-};
+export const REACTION_EMOJI = '🌸' as const;
 
 export interface TankaCard {
   postId: string;

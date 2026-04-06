@@ -1,22 +1,35 @@
+import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import TankaScroll from '../components/TankaScroll';
-import { TankaCard, PostDoc } from '../types';
+import { db } from '../config/firebase';
+import { PostDoc, TankaCard } from '../types';
 
 export default function TimelineScreen({ route, navigation }: any) {
   const { groupId, groupName } = route.params;
   const [cards, setCards] = useState<TankaCard[]>([]);
 
   useEffect(() => {
-    navigation.setOptions({ title: groupName });
+    navigation.setOptions({
+      title: groupName,
+      headerRight: () => (
+        <TouchableOpacity onPress={() => navigation.navigate('GroupSettings', { groupId })}>
+          <Text style={{ fontSize: 20, marginRight: 8 }}>⚙️</Text>
+        </TouchableOpacity>
+      ),
+    });
     const q = query(collection(db, 'posts'), where('groupId', '==', groupId), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
       setCards(snap.docs.map(d => {
         const data = d.data() as PostDoc;
         return { postId: d.id, groupId: data.groupId, body: data.body, createdAt: data.createdAt?.toDate() || new Date(), reactionSummary: data.reactionSummary || {}, commentCount: data.commentCount || 0 };
       }));
+    }, (error) => {
+      if (error.code === 'permission-denied') {
+        Alert.alert('この歌会にアクセスできません', '追放されたか、歌会が解散された可能性があります。', [
+          { text: 'OK', onPress: () => navigation.popToTop() },
+        ]);
+      }
     });
     return unsub;
   }, [groupId]);
@@ -24,7 +37,9 @@ export default function TimelineScreen({ route, navigation }: any) {
   return (
     <View style={styles.container}>
       <TankaScroll cards={cards} onTap={(postId, gId) => navigation.navigate('TankaDetail', { postId, groupId: gId })} mode="timeline" />
-      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('Compose', { preselectedGroupId: groupId })}><Text style={styles.fabText}>筆</Text></TouchableOpacity>
+      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('Compose', { preselectedGroupId: groupId })}>
+        <Text style={styles.fabText}>筆</Text>
+      </TouchableOpacity>
     </View>
   );
 }

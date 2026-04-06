@@ -9,6 +9,7 @@ import UtakaiListScreen from '../screens/UtakaiListScreen';
 import TimelineScreen from '../screens/TimelineScreen';
 import ComposeScreen from '../screens/ComposeScreen';
 import TankaDetailScreen from '../screens/TankaDetailScreen';
+import GroupSettingsScreen from '../screens/GroupSettingsScreen';
 import TayoriScreen from '../screens/TayoriScreen';
 import KashuScreen from '../screens/KashuScreen';
 import SettingsScreen from '../screens/SettingsScreen';
@@ -34,38 +35,14 @@ function HomeTabs() {
         ...commonHeaderStyle,
       }}
     >
-      <Tab.Screen
-        name="UtakaiTab"
-        component={UtakaiListScreen}
-        options={{
-          title: '歌会',
-          tabBarIcon: () => <Text style={{ fontSize: 22 }}>📖</Text>,
-        }}
-      />
-      <Tab.Screen
-        name="TayoriTab"
-        component={TayoriScreen}
-        options={{
-          title: '便り',
-          tabBarIcon: () => <Text style={{ fontSize: 22 }}>📬</Text>,
-        }}
-      />
-      <Tab.Screen
-        name="KashuTab"
-        component={KashuScreen}
-        options={{
-          title: '歌集',
-          tabBarIcon: () => <Text style={{ fontSize: 22 }}>📝</Text>,
-        }}
-      />
-      <Tab.Screen
-        name="SettingsTab"
-        component={SettingsScreen}
-        options={{
-          title: '設定',
-          tabBarIcon: () => <Text style={{ fontSize: 22 }}>⚙️</Text>,
-        }}
-      />
+      <Tab.Screen name="UtakaiTab" component={UtakaiListScreen}
+        options={{ title: '歌会', tabBarIcon: () => <Text style={{ fontSize: 22 }}>📖</Text> }} />
+      <Tab.Screen name="TayoriTab" component={TayoriScreen}
+        options={{ title: '便り', tabBarIcon: () => <Text style={{ fontSize: 22 }}>📬</Text> }} />
+      <Tab.Screen name="KashuTab" component={KashuScreen}
+        options={{ title: '歌集', tabBarIcon: () => <Text style={{ fontSize: 22 }}>📝</Text> }} />
+      <Tab.Screen name="SettingsTab" component={SettingsScreen}
+        options={{ title: '設定', tabBarIcon: () => <Text style={{ fontSize: 22 }}>⚙️</Text> }} />
     </Tab.Navigator>
   );
 }
@@ -78,19 +55,17 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={commonHeaderStyle}>
-        {user ? (
+        {!user ? (
+          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+        ) : (
           <>
             <Stack.Screen name="Main" component={HomeTabs} options={{ headerShown: false }} />
-            <Stack.Screen
-              name="Timeline"
-              component={TimelineScreen}
-              options={({ route }: any) => ({ title: route.params?.groupName || 'タイムライン' })}
-            />
+            <Stack.Screen name="Timeline" component={TimelineScreen}
+              options={({ route }: any) => ({ title: route.params?.groupName || 'タイムライン' })} />
             <Stack.Screen name="Compose" component={ComposeScreen} options={{ title: '詠む', presentation: 'modal' }} />
             <Stack.Screen name="TankaDetail" component={TankaDetailScreen} options={{ title: '' }} />
+            <Stack.Screen name="GroupSettings" component={GroupSettingsScreen} options={{ title: '歌会設定' }} />
           </>
-        ) : (
-          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
         )}
       </Stack.Navigator>
     </NavigationContainer>

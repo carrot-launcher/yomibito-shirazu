@@ -21,10 +21,6 @@
       "package": "com.yomibito.shirazu",
       "googleServicesFile": "./google-services.json"
     },
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
     "plugins": [
       [
         "expo-splash-screen",

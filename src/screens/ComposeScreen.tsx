@@ -1,7 +1,7 @@
+import * as Crypto from 'expo-crypto';
+import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
-import { doc, getDoc, collection, addDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { v4 as uuidv4 } from 'uuid';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 
@@ -35,7 +35,7 @@ export default function ComposeScreen({ route, navigation }: any) {
     if (body.length > MAX_CHARS) { Alert.alert(`${MAX_CHARS}文字以内にしてください`); return; }
     setSubmitting(true);
     try {
-      const batchId = uuidv4();
+      const batchId = Crypto.randomUUID();
       for (const group of selectedGroups) {
         const postRef = await addDoc(collection(db, 'posts'), { groupId: group.id, body: body.trim(), batchId, createdAt: serverTimestamp(), reactionSummary: {}, commentCount: 0 });
         await setDoc(doc(db, 'posts', postRef.id, 'private', 'author'), { authorId: user.uid });

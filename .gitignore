@@ -12,3 +12,4 @@ dist/
 google-services.json
 GoogleService-Info.plist
 .env
+.claude

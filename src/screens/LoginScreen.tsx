@@ -1,7 +1,7 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import React from 'react';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth, WEB_CLIENT_ID } from '../config/firebase';
 
 GoogleSignin.configure({ webClientId: WEB_CLIENT_ID });
@@ -9,14 +9,15 @@ GoogleSignin.configure({ webClientId: WEB_CLIENT_ID });
 export default function LoginScreen() {
   const handleGoogleSignIn = async () => {
     try {
-      await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
-      const idToken = userInfo.data?.idToken;
-      if (!idToken) throw new Error('IDトークンが取得できません');
-      const credential = GoogleAuthProvider.credential(idToken);
-      await signInWithCredential(auth, credential);
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      await GoogleSignin.signOut();
+      const response = await GoogleSignin.signIn();
+      if (response.type === 'success' && response.data?.idToken) {
+        const credential = GoogleAuthProvider.credential(response.data.idToken);
+        await signInWithCredential(auth, credential);
+      }
     } catch (error: any) {
-      Alert.alert('ログインエラー', error.message);
+      Alert.alert('ログインエラー', `${error.code || ''}: ${error.message}`);
     }
   };
 
