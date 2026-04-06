@@ -17,13 +17,14 @@ import {
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert, ScrollView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useAlert } from '../components/CustomAlert';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { CommentDoc, PostDoc, REACTION_EMOJI } from '../types';
@@ -39,6 +40,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [groupExists, setGroupExists] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const { alert } = useAlert();
 
   // 投稿データ
   useEffect(() => {
@@ -113,7 +115,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
         });
         setHasReacted(true);
       }
-    } catch (e: any) { Alert.alert('エラー', e.message); }
+    } catch (e: any) { alert('エラー', e.message); }
   };
 
   const handleBookmark = async () => {
@@ -128,11 +130,11 @@ export default function TankaDetailScreen({ route, navigation }: any) {
           tankaBody: post.body, createdAt: serverTimestamp(),
         });
       }
-    } catch (e: any) { Alert.alert('エラー', e.message); }
+    } catch (e: any) { alert('エラー', e.message); }
   };
 
   const handleDelete = async () => {
-    Alert.alert(
+    alert(
       'この歌を削除しますか？',
       'この歌会からこの歌が削除されます。リアクションや評も削除されます。',
       [
@@ -149,7 +151,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
               const msg = e.message?.includes('permission-denied')
                 ? '自分の歌のみ削除できます'
                 : e.message;
-              Alert.alert('エラー', msg);
+              alert('エラー', msg);
             }
           },
         },
@@ -159,7 +161,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
 
   const handleComment = async () => {
     if (!user || !commentText.trim() || submitting) return;
-    if (commentText.length > 200) { Alert.alert('200文字以内にしてください'); return; }
+    if (commentText.length > 200) { alert('200文字以内にしてください'); return; }
     setSubmitting(true);
     try {
       const commentRef = await addDoc(collection(db, 'posts', postId, 'comments'), {
@@ -170,7 +172,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
       });
       await updateDoc(doc(db, 'posts', postId), { commentCount: increment(1) });
       setCommentText('');
-    } catch (e: any) { Alert.alert('エラー', e.message); }
+    } catch (e: any) { alert('エラー', e.message); }
     finally { setSubmitting(false); }
   };
 
@@ -243,7 +245,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
             key={c.id}
             style={styles.commentCard}
             onLongPress={!groupExists ? undefined : () => {
-              Alert.alert(
+              alert(
                 'この評を削除しますか？',
                 '自分の評のみ削除できます。他の人の評は削除できません。',
                 [
@@ -259,7 +261,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
                         const msg = e.message?.includes('permission-denied')
                           ? '自分の評のみ削除できます'
                           : e.message;
-                        Alert.alert('エラー', msg);
+                        alert('エラー', msg);
                       }
                     },
                   },

@@ -1,12 +1,14 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import React from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAlert } from '../components/CustomAlert';
 import { auth, WEB_CLIENT_ID } from '../config/firebase';
 
 GoogleSignin.configure({ webClientId: WEB_CLIENT_ID });
 
 export default function LoginScreen() {
+  const { alert } = useAlert();
   const handleGoogleSignIn = async () => {
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
@@ -17,7 +19,7 @@ export default function LoginScreen() {
         await signInWithCredential(auth, credential);
       }
     } catch (error: any) {
-      Alert.alert('ログインエラー', `${error.code || ''}: ${error.message}`);
+      alert('ログインエラー', `${error.code || ''}: ${error.message}`);
     }
   };
 

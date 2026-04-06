@@ -4,13 +4,13 @@ import { arrayRemove, collection, deleteDoc, doc, getDoc, getDocs, increment, up
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
   Text, TextInput, TouchableOpacity,
   View,
 } from 'react-native';
+import { useAlert } from '../components/CustomAlert';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { MemberDoc } from '../types';
@@ -27,6 +27,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
   const [savingName, setSavingName] = useState(false);
   const [savingGroupName, setSavingGroupName] = useState(false);
   const [copied, setCopied] = useState(false);
+  const { alert } = useAlert();
 
   // 追放リスト
   const [bannedUsers, setBannedUsers] = useState<Record<string, { displayName: string; userCode: string }>>({});
@@ -66,32 +67,32 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
   };
 
   const handleSaveDisplayName = async () => {
-    if (!user || !displayName.trim()) { Alert.alert('名前を入力してください'); return; }
+    if (!user || !displayName.trim()) { alert('名前を入力してください'); return; }
     setSavingName(true);
     try {
       await updateDoc(doc(db, 'groups', groupId, 'members', user.uid), { displayName: displayName.trim() });
       setMembers(prev => prev.map(m => m.id === user.uid ? { ...m, displayName: displayName.trim() } : m));
-      Alert.alert('保存しました');
-    } catch (e: any) { Alert.alert('エラー', e.message); }
+      alert('保存しました');
+    } catch (e: any) { alert('エラー', e.message); }
     finally { setSavingName(false); }
   };
 
   const handleSaveGroupName = async () => {
-    if (!editingName.trim()) { Alert.alert('歌会の名前を入力してください'); return; }
+    if (!editingName.trim()) { alert('歌会の名前を入力してください'); return; }
     setSavingGroupName(true);
     try {
       await updateDoc(doc(db, 'groups', groupId), { name: editingName.trim() });
       setGroupName(editingName.trim());
       navigation.setParams({ groupName: editingName.trim() });
-      Alert.alert('保存しました');
-    } catch (e: any) { Alert.alert('エラー', e.message); }
+      alert('保存しました');
+    } catch (e: any) { alert('エラー', e.message); }
     finally { setSavingGroupName(false); }
   };
 
   const handleKick = (member: MemberDoc & { id: string }) => {
-    if (member.id === user?.uid) { Alert.alert('自分自身は追放できません'); return; }
-    if (member.role === 'owner') { Alert.alert('オーナーは追放できません'); return; }
-    Alert.alert(
+    if (member.id === user?.uid) { alert('自分自身は追放できません'); return; }
+    if (member.role === 'owner') { alert('オーナーは追放できません'); return; }
+    alert(
       'メンバーを追放',
       `${member.displayName}（#${member.userCode || '---'}）をこの歌会から追放しますか？\n追放されたユーザーは招待コードで再参加できなくなります。`,
       [
@@ -105,8 +106,8 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
               await kickMemberFn({ groupId, targetUserId: member.id });
               setMembers(prev => prev.filter(m => m.id !== member.id));
               setBannedUsers(prev => ({ ...prev, [member.id]: { displayName: member.displayName, userCode: member.userCode } }));
-              Alert.alert('追放しました');
-            } catch (e: any) { Alert.alert('エラー', e.message); }
+              alert('追放しました');
+            } catch (e: any) { alert('エラー', e.message); }
           },
         },
       ]
@@ -114,7 +115,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
   };
 
   const handleUnban = (targetUserId: string) => {
-    Alert.alert(
+    alert(
       '追放解除',
       'このユーザーが再び招待コードで参加できるようになります。',
       [
@@ -131,8 +132,8 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
                 delete next[targetUserId];
                 return next;
               });
-              Alert.alert('追放を解除しました');
-            } catch (e: any) { Alert.alert('エラー', e.message); }
+              alert('追放を解除しました');
+            } catch (e: any) { alert('エラー', e.message); }
           },
         },
       ]
@@ -236,7 +237,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
       {/* 歌会の退会（オーナー以外） */}
       {!isOwner && (
         <TouchableOpacity style={styles.leaveBtn} onPress={() => {
-          Alert.alert('歌会を退会しますか？', '招待コードで再び参加できます。', [
+          alert('歌会を退会しますか？', '招待コードで再び参加できます。', [
             { text: 'やめる', style: 'cancel' },
             {
               text: '退会する',

@@ -1,6 +1,7 @@
 import { arrayUnion, collection, doc, getDoc, getDocs, increment, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAlert } from '../components/CustomAlert';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { GroupDoc } from '../types';
@@ -14,6 +15,7 @@ function generateInviteCode(): string {
 
 export default function UtakaiListScreen({ navigation }: any) {
   const { user, userCode } = useAuth();
+  const { alert } = useAlert();
   const [groups, setGroups] = useState<(GroupDoc & { id: string })[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
@@ -88,17 +90,17 @@ export default function UtakaiListScreen({ navigation }: any) {
     try {
       const q = query(collection(db, 'groups'), where('inviteCode', '==', joinCode.trim().toUpperCase()));
       const snap = await getDocs(q);
-      if (snap.empty) { Alert.alert('エラー', '招待コードが見つかりません'); return; }
+      if (snap.empty) { alert('エラー', '招待コードが見つかりません'); return; }
       const groupDoc = snap.docs[0];
       const banned = groupDoc.data().bannedUsers || {};
-      if (user.uid in banned) { Alert.alert('エラー', 'この歌会には参加できません'); setShowJoin(false); setJoinCode(''); return; }
+      if (user.uid in banned) { alert('エラー', 'この歌会には参加できません'); setShowJoin(false); setJoinCode(''); return; }
       const memberSnap = await getDoc(doc(db, 'groups', groupDoc.id, 'members', user.uid));
-      if (memberSnap.exists()) { Alert.alert('', 'すでに参加しています'); setShowJoin(false); return; }
+      if (memberSnap.exists()) { alert('', 'すでに参加しています'); setShowJoin(false); return; }
       setMemberDisplayName('');
       setPendingAction({ type: 'join', groupId: groupDoc.id, groupName: groupDoc.data().name });
       setShowJoin(false);
       setShowSetName(true);
-    } catch (e: any) { Alert.alert('エラー', e.message); }
+    } catch (e: any) { alert('エラー', e.message); }
   };
 
   // 表示名確定後に実際の作成/参加を実行
@@ -122,7 +124,7 @@ export default function UtakaiListScreen({ navigation }: any) {
       setNewName('');
       setJoinCode('');
       setPendingAction(null);
-    } catch (e: any) { Alert.alert('エラー', e.message); }
+    } catch (e: any) { alert('エラー', e.message); }
   };
 
   return (

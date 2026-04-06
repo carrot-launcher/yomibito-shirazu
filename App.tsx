@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Text, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts, NotoSerifJP_400Regular, NotoSerifJP_500Medium, NotoSerifJP_700Bold } from '@expo-google-fonts/noto-serif-jp';
+import { AlertProvider } from './src/components/CustomAlert';
 import { AuthProvider } from './src/hooks/useAuth';
 import AppNavigator from './src/navigation/AppNavigator';
 
@@ -39,9 +40,11 @@ export default function App() {
   }
 
   return (
-    <AuthProvider>
-      <StatusBar style="dark" />
-      <AppNavigator />
-    </AuthProvider>
+    <AlertProvider>
+      <AuthProvider>
+        <StatusBar style="dark" />
+        <AppNavigator />
+      </AuthProvider>
+    </AlertProvider>
   );
 }

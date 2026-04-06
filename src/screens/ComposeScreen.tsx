@@ -1,7 +1,8 @@
 import * as Crypto from 'expo-crypto';
 import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAlert } from '../components/CustomAlert';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 
@@ -11,6 +12,7 @@ export default function ComposeScreen({ route, navigation }: any) {
   const [body, setBody] = useState('');
   const [groups, setGroups] = useState<{ id: string; name: string; selected: boolean }[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const { alert } = useAlert();
   const MAX_CHARS = 50;
 
   useEffect(() => {
@@ -31,8 +33,8 @@ export default function ComposeScreen({ route, navigation }: any) {
   const handleSubmit = async () => {
     if (!user || !body.trim()) return;
     const selectedGroups = groups.filter(g => g.selected);
-    if (selectedGroups.length === 0) { Alert.alert('送り先を選んでください'); return; }
-    if (body.length > MAX_CHARS) { Alert.alert(`${MAX_CHARS}文字以内にしてください`); return; }
+    if (selectedGroups.length === 0) { alert('送り先を選んでください'); return; }
+    if (body.length > MAX_CHARS) { alert(`${MAX_CHARS}文字以内にしてください`); return; }
     setSubmitting(true);
     try {
       const batchId = Crypto.randomUUID();
@@ -42,7 +44,7 @@ export default function ComposeScreen({ route, navigation }: any) {
         await addDoc(collection(db, 'users', user.uid, 'myPosts'), { postId: postRef.id, groupId: group.id, groupName: group.name, tankaBody: body.trim(), batchId, createdAt: serverTimestamp() });
       }
       navigation.goBack();
-    } catch (e: any) { Alert.alert('エラー', e.message); }
+    } catch (e: any) { alert('エラー', e.message); }
     finally { setSubmitting(false); }
   };
 

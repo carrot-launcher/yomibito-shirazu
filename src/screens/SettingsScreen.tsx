@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Alert, Switch, ScrollView,
+  View, Text, TouchableOpacity, StyleSheet, Switch, ScrollView,
 } from 'react-native';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { useAlert } from '../components/CustomAlert';
 import { signOut } from 'firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { auth, db } from '../config/firebase';
@@ -14,6 +15,7 @@ export default function SettingsScreen() {
   const [notifReaction, setNotifReaction] = useState(true);
   const [notifComment, setNotifComment] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { alert } = useAlert();
 
   useEffect(() => {
     if (!user) return;
@@ -39,9 +41,9 @@ export default function SettingsScreen() {
           comment: notifComment,
         },
       });
-      Alert.alert('保存しました');
+      alert('保存しました');
     } catch (e: any) {
-      Alert.alert('エラー', e.message);
+      alert('エラー', e.message);
     } finally {
       setSaving(false);
     }
@@ -82,7 +84,7 @@ export default function SettingsScreen() {
         <Text style={styles.saveBtnText}>保存</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.logoutBtn} onPress={() => Alert.alert('ログアウト', 'ログアウトしますか？', [
+      <TouchableOpacity style={styles.logoutBtn} onPress={() => alert('ログアウト', 'ログアウトしますか？', [
         { text: 'やめる', style: 'cancel' },
         { text: 'ログアウト', style: 'destructive', onPress: async () => { try { await GoogleSignin.signOut(); } catch {} await signOut(auth); } },
       ])}>

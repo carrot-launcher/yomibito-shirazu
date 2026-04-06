@@ -1,13 +1,15 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import TankaScroll from '../components/TankaScroll';
+import { useAlert } from '../components/CustomAlert';
 import { db } from '../config/firebase';
 import { PostDoc, TankaCard } from '../types';
 
 export default function TimelineScreen({ route, navigation }: any) {
   const { groupId, groupName } = route.params;
+  const { alert } = useAlert();
   const [cards, setCards] = useState<TankaCard[]>([]);
 
   useEffect(() => {
@@ -32,7 +34,7 @@ export default function TimelineScreen({ route, navigation }: any) {
       }));
     }, (error) => {
       if (error.code === 'permission-denied') {
-        Alert.alert('この歌会にアクセスできません', '追放されたか、歌会が解散された可能性があります。', [
+        alert('この歌会にアクセスできません', '追放されたか、歌会が解散された可能性があります。', [
           { text: 'OK', onPress: () => navigation.popToTop() },
         ]);
       }
