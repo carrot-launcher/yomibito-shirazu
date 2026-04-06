@@ -1,3 +1,4 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { arrayRemove, collection, deleteDoc, doc, getDoc, getDocs, increment, updateDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -200,7 +201,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
             <View style={styles.memberInfo}>
               <Text style={styles.memberName}>
                 {m.displayName || '名無し'}
-                {m.role === 'owner' && <Text style={styles.ownerBadge}> 👑</Text>}
+                {m.role === 'owner' && <MaterialCommunityIcons name="crown-outline" size={14} color="#8B7E6A" style={{ marginLeft: 4 }} />}
               </Text>
               <Text style={styles.memberId}>#{m.userCode || '---'}</Text>
             </View>
@@ -265,7 +266,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
       <Modal visible={showDissolve} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.dissolveModal}>
-            <Text style={styles.dissolveTitle}>⚠️ 歌会の解散</Text>
+            <Text style={styles.dissolveTitle}>歌会の解散</Text>
             <Text style={styles.dissolveWarning}>
               この操作は取り消せません。{'\n\n'}
               「{groupName}」のメンバー情報と歌会そのものが削除されます。{'\n'}

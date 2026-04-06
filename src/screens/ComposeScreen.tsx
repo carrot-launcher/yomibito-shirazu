@@ -11,7 +11,7 @@ export default function ComposeScreen({ route, navigation }: any) {
   const [body, setBody] = useState('');
   const [groups, setGroups] = useState<{ id: string; name: string; selected: boolean }[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const MAX_CHARS = 42;
+  const MAX_CHARS = 50;
 
   useEffect(() => {
     if (!user) return;

@@ -158,7 +158,7 @@ if (cards.length === 0) {
         .join(' ');
       metaHtml = '<div class="reactions">' +
         (reactions ? '<div class="reaction-item">' + reactions + '</div>' : '') +
-        (card.commentCount > 0 ? '<div class="comment-count">💬' + card.commentCount + '</div>' : '') +
+        (card.commentCount > 0 ? '<div class="comment-count">評 ' + card.commentCount + '</div>' : '') +
         '</div>';
     } else if (mode === 'myPosts' && card.groups) {
       metaHtml = '<div class="group-reactions">' +
@@ -169,7 +169,7 @@ if (cards.length === 0) {
             .join('');
           return '<div class="group-reaction-row">' + g.groupName +
             (r ? ' ' + r : '') +
-            (g.commentCount > 0 ? ' 💬' + g.commentCount : '') +
+            (g.commentCount > 0 ? ' 評 ' + g.commentCount : '') +
             '</div>';
         }).join('') +
         '</div>';

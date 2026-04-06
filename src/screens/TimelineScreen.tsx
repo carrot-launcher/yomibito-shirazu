@@ -1,6 +1,7 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 import TankaScroll from '../components/TankaScroll';
 import { db } from '../config/firebase';
 import { PostDoc, TankaCard } from '../types';
@@ -13,9 +14,14 @@ export default function TimelineScreen({ route, navigation }: any) {
     navigation.setOptions({
       title: groupName,
       headerRight: () => (
-        <TouchableOpacity onPress={() => navigation.navigate('GroupSettings', { groupId })}>
-          <Text style={{ fontSize: 20, marginRight: 8 }}>⚙️</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 4 }}>
+          <TouchableOpacity onPress={() => navigation.navigate('Compose', { preselectedGroupId: groupId })} hitSlop={8} style={{ padding: 8 }}>
+            <MaterialCommunityIcons name="pen" size={22} color="#2C2418" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('GroupSettings', { groupId })} hitSlop={8} style={{ padding: 8 }}>
+            <MaterialCommunityIcons name="cog-outline" size={22} color="#2C2418" />
+          </TouchableOpacity>
+        </View>
       ),
     });
     const q = query(collection(db, 'posts'), where('groupId', '==', groupId), orderBy('createdAt', 'desc'));
@@ -37,15 +43,10 @@ export default function TimelineScreen({ route, navigation }: any) {
   return (
     <View style={styles.container}>
       <TankaScroll cards={cards} onTap={(postId, gId) => navigation.navigate('TankaDetail', { postId, groupId: gId })} mode="timeline" />
-      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('Compose', { preselectedGroupId: groupId })}>
-        <Text style={styles.fabText}>筆</Text>
-      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F0E8' },
-  fab: { position: 'absolute', bottom: 24, right: 24, width: 56, height: 56, borderRadius: 28, backgroundColor: '#2C2418', justifyContent: 'center', alignItems: 'center', elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 4 },
-  fabText: { color: '#F5F0E8', fontSize: 20 },
 });

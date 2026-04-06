@@ -141,8 +141,6 @@ export default function UtakaiListScreen({ navigation }: any) {
         <TouchableOpacity style={styles.actionBtn} onPress={() => setShowCreate(true)}><Text style={styles.actionBtnText}>歌会を開く</Text></TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('Compose', {})}><Text style={styles.fabText}>筆</Text></TouchableOpacity>
-
       {/* 歌会作成モーダル */}
       <Modal visible={showCreate} transparent animationType="fade">
         <View style={styles.modalOverlay}><View style={styles.modal}>
@@ -199,8 +197,6 @@ const styles = StyleSheet.create({
   buttonRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingBottom: 16 },
   actionBtn: { flex: 1, backgroundColor: '#FFFDF8', borderRadius: 8, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E8E0D0' },
   actionBtnText: { color: '#2C2418', fontSize: 14 },
-  fab: { position: 'absolute', bottom: 24, right: 24, width: 56, height: 56, borderRadius: 28, backgroundColor: '#2C2418', justifyContent: 'center', alignItems: 'center', elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 4 },
-  fabText: { color: '#F5F0E8', fontSize: 20 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
   modal: { backgroundColor: '#FFFDF8', borderRadius: 16, padding: 24, width: '85%' },
   modalTitle: { fontSize: 18, color: '#2C2418', fontWeight: '500', marginBottom: 8 },

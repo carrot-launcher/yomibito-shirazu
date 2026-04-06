@@ -1,3 +1,4 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   addDoc,
   collection,
@@ -227,11 +228,11 @@ export default function TankaDetailScreen({ route, navigation }: any) {
           style={[styles.bookmarkBtn, isBookmarked && styles.bookmarkBtnActive]}
           onPress={handleBookmark}
         >
-          <Text style={styles.bookmarkText}>{isBookmarked ? '🔖' : '🔖'}</Text>
+          <MaterialCommunityIcons name={isBookmarked ? 'bookmark' : 'bookmark-outline'} size={22} color="#2C2418" />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
-          <Text style={styles.deleteText}>🗑</Text>
+          <MaterialCommunityIcons name="delete-outline" size={22} color="#2C2418" />
         </TouchableOpacity>
       </View>
 

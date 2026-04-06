@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -21,7 +21,7 @@ const Tab = createBottomTabNavigator();
 const commonHeaderStyle = {
   headerStyle: { backgroundColor: '#F5F0E8' },
   headerTintColor: '#2C2418',
-  headerTitleStyle: { fontWeight: '300' as const, letterSpacing: 2 },
+  headerTitleStyle: { fontFamily: 'NotoSerifJP_400Regular', fontWeight: '300' as const, letterSpacing: 2 },
   headerShadowVisible: false,
 };
 
@@ -30,19 +30,20 @@ function HomeTabs() {
     <Tab.Navigator
       screenOptions={{
         tabBarStyle: { backgroundColor: '#F5F0E8', borderTopColor: '#E8E0D0' },
+        tabBarLabelStyle: { fontFamily: 'NotoSerifJP_400Regular' },
         tabBarActiveTintColor: '#2C2418',
         tabBarInactiveTintColor: '#A69880',
         ...commonHeaderStyle,
       }}
     >
       <Tab.Screen name="UtakaiTab" component={UtakaiListScreen}
-        options={{ title: '歌会', tabBarIcon: () => <Text style={{ fontSize: 22 }}>📖</Text> }} />
+        options={{ title: '歌会', tabBarIcon: ({ color }) => <MaterialCommunityIcons name="book-open-variant" size={22} color={color} /> }} />
       <Tab.Screen name="TayoriTab" component={TayoriScreen}
-        options={{ title: '便り', tabBarIcon: () => <Text style={{ fontSize: 22 }}>📬</Text> }} />
+        options={{ title: '便り', tabBarIcon: ({ color }) => <MaterialCommunityIcons name="bell-outline" size={22} color={color} /> }} />
       <Tab.Screen name="KashuTab" component={KashuScreen}
-        options={{ title: '歌集', tabBarIcon: () => <Text style={{ fontSize: 22 }}>📝</Text> }} />
+        options={{ title: '歌集', tabBarIcon: ({ color }) => <MaterialCommunityIcons name="notebook-outline" size={22} color={color} /> }} />
       <Tab.Screen name="SettingsTab" component={SettingsScreen}
-        options={{ title: '設定', tabBarIcon: () => <Text style={{ fontSize: 22 }}>⚙️</Text> }} />
+        options={{ title: '設定', tabBarIcon: ({ color }) => <MaterialCommunityIcons name="cog-outline" size={22} color={color} /> }} />
     </Tab.Navigator>
   );
 }
