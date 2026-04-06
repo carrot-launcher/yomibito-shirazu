@@ -83,18 +83,21 @@ export default function TayoriScreen({ navigation }: any) {
       case 'new_post':
         icon = 'pen';
         title = `${item.groupName}に新しい歌`;
-        body = item.tankaBody?.slice(0, 25);
+        body = item.tankaBody;
         break;
       case 'reaction':
         icon = 'flower-tulip';
         title = item.reactionCount && item.reactionCount > 1
           ? `あなたの歌に${item.emoji || '🌸'}が${item.reactionCount}件`
           : `あなたの歌に${item.emoji || '🌸'}`;
+        body = item.tankaBody;
         break;
       case 'comment':
         icon = 'comment-text-outline';
         title = 'あなたの歌に評';
-        body = item.commentBody?.slice(0, 25);
+        body = item.commentBody && item.commentBody.length > 50
+          ? item.commentBody.slice(0, 50) + '…'
+          : item.commentBody;
         break;
       default:
         icon = 'bell-outline';

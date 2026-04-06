@@ -1,8 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import React from 'react';
+import * as Notifications from 'expo-notifications';
+import React, { useEffect } from 'react';
 import { Text } from 'react-native';
 
 import { useAuth } from '../hooks/useAuth';
@@ -20,6 +21,7 @@ import UtakaiListScreen from '../screens/UtakaiListScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+const navigationRef = createNavigationContainerRef();
 
 const HeaderTitle = ({ children }: { children: string }) => (
   <Text style={{ fontFamily: 'NotoSerifJP_400Regular', fontWeight: '300', fontSize: 22, letterSpacing: 2, color: '#2C2418', includeFontPadding: false, textAlignVertical: 'center' }}>
@@ -61,10 +63,20 @@ function HomeTabs() {
 export default function AppNavigator() {
   const { user, loading } = useAuth();
 
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data;
+      if (data?.postId && data?.groupId && navigationRef.isReady()) {
+        (navigationRef as any).navigate('TankaDetail', { postId: data.postId, groupId: data.groupId });
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
   if (loading) return null;
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={commonHeaderStyle}>
         {!user ? (
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />

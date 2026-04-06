@@ -5,6 +5,10 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 admin.initializeApp();
 const db = admin.firestore();
 
+function truncate(s: string, max: number): string {
+  return s.length > max ? s.slice(0, max) + "…" : s;
+}
+
 // ===== 通知ヘルパー =====
 
 async function createNotification(
@@ -37,17 +41,17 @@ async function createNotification(
     switch (type) {
       case "new_post":
         title = `${data.groupName}に新しい歌が詠まれました`;
-        body = data.tankaBody.slice(0, 20);
+        body = data.tankaBody;
         channelId = "new-tanka";
         break;
       case "reaction":
         title = "あなたの歌に🌸が届きました";
-        body = data.tankaBody.slice(0, 20);
+        body = data.tankaBody;
         channelId = "reactions";
         break;
       case "comment":
         title = "あなたの歌に評が届きました";
-        body = (data.commentBody || "").slice(0, 20);
+        body = truncate(data.commentBody || "", 50);
         channelId = "comments";
         break;
     }
