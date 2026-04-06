@@ -68,6 +68,8 @@ function buildHtml(cards: TankaCard[], mode: string): string {
     margin-top: 12px;
     font-size: 11px;
     color: #8B7E6A;
+    width: 0;
+    min-width: 100%;
   }
   .reactions {
     display: flex;
