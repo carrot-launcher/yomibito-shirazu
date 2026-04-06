@@ -30,10 +30,11 @@ function buildHtml(cards: TankaCard[], mode: string): string {
     overflow-y: hidden;
   }
   .container {
-    display: flex;
+    display: inline-flex;
     flex-direction: row-reverse;
     align-items: stretch;
-    height: 100%;
+    min-height: 100%;
+    min-width: 100%;
     padding: 20px 12px;
     gap: 2px;
   }
@@ -189,7 +190,7 @@ if (cards.length === 0) {
     container.appendChild(el);
   });
 
-  setTimeout(() => { container.scrollLeft = 0; }, 50);
+  setTimeout(() => { document.body.scrollLeft = document.body.scrollWidth; }, 50);
 }
 
 function escapeHtml(str) {
@@ -234,6 +235,7 @@ export default function TankaScroll({ cards, onTap, mode }: Props) {
         style={styles.webview}
         onMessage={handleMessage}
         scrollEnabled={true}
+        nestedScrollEnabled={true}
         showsHorizontalScrollIndicator={false}
         javaScriptEnabled={true}
         originWhitelist={['*']}

@@ -15,19 +15,127 @@ import {
   where,
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { useAlert } from '../components/CustomAlert';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { CommentDoc, PostDoc, REACTION_EMOJI } from '../types';
+
+function buildDetailHtml(body: string, comments: { body: string; time: string; id: string }[]): string {
+  const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const commentsJson = JSON.stringify(comments.map(c => ({ ...c, body: escapeHtml(c.body) })));
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    background: #F5F0E8;
+    font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho Pro", serif;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .container {
+    display: inline-flex;
+    flex-direction: row-reverse;
+    height: 100%;
+    min-width: 100%;
+    padding: 20px 16px;
+    gap: 0;
+  }
+  .tanka-section {
+    -webkit-writing-mode: vertical-rl;
+    writing-mode: vertical-rl;
+    font-size: 22px;
+    line-height: 1.9;
+    letter-spacing: 0.12em;
+    color: #2C2418;
+    padding: 8px 12px;
+    white-space: pre-wrap;
+    flex-shrink: 0;
+  }
+  .divider {
+    width: 1px;
+    background: #E8E0D0;
+    margin: 16px 12px;
+    flex-shrink: 0;
+  }
+  .comments-section {
+    display: flex;
+    flex-direction: row-reverse;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .comment-item {
+    -webkit-writing-mode: vertical-rl;
+    writing-mode: vertical-rl;
+    font-size: 15px;
+    line-height: 1.8;
+    letter-spacing: 0.05em;
+    color: #2C2418;
+    padding: 8px 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .comment-item:active { background: rgba(0,0,0,0.04); }
+  .comment-time {
+    font-size: 10px;
+    color: #A69880;
+    margin-top: 8px;
+  }
+  .no-comments {
+    -webkit-writing-mode: vertical-rl;
+    writing-mode: vertical-rl;
+    font-size: 14px;
+    color: #A69880;
+    padding: 8px 12px;
+  }
+</style>
+</head>
+<body>
+<div class="container" id="container">
+  <div class="tanka-section">${escapeHtml(body)}</div>
+  <div class="divider"></div>
+  <div class="comments-section" id="comments"></div>
+</div>
+<script>
+const comments = ${commentsJson};
+const commentsEl = document.getElementById("comments");
+if (comments.length === 0) {
+  commentsEl.innerHTML = '<div class="no-comments">まだ評がありません</div>';
+} else {
+  comments.forEach(c => {
+    const el = document.createElement("div");
+    el.className = "comment-item";
+    el.innerHTML = c.body + '<div class="comment-time">' + c.time + '</div>';
+    let pressTimer = null;
+    el.addEventListener('touchstart', (e) => {
+      pressTimer = setTimeout(() => {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'deleteComment', commentId: c.id }));
+      }, 600);
+    });
+    el.addEventListener('touchend', () => { clearTimeout(pressTimer); });
+    el.addEventListener('touchmove', () => { clearTimeout(pressTimer); });
+    commentsEl.appendChild(el);
+  });
+}
+setTimeout(() => { document.body.scrollLeft = document.body.scrollWidth; }, 50);
+</script>
+</body>
+</html>`;
+}
 
 export default function TankaDetailScreen({ route, navigation }: any) {
   const { postId, groupId } = route.params;
@@ -41,6 +149,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   const [groupExists, setGroupExists] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const { alert } = useAlert();
+  const webViewRef = useRef<WebView>(null);
 
   // 投稿データ
   useEffect(() => {
@@ -52,7 +161,6 @@ export default function TankaDetailScreen({ route, navigation }: any) {
         setDeleted(true);
       }
     }, () => {
-      // パーミッションエラー等の場合も削除扱い
       setDeleted(true);
     });
   }, [postId]);
@@ -72,7 +180,6 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     getDoc(reactionRef).then(snap => {
       setHasReacted(snap.exists());
     }).catch(() => {
-      // ドキュメントが存在しない場合も false
       setHasReacted(false);
     });
   }, [user, postId]);
@@ -86,7 +193,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     );
   }, [user, postId]);
 
-  // 歌会が存在するか確認（解散済みならリアクション・評を無効化）
+  // 歌会が存在するか確認
   useEffect(() => {
     getDoc(doc(db, 'groups', groupId)).then(snap => setGroupExists(snap.exists()));
   }, [groupId]);
@@ -159,6 +266,32 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     );
   };
 
+  const handleDeleteComment = (commentId: string) => {
+    if (!groupExists) return;
+    alert(
+      'この評を削除しますか？',
+      '自分の評のみ削除できます。他の人の評は削除できません。',
+      [
+        { text: 'やめる', style: 'cancel' },
+        {
+          text: '削除する', style: 'destructive',
+          onPress: async () => {
+            try {
+              const functions = getFunctions(undefined, 'asia-northeast1');
+              const deleteCommentFn = httpsCallable(functions, 'deleteComment');
+              await deleteCommentFn({ postId, commentId });
+            } catch (e: any) {
+              const msg = e.message?.includes('permission-denied')
+                ? '自分の評のみ削除できます'
+                : e.message;
+              alert('エラー', msg);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleComment = async () => {
     if (!user || !commentText.trim() || submitting) return;
     if (commentText.length > 500) { alert('500文字以内にしてください'); return; }
@@ -210,151 +343,129 @@ export default function TankaDetailScreen({ route, navigation }: any) {
 
   const reactionCount = post.reactionSummary?.[REACTION_EMOJI] || 0;
 
+  const commentData = comments.map(c => ({
+    id: c.id,
+    body: c.body,
+    time: c.createdAt ? timeAgo(c.createdAt.toDate()) : '',
+  }));
+
+  const html = buildDetailHtml(post.body, commentData);
+
+  const handleWebViewMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.action === 'deleteComment') {
+        handleDeleteComment(data.commentId);
+      }
+    } catch {}
+  };
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.tankaArea}>
-        <Text style={styles.tankaBody}>{post.body}</Text>
-      </View>
-
-      <View style={styles.actionRow}>
-        <TouchableOpacity
-          style={[styles.reactionBtn, hasReacted && styles.reactionBtnActive]}
-          onPress={groupExists ? handleReaction : undefined}
-          activeOpacity={groupExists ? 0.2 : 1}
-        >
-          <Text style={styles.reactionEmoji}>{REACTION_EMOJI}</Text>
-          {reactionCount > 0 && <Text style={styles.reactionCount}>{reactionCount}</Text>}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.bookmarkBtn, isBookmarked && styles.bookmarkBtnActive]}
-          onPress={handleBookmark}
-        >
-          <MaterialCommunityIcons name={isBookmarked ? 'bookmark' : 'bookmark-outline'} size={22} color="#2C2418" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
-          <MaterialCommunityIcons name="delete-outline" size={22} color="#2C2418" />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.commentsSection}>
-        <Text style={styles.commentsTitle}>評 ({post.commentCount || 0})</Text>
-        {comments.map(c => (
+    <View style={styles.container}>
+      <View style={styles.topBar}>
+        <View style={styles.actionRow}>
           <TouchableOpacity
-            key={c.id}
-            style={styles.commentCard}
-            onLongPress={!groupExists ? undefined : () => {
-              alert(
-                'この評を削除しますか？',
-                '自分の評のみ削除できます。他の人の評は削除できません。',
-                [
-                  { text: 'やめる', style: 'cancel' },
-                  {
-                    text: '削除する', style: 'destructive',
-                    onPress: async () => {
-                      try {
-                        const functions = getFunctions(undefined, 'asia-northeast1');
-                        const deleteCommentFn = httpsCallable(functions, 'deleteComment');
-                        await deleteCommentFn({ postId, commentId: c.id });
-                      } catch (e: any) {
-                        const msg = e.message?.includes('permission-denied')
-                          ? '自分の評のみ削除できます'
-                          : e.message;
-                        alert('エラー', msg);
-                      }
-                    },
-                  },
-                ]
-              );
-            }}
+            style={[styles.reactionBtn, hasReacted && styles.reactionBtnActive]}
+            onPress={groupExists ? handleReaction : undefined}
+            activeOpacity={groupExists ? 0.2 : 1}
           >
-            <Text style={styles.commentBody}>{c.body}</Text>
-            <Text style={styles.commentTime}>
-              {c.createdAt ? timeAgo(c.createdAt.toDate()) : ''}
-            </Text>
+            <Text style={styles.reactionEmoji}>{REACTION_EMOJI}</Text>
+            {reactionCount > 0 && <Text style={styles.reactionCount}>{reactionCount}</Text>}
           </TouchableOpacity>
-        ))}
-        {comments.length === 0 && <Text style={styles.noComments}>まだ評がありません</Text>}
-      </View>
 
-      {groupExists && (
-        <View style={styles.commentInput}>
-          <TextInput
-            style={styles.commentTextInput}
-            value={commentText}
-            onChangeText={setCommentText}
-            placeholder="評を書く..."
-            placeholderTextColor="#A69880"
-            multiline maxLength={500}
-          />
           <TouchableOpacity
-            style={[styles.commentSubmit, !commentText.trim() && styles.commentSubmitDisabled]}
-            onPress={handleComment}
-            disabled={!commentText.trim() || submitting}
+            style={[styles.bookmarkBtn, isBookmarked && styles.bookmarkBtnActive]}
+            onPress={handleBookmark}
           >
-            <Text style={styles.commentSubmitText}>送る</Text>
+            <MaterialCommunityIcons name={isBookmarked ? 'bookmark' : 'bookmark-outline'} size={20} color="#2C2418" />
           </TouchableOpacity>
+
+          <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
+            <MaterialCommunityIcons name="delete-outline" size={20} color="#2C2418" />
+          </TouchableOpacity>
+
+          <Text style={styles.commentLabel}>評 {post.commentCount || 0}</Text>
         </View>
-      )}
-    </ScrollView>
+
+        {groupExists && (
+          <>
+            <View style={styles.commentInput}>
+              <TextInput
+                style={styles.commentTextInput}
+                value={commentText}
+                onChangeText={setCommentText}
+                placeholder="評を書く..."
+                placeholderTextColor="#A69880"
+                multiline maxLength={500}
+              />
+              <TouchableOpacity
+                style={[styles.commentSubmit, !commentText.trim() && styles.commentSubmitDisabled]}
+                onPress={handleComment}
+                disabled={!commentText.trim() || submitting}
+              >
+                <Text style={styles.commentSubmitText}>送る</Text>
+              </TouchableOpacity>
+            </View>
+            {commentText.length > 0 && (
+              <Text style={styles.charCount}>{commentText.length}/500</Text>
+            )}
+          </>
+        )}
+      </View>
+
+      <WebView
+        ref={webViewRef}
+        source={{ html }}
+        style={styles.webview}
+        onMessage={handleWebViewMessage}
+        scrollEnabled={true}
+        showsHorizontalScrollIndicator={false}
+        javaScriptEnabled={true}
+        originWhitelist={['*']}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F0E8' },
-  content: { padding: 20, paddingBottom: 40 },
   loading: { textAlign: 'center', marginTop: 40, color: '#8B7E6A' },
-  tankaArea: {
-    backgroundColor: '#FFFDF8', borderRadius: 16, padding: 32,
-    alignItems: 'center', marginBottom: 20,
-    borderWidth: 1, borderColor: '#E8E0D0',
+  topBar: {
+    borderBottomWidth: 1, borderBottomColor: '#E8E0D0',
+    backgroundColor: '#F5F0E8', paddingHorizontal: 16, paddingVertical: 10,
   },
-  tankaBody: { fontSize: 24, color: '#2C2418', lineHeight: 40, letterSpacing: 2, textAlign: 'center' },
   actionRow: {
-    flexDirection: 'row', justifyContent: 'center',
-    gap: 12, marginBottom: 24,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
   },
   reactionBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 16, paddingVertical: 10,
-    borderRadius: 24, borderWidth: 1, borderColor: '#E8E0D0', backgroundColor: '#FFFDF8',
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 20, borderWidth: 1, borderColor: '#E8E0D0', backgroundColor: '#FFFDF8',
   },
   reactionBtnActive: { backgroundColor: '#F0E8D8', borderColor: '#C4B8A0' },
-  reactionEmoji: { fontSize: 22 },
-  reactionCount: { fontSize: 15, color: '#8B7E6A' },
+  reactionEmoji: { fontSize: 16 },
+  reactionCount: { fontSize: 13, color: '#8B7E6A' },
   bookmarkBtn: {
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderRadius: 24, borderWidth: 1, borderColor: '#E8E0D0', backgroundColor: '#FFFDF8',
+    paddingHorizontal: 8, paddingVertical: 6,
+    borderRadius: 20, borderWidth: 1, borderColor: '#E8E0D0', backgroundColor: '#FFFDF8',
   },
   bookmarkBtnActive: { backgroundColor: '#F0E8D8', borderColor: '#C4B8A0' },
-  bookmarkText: { fontSize: 22 },
   deleteBtn: {
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderRadius: 24, borderWidth: 1, borderColor: '#E8E0D0', backgroundColor: '#FFFDF8',
+    paddingHorizontal: 8, paddingVertical: 6,
+    borderRadius: 20, borderWidth: 1, borderColor: '#E8E0D0', backgroundColor: '#FFFDF8',
   },
-  deleteText: { fontSize: 22 },
-  commentsSection: { marginBottom: 20 },
-  commentsTitle: {
-    fontSize: 15, color: '#8B7E6A', marginBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: '#E8E0D0', paddingBottom: 8,
-  },
-  commentCard: {
-    backgroundColor: '#FFFDF8', borderRadius: 10, padding: 14,
-    marginBottom: 8, borderWidth: 1, borderColor: '#E8E0D0',
-  },
-  commentBody: { fontSize: 15, color: '#2C2418', lineHeight: 22, marginBottom: 4 },
-  commentTime: { fontSize: 11, color: '#A69880' },
-  noComments: { textAlign: 'center', color: '#A69880', fontSize: 14, marginTop: 12 },
-  commentInput: { flexDirection: 'row', gap: 8, alignItems: 'flex-end' },
+  commentLabel: { fontSize: 13, color: '#8B7E6A', marginLeft: 'auto' },
+  commentInput: { flexDirection: 'row', gap: 8, alignItems: 'flex-end', marginTop: 10 },
   commentTextInput: {
-    flex: 1, backgroundColor: '#FFFDF8', borderRadius: 10, padding: 12,
+    flex: 1, backgroundColor: '#FFFDF8', borderRadius: 10, padding: 10,
     fontSize: 15, color: '#2C2418', borderWidth: 1, borderColor: '#E8E0D0',
-    maxHeight: 100, textAlignVertical: 'top',
+    maxHeight: 80, textAlignVertical: 'top',
   },
-  commentSubmit: { backgroundColor: '#2C2418', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12 },
+  commentSubmit: { backgroundColor: '#2C2418', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
   commentSubmitDisabled: { opacity: 0.4 },
   commentSubmitText: { color: '#F5F0E8', fontSize: 14 },
+  charCount: { fontSize: 12, color: '#A69880', textAlign: 'right', marginTop: 4 },
+  webview: { flex: 1, backgroundColor: '#F5F0E8' },
   deletedArea: { alignItems: 'center', marginTop: 80 },
   deletedText: { fontSize: 16, color: '#8B7E6A', marginBottom: 20 },
   backBtn: { backgroundColor: '#2C2418', borderRadius: 8, paddingHorizontal: 20, paddingVertical: 10 },

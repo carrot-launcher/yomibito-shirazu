@@ -1,10 +1,12 @@
 import * as Crypto from 'expo-crypto';
 import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '../components/CustomAlert';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
+
+const MAX_CHARS = 50;
 
 export default function ComposeScreen({ route, navigation }: any) {
   const preselectedGroupId = route.params?.preselectedGroupId;
@@ -13,7 +15,6 @@ export default function ComposeScreen({ route, navigation }: any) {
   const [groups, setGroups] = useState<{ id: string; name: string; selected: boolean }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const { alert } = useAlert();
-  const MAX_CHARS = 50;
 
   useEffect(() => {
     if (!user) return;
@@ -30,55 +31,93 @@ export default function ComposeScreen({ route, navigation }: any) {
 
   const toggleGroup = (id: string) => setGroups(prev => prev.map(g => g.id === id ? { ...g, selected: !g.selected } : g));
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!user || !body.trim()) return;
     const selectedGroups = groups.filter(g => g.selected);
     if (selectedGroups.length === 0) { alert('送り先を選んでください'); return; }
-    if (body.length > MAX_CHARS) { alert(`${MAX_CHARS}文字以内にしてください`); return; }
+    // 改行・半角スペースを全角スペースに変換
+    const normalizedBody = body.trim().replace(/[\n\r ]/g, '\u3000');
+    if (normalizedBody.length > MAX_CHARS) { alert(`${MAX_CHARS}文字以内にしてください`); return; }
     setSubmitting(true);
     try {
       const batchId = Crypto.randomUUID();
       for (const group of selectedGroups) {
-        const postRef = await addDoc(collection(db, 'posts'), { groupId: group.id, body: body.trim(), batchId, createdAt: serverTimestamp(), reactionSummary: {}, commentCount: 0 });
+        const postRef = await addDoc(collection(db, 'posts'), { groupId: group.id, body: normalizedBody, batchId, createdAt: serverTimestamp(), reactionSummary: {}, commentCount: 0 });
         await setDoc(doc(db, 'posts', postRef.id, 'private', 'author'), { authorId: user.uid });
-        await addDoc(collection(db, 'users', user.uid, 'myPosts'), { postId: postRef.id, groupId: group.id, groupName: group.name, tankaBody: body.trim(), batchId, createdAt: serverTimestamp() });
+        await addDoc(collection(db, 'users', user.uid, 'myPosts'), { postId: postRef.id, groupId: group.id, groupName: group.name, tankaBody: normalizedBody, batchId, createdAt: serverTimestamp() });
       }
       navigation.goBack();
     } catch (e: any) { alert('エラー', e.message); }
     finally { setSubmitting(false); }
-  };
+  }, [user, body, groups, alert, navigation]);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginRight: 8 }}>
+          <Text style={{ fontSize: 14, color: '#8B7E6A', fontFamily: 'NotoSerifJP_400Regular' }}>
+            {body.length}/{MAX_CHARS}
+          </Text>
+          <TouchableOpacity
+            style={{
+              backgroundColor: submitting || !body.trim() ? '#C4B8A0' : '#2C2418',
+              borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8,
+            }}
+            onPress={handleSubmit}
+            disabled={submitting || !body.trim()}
+          >
+            <Text style={{ color: '#F5F0E8', fontSize: 15, fontFamily: 'NotoSerifJP_400Regular' }}>
+              {submitting ? '...' : '詠む'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ),
+    });
+  }, [body, submitting, handleSubmit]);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.label}>送り先</Text>
-      <View style={styles.groupList}>
-        {groups.map(g => (
-          <TouchableOpacity key={g.id} style={[styles.groupChip, g.selected && styles.groupChipSelected]} onPress={() => toggleGroup(g.id)}>
-            <Text style={[styles.groupChipText, g.selected && styles.groupChipTextSelected]}>{g.selected ? '☑ ' : '☐ '}{g.name}</Text>
-          </TouchableOpacity>
-        ))}
+    <View style={styles.container}>
+      <View style={styles.topBar}>
+        <View style={styles.groupList}>
+          {groups.map(g => (
+            <TouchableOpacity key={g.id} style={[styles.groupChip, g.selected && styles.groupChipSelected]} onPress={() => toggleGroup(g.id)}>
+              <Text style={[styles.groupChipText, g.selected && styles.groupChipTextSelected]}>{g.selected ? '☑ ' : '☐ '}{g.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
+
       <View style={styles.inputArea}>
-        <TextInput style={styles.tankaInput} value={body} onChangeText={setBody} placeholder="歌を詠む..." placeholderTextColor="#A69880" multiline maxLength={MAX_CHARS} autoFocus />
+        <TextInput
+          style={styles.tankaInput}
+          value={body}
+          onChangeText={setBody}
+          placeholder="歌を詠む..."
+          placeholderTextColor="#A69880"
+          multiline
+          maxLength={MAX_CHARS}
+          autoFocus
+        />
+        <Text style={styles.hint}>改行・半角スペースは全角スペースに変換されます</Text>
       </View>
-      <Text style={styles.charCount}><Text style={body.length > MAX_CHARS ? styles.charOver : undefined}>{body.length}</Text>/{MAX_CHARS} 文字</Text>
-      <TouchableOpacity style={[styles.submitBtn, (submitting || !body.trim()) && styles.submitBtnDisabled]} onPress={handleSubmit} disabled={submitting || !body.trim()}>
-        <Text style={styles.submitBtnText}>{submitting ? '詠んでいます...' : '詠む'}</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F0E8' }, content: { padding: 20 },
-  label: { fontSize: 14, color: '#8B7E6A', marginBottom: 8 },
-  groupList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
+  container: { flex: 1, backgroundColor: '#F5F0E8' },
+  topBar: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
+  groupList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   groupChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#E8E0D0', backgroundColor: '#FFFDF8' },
   groupChipSelected: { backgroundColor: '#2C2418', borderColor: '#2C2418' },
-  groupChipText: { fontSize: 14, color: '#2C2418' }, groupChipTextSelected: { color: '#F5F0E8' },
-  inputArea: { backgroundColor: '#FFFDF8', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#E8E0D0', minHeight: 160, marginBottom: 12 },
-  tankaInput: { fontSize: 20, color: '#2C2418', lineHeight: 32, textAlignVertical: 'top' },
-  charCount: { textAlign: 'right', fontSize: 13, color: '#8B7E6A', marginBottom: 24 }, charOver: { color: '#C53030' },
-  submitBtn: { backgroundColor: '#2C2418', borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
-  submitBtnDisabled: { opacity: 0.4 }, submitBtnText: { color: '#F5F0E8', fontSize: 18, letterSpacing: 4 },
+  groupChipText: { fontSize: 14, color: '#2C2418' },
+  groupChipTextSelected: { color: '#F5F0E8' },
+  inputArea: { flex: 1, marginHorizontal: 16, marginTop: 8, paddingTop: 8 },
+  tankaInput: {
+    fontSize: 22, color: '#2C2418', lineHeight: 38,
+    letterSpacing: 2, textAlignVertical: 'top',
+    fontFamily: 'NotoSerifJP_400Regular',
+    includeFontPadding: false, paddingTop: 12,
+  },
+  hint: { fontSize: 11, color: '#A69880', marginTop: 8 },
 });

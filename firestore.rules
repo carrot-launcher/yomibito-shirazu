@@ -67,7 +67,7 @@ service cloud.firestore {
                      || !exists(/databases/$(db)/documents/groups/$(resource.data.groupId)));
       allow create: if isAuth()
                     && isGroupMember(request.resource.data.groupId)
-                    && request.resource.data.body.size() <= 42;
+                    && request.resource.data.body.size() <= 50;
       allow update: if isAuth()
                     && isGroupMember(resource.data.groupId);
 
@@ -99,7 +99,7 @@ service cloud.firestore {
                       && isGroupMember(
                            get(/databases/$(db)/documents/posts/$(postId)).data.groupId
                          )
-                      && request.resource.data.body.size() <= 200;
+                      && request.resource.data.body.size() <= 500;
 
         match /private/{doc} {
           allow read: if false;
