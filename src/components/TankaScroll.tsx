@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useRef } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { TankaCard } from '../types';
 
@@ -33,9 +33,9 @@ function buildHtml(cards: TankaCard[], mode: string): string {
     display: inline-flex;
     flex-direction: row-reverse;
     align-items: stretch;
-    min-height: 100%;
+    height: 100%;
     min-width: 100%;
-    padding: 20px 12px;
+    padding: 8px 12px;
     gap: 2px;
   }
   .tanka-card {
@@ -43,7 +43,7 @@ function buildHtml(cards: TankaCard[], mode: string): string {
     flex-direction: column;
     align-items: center;
     min-width: 64px;
-    padding: 16px 8px 12px;
+    padding: 8px 8px 8px;
     border-right: 1px solid rgba(0,0,0,0.06);
     cursor: pointer;
     transition: background 0.2s;
