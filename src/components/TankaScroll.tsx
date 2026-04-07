@@ -50,7 +50,7 @@ function buildHtml(cards: TankaCard[], mode: string, hasLoadMore: boolean, color
     align-items: stretch;
     height: 100%;
     min-width: 100%;
-    padding: 8px 12px;
+    padding: 8px 0px;
     gap: 0;
   }
   .tanka-card {
