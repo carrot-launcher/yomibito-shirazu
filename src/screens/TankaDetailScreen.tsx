@@ -213,6 +213,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   const [comments, setComments] = useState<(CommentDoc & { id: string })[]>([]);
   const [commentText, setCommentText] = useState('');
   const [hasReacted, setHasReacted] = useState(false);
+  const [reacting, setReacting] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [groupExists, setGroupExists] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -327,15 +328,18 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   }, [groupId]);
 
   const handleReaction = async () => {
-    if (!user) return;
+    if (!user || reacting) return;
+    setReacting(true);
+    const wasReacted = hasReacted;
+    // 楽観的UI更新: 即座に見た目を変える
+    setHasReacted(!wasReacted);
     const reactionRef = doc(db, 'posts', postId, 'reactions', `${user.uid}_${REACTION_EMOJI}`);
     try {
-      if (hasReacted) {
+      if (wasReacted) {
         await deleteDoc(reactionRef);
         await updateDoc(doc(db, 'posts', postId), {
           [`reactionSummary.${REACTION_EMOJI}`]: increment(-1),
         });
-        setHasReacted(false);
       } else {
         const memberSnap = await getDoc(doc(db, 'groups', groupId, 'members', user.uid));
         const displayName = memberSnap.data()?.displayName || '歌人';
@@ -348,9 +352,14 @@ export default function TankaDetailScreen({ route, navigation }: any) {
         await updateDoc(doc(db, 'posts', postId), {
           [`reactionSummary.${REACTION_EMOJI}`]: increment(1),
         });
-        setHasReacted(true);
       }
-    } catch (e: any) { alert('エラー', e.message); }
+    } catch (e: any) {
+      // 失敗時は元に戻す
+      setHasReacted(wasReacted);
+      alert('エラー', e.message);
+    } finally {
+      setReacting(false);
+    }
   };
 
   const handleBookmark = async () => {
