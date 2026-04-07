@@ -42,7 +42,7 @@ function buildDetailHtml(body: string, comments: { body: string; time: string; i
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
     height: 100%;
-    background: #F5F0E8;
+    background: transparent;
     font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho Pro", serif;
     overflow-x: auto;
     overflow-y: hidden;
@@ -485,11 +485,11 @@ export default function TankaDetailScreen({ route, navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F0E8' },
+  container: { flex: 1 },
   loading: { textAlign: 'center', marginTop: 40, color: '#8B7E6A' },
   topBar: {
     borderBottomWidth: 1, borderBottomColor: '#E8E0D0',
-    backgroundColor: '#F5F0E8', paddingHorizontal: 16, paddingVertical: 10,
+    paddingHorizontal: 16, paddingVertical: 10,
   },
   actionRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
   commentSubmitDisabled: { opacity: 0.4 },
   commentSubmitText: { color: '#F5F0E8', fontSize: 14 },
   charCount: { fontSize: 12, color: '#A69880', textAlign: 'right', marginTop: 4 },
-  webview: { flex: 1, backgroundColor: '#F5F0E8' },
+  webview: { flex: 1, backgroundColor: 'transparent' },
   deletedArea: { alignItems: 'center', marginTop: 80 },
   deletedText: { fontSize: 16, color: '#8B7E6A', marginBottom: 20 },
   backBtn: { backgroundColor: '#2C2418', borderRadius: 8, paddingHorizontal: 20, paddingVertical: 10 },

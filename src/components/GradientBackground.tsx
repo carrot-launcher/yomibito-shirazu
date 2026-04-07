@@ -10,7 +10,7 @@ interface Props {
 export default function GradientBackground({ children, style }: Props) {
   return (
     <LinearGradient
-      colors={['#F5F0E8', '#E2D9C8']}
+      colors={['#F5EEE4', '#E2D6C3']}
       style={[styles.gradient, style]}
     >
       {children}
