@@ -12,4 +12,6 @@ dist/
 google-services.json
 GoogleService-Info.plist
 .env
+.env.local
+.env*.local
 .claude
