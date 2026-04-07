@@ -118,12 +118,15 @@ export default function AppNavigator() {
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data;
-      if (data?.postId && data?.groupId && navigationRef.isReady()) {
-        // たよりタブに切り替えてからTankaDetailに遷移
+      if (!navigationRef.isReady()) return;
+      if (data?.postId && data?.groupId) {
         (navigationRef as any).navigate('TayoriTab', {
           screen: 'TankaDetail',
           params: { postId: data.postId, groupId: data.groupId },
         });
+      } else {
+        // postIdがない通知（解散など）はたよりタブを開くだけ
+        (navigationRef as any).navigate('TayoriTab');
       }
     });
     return () => sub.remove();

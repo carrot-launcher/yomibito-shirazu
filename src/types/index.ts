@@ -79,11 +79,11 @@ export interface BookmarkDoc {
 }
 
 export interface NotificationDoc {
-  type: 'new_post' | 'reaction' | 'comment' | 'caution' | 'ban';
-  postId: string;
-  groupId: string;
+  type: 'new_post' | 'reaction' | 'comment' | 'caution' | 'ban' | 'dissolve';
+  postId?: string;
+  groupId?: string;
   groupName: string;
-  tankaBody: string;
+  tankaBody?: string;
   emoji?: string;
   commentBody?: string;
   reactionCount?: number;

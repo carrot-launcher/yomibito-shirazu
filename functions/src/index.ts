@@ -341,8 +341,40 @@ export const dissolveGroup = onCall(
       throw new HttpsError("invalid-argument", "歌会の名前が一致しません");
     }
 
-    // 1. メンバー全員の joinedGroups から削除（先に実行し、ゾンビ化を防ぐ）
+    // 0. 解散通知を全メンバーに送信（オーナー以外）
     const membersSnap = await db.collection(`groups/${groupId}/members`).get();
+    const groupName = groupSnap.data()?.name || "";
+    for (const memberDoc of membersSnap.docs) {
+      if (memberDoc.id === request.auth.uid) continue;
+      try {
+        const userSnap = await db.doc(`users/${memberDoc.id}`).get();
+        const userData = userSnap.data();
+        if (!userData) continue;
+        const settings = userData.notificationSettings || {};
+        if (settings.other === false) continue;
+        await db.collection(`users/${memberDoc.id}/notifications`).add({
+          type: "dissolve",
+          groupName,
+          createdAt: admin.firestore.Timestamp.now(),
+        });
+        const fcmToken = userData.fcmToken;
+        if (fcmToken) {
+          await admin.messaging().send({
+            token: fcmToken,
+            notification: {
+              title: `${groupName}が解散しました`,
+              body: "歌会のオーナーが歌会を解散しました",
+            },
+            android: { notification: { channelId: "other", visibility: "private" as const } },
+            data: { type: "dissolve" },
+          }).catch(() => {});
+        }
+      } catch {
+        // 通知失敗は解散処理を止めない
+      }
+    }
+
+    // 1. メンバー全員の joinedGroups から削除（先に実行し、ゾンビ化を防ぐ）
     for (const memberDoc of membersSnap.docs) {
       const userId = memberDoc.id;
       await db.doc(`users/${userId}`).update({

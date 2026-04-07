@@ -30,6 +30,11 @@ async function registerForPushNotifications(uid: string) {
         importance: Notifications.AndroidImportance.HIGH,
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
       });
+      await Notifications.setNotificationChannelAsync('other', {
+        name: 'その他',
+        importance: Notifications.AndroidImportance.HIGH,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
+      });
     }
 
     const { status } = await Notifications.getPermissionsAsync();

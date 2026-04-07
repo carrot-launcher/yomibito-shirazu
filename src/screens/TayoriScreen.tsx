@@ -25,7 +25,7 @@ function timeAgo(date: Date): string {
   return `${Math.floor(day / 30)}ヶ月前`;
 }
 
-type FilterType = 'all' | 'new_post' | 'reaction' | 'comment' | 'judgment';
+type FilterType = 'all' | 'new_post' | 'reaction' | 'comment' | 'judgment' | 'other';
 
 export default function TayoriScreen({ navigation }: any) {
   const { user } = useAuth();
@@ -109,6 +109,7 @@ export default function TayoriScreen({ navigation }: any) {
   };
 
   const handleTap = (item: TayoriItem) => {
+    if (!item.postId || !item.groupId) return;
     navigation.navigate('TankaDetail', { postId: item.postId, groupId: item.groupId });
   };
 
@@ -148,6 +149,10 @@ export default function TayoriScreen({ navigation }: any) {
         title = `${item.groupName}にて事変`;
         body = item.bannedUserName ? `${item.bannedUserName}が破門されました` : undefined;
         break;
+      case 'dissolve':
+        icon = 'account-group-outline';
+        title = `${item.groupName}が解散しました`;
+        break;
       default:
         icon = 'bell-outline';
         title = 'たより';
@@ -177,6 +182,8 @@ export default function TayoriScreen({ navigation }: any) {
     ? visibleItems
     : filter === 'judgment'
     ? visibleItems.filter(i => i.type === 'caution' || i.type === 'ban')
+    : filter === 'other'
+    ? visibleItems.filter(i => i.type === 'dissolve')
     : visibleItems.filter(i => i.type === filter);
 
   const filters: { key: FilterType; label: string }[] = [
@@ -185,6 +192,7 @@ export default function TayoriScreen({ navigation }: any) {
     { key: 'reaction', label: '🌸' },
     { key: 'comment', label: '評' },
     { key: 'judgment', label: '裁き' },
+    { key: 'other', label: 'その他' },
   ];
 
   return (
