@@ -1,7 +1,8 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { collection, doc, onSnapshot, orderBy, query, updateDoc, serverTimestamp } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
@@ -27,8 +28,10 @@ type FilterType = 'all' | 'new_post' | 'reaction' | 'comment';
 
 export default function TayoriScreen({ navigation }: any) {
   const { user } = useAuth();
+  const { alert } = useAlert();
   const [items, setItems] = useState<TayoriItem[]>([]);
-  const [lastReadAt, setLastReadAt] = useState<Date | null>(null);
+  const [lastReadAt, setLastReadAt] = useState<Date | null | undefined>(undefined);
+  const [clearedAt, setClearedAt] = useState<Date | null>(null);
   const [filter, setFilter] = useState<FilterType>('all');
 
   // 通知一覧をリアルタイムで取得
@@ -52,22 +55,54 @@ export default function TayoriScreen({ navigation }: any) {
     return onSnapshot(doc(db, 'users', user.uid), (snap) => {
       const data = snap.data();
       setLastReadAt(data?.tayoriLastReadAt?.toDate() || null);
+      setClearedAt(data?.tayoriClearedAt?.toDate() || null);
     }, () => {});
   }, [user]);
 
-  // 画面フォーカス時に既読更新
+  const visibleItems = useMemo(() => items.filter(i => {
+    if (!clearedAt) return true;
+    const itemDate = i.createdAt?.toDate?.();
+    return itemDate ? itemDate > clearedAt : false;
+  }), [items, clearedAt]);
+
+  const handleDeleteAll = useCallback(() => {
+    if (!user || visibleItems.length === 0) return;
+    alert('たよりを全て削除', '全てのたよりを削除しますか？', [
+      { text: 'やめる', style: 'cancel' },
+      {
+        text: '削除', style: 'destructive', onPress: async () => {
+          try {
+            await updateDoc(doc(db, 'users', user.uid), { tayoriClearedAt: serverTimestamp() });
+          } catch {}
+        },
+      },
+    ]);
+  }, [user, visibleItems.length, alert]);
+
   useEffect(() => {
-    const unsub = navigation.addListener('focus', () => {
-      if (!user || items.length === 0) return;
+    navigation.setOptions({
+      headerRight: () => visibleItems.length > 0 ? (
+        <TouchableOpacity onPress={handleDeleteAll} hitSlop={8} style={{ padding: 8 }}>
+          <MaterialCommunityIcons name="delete-outline" size={22} color="#8B7E6A" />
+        </TouchableOpacity>
+      ) : null,
+    });
+  }, [navigation, visibleItems.length, handleDeleteAll]);
+
+  // 画面を離れた時に既読更新（focusだと未読が即座に消えてしまう）
+  useEffect(() => {
+    const unsub = navigation.addListener('blur', () => {
+      if (!user) return;
       updateDoc(doc(db, 'users', user.uid), {
         tayoriLastReadAt: serverTimestamp(),
       }).catch(() => {});
     });
     return unsub;
-  }, [navigation, user, items.length]);
+  }, [navigation, user]);
 
   const isUnread = (item: TayoriItem) => {
-    if (!lastReadAt) return true;
+    if (lastReadAt === undefined) return false; // まだロード中
+    if (!lastReadAt) return true; // 一度も既読にしていない
     const itemDate = item.createdAt?.toDate?.();
     return itemDate ? itemDate > lastReadAt : false;
   };
@@ -127,7 +162,7 @@ export default function TayoriScreen({ navigation }: any) {
     );
   };
 
-  const filteredItems = filter === 'all' ? items : items.filter(i => i.type === filter);
+  const filteredItems = filter === 'all' ? visibleItems : visibleItems.filter(i => i.type === filter);
 
   const filters: { key: FilterType; label: string }[] = [
     { key: 'all', label: 'すべて' },
@@ -152,7 +187,7 @@ export default function TayoriScreen({ navigation }: any) {
       {filteredItems.length === 0 ? (
         <View style={styles.emptyWrap}>
           <MaterialCommunityIcons name="email-outline" size={48} color="#A69880" />
-          <Text style={styles.emptyText}>{items.length === 0 ? 'まだたよりはありません' : 'このたよりはありません'}</Text>
+          <Text style={styles.emptyText}>{visibleItems.length === 0 ? 'まだたよりはありません' : 'このたよりはありません'}</Text>
         </View>
       ) : (
         <FlatList

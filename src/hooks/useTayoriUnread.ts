@@ -11,19 +11,31 @@ export function useTayoriUnread(): number {
     if (!user) { setUnreadCount(0); return; }
 
     let lastReadAt: Date | null = null;
+    let clearedAt: Date | null = null;
     let notifications: { createdAt: Date }[] = [];
+    let userLoaded = false;
+    let notifsLoaded = false;
 
     const compute = () => {
+      if (!userLoaded || !notifsLoaded) return;
+
+      const visible = clearedAt
+        ? notifications.filter(n => n.createdAt > clearedAt!)
+        : notifications;
+
       if (!lastReadAt) {
-        setUnreadCount(notifications.length);
+        setUnreadCount(visible.length);
       } else {
-        setUnreadCount(notifications.filter(n => n.createdAt > lastReadAt!).length);
+        setUnreadCount(visible.filter(n => n.createdAt > lastReadAt!).length);
       }
     };
 
-    // ユーザーの lastReadAt を監視
+    // ユーザーの lastReadAt, clearedAt を監視
     const unsubUser = onSnapshot(doc(db, 'users', user.uid), (snap) => {
-      lastReadAt = snap.data()?.tayoriLastReadAt?.toDate() || null;
+      const data = snap.data();
+      lastReadAt = data?.tayoriLastReadAt?.toDate() || null;
+      clearedAt = data?.tayoriClearedAt?.toDate() || null;
+      userLoaded = true;
       compute();
     }, () => {});
 
@@ -36,6 +48,7 @@ export function useTayoriUnread(): number {
       notifications = snap.docs
         .map(d => ({ createdAt: d.data().createdAt?.toDate() }))
         .filter(n => n.createdAt);
+      notifsLoaded = true;
       compute();
     }, () => {});
 
