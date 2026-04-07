@@ -51,8 +51,20 @@ export default function KashuScreen({ navigation }: any) {
 
   useEffect(() => {
     if (!user) return;
-    return onSnapshot(query(collection(db, 'users', user.uid, 'bookmarks'), orderBy('createdAt', 'desc')), (snap) => {
-      setBookmarks(snap.docs.map(d => { const data = d.data() as BookmarkDoc; return { postId: d.id, groupId: data.groupId, body: data.tankaBody, createdAt: data.createdAt?.toDate() || new Date(), reactionSummary: {}, commentCount: 0, groupName: data.groupName, bookmarkedAt: data.createdAt?.toDate() || new Date() }; }));
+    return onSnapshot(query(collection(db, 'users', user.uid, 'bookmarks'), orderBy('createdAt', 'desc')), async (snap) => {
+      const cards = await Promise.all(snap.docs.map(async (d) => {
+        const data = d.data() as BookmarkDoc;
+        const card: TankaCard = { postId: d.id, groupId: data.groupId, body: data.tankaBody, createdAt: data.createdAt?.toDate() || new Date(), reactionSummary: {}, commentCount: 0, groupName: data.groupName, bookmarkedAt: data.createdAt?.toDate() || new Date() };
+        try {
+          const postSnap = await getDoc(doc(db, 'posts', d.id));
+          if (postSnap.exists()) {
+            const postData = postSnap.data() as PostDoc;
+            return { ...card, reactionSummary: postData.reactionSummary || {}, commentCount: postData.commentCount || 0, ...(postData.hogo ? { hogo: true, hogoReason: postData.hogoReason } : {}) };
+          }
+        } catch {}
+        return card;
+      }));
+      setBookmarks(cards);
     });
   }, [user]);
 
