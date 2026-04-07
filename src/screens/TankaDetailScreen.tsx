@@ -720,7 +720,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
               placeholder="仔細あり"
               placeholderTextColor={colors.disabled}
               multiline
-              maxLength={100}
+              maxLength={50}
             />
 
             <View style={styles.judgmentButtons}>

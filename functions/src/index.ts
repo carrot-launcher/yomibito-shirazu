@@ -237,6 +237,8 @@ export const createGroup = onCall(
     const uid = request.auth.uid;
     const { groupName, displayName } = request.data;
     if (!groupName?.trim() || !displayName?.trim()) throw new HttpsError("invalid-argument", "歌会名と表示名が必要です");
+    if (groupName.trim().length > 16) throw new HttpsError("invalid-argument", "歌会名は16文字以内にしてください");
+    if (displayName.trim().length > 16) throw new HttpsError("invalid-argument", "表示名は16文字以内にしてください");
 
     // ユーザーコードを取得
     const userSnap = await db.doc(`users/${uid}`).get();
@@ -684,7 +686,7 @@ export const judgeContent = onCall(
     const authorMemberSnap = await db.doc(`groups/${groupId}/members/${authorId}`).get();
     const currentCautionCount = authorMemberSnap.data()?.cautionCount || 0;
 
-    const hogoReason = reason?.trim() || "仔細あり";
+    const hogoReason = (reason?.trim() || "仔細あり").slice(0, 50);
     let effectiveType = type;
 
     // 戒告の場合、カウント確認

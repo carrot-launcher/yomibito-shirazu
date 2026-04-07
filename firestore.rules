@@ -59,7 +59,10 @@ service cloud.firestore {
         allow create: if isAuth()
                       && request.auth.uid == memberId
                       && !isBanned(groupId)
-                      && get(/databases/$(db)/documents/groups/$(groupId)).data.memberCount < 500;
+                      && get(/databases/$(db)/documents/groups/$(groupId)).data.memberCount < 500
+                      && request.resource.data.displayName is string
+                      && request.resource.data.displayName.size() >= 1
+                      && request.resource.data.displayName.size() <= 16;
         allow update: if request.auth.uid == memberId;
         // オーナーは他メンバーを削除可能（追放）、自分自身も削除可能（退会）
         allow delete: if isGroupOwner(groupId) || request.auth.uid == memberId;
