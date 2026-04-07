@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { getAnalytics, logEvent } from '@react-native-firebase/analytics';
 import * as Notifications from 'expo-notifications';
 import React, { useEffect, useMemo } from 'react';
 import { Text } from 'react-native';
@@ -143,7 +144,15 @@ export default function AppNavigator() {
   if (loading) return null;
 
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer
+      ref={navigationRef}
+      onStateChange={async () => {
+        const route = navigationRef.getCurrentRoute();
+        if (route) {
+          await logEvent(getAnalytics(), 'screen_view', { screen_name: route.name, screen_class: route.name });
+        }
+      }}
+    >
       <RootStack.Navigator screenOptions={commonHeaderStyle}>
         {!user ? (
           <RootStack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />

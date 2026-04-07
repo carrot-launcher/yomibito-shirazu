@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/images/icon-ios.png",
-      "bundleIdentifier": "com.yomibito.shirazu"
+      "bundleIdentifier": "com.yomibito.shirazu",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "adaptiveIcon": {
