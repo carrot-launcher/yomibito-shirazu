@@ -10,6 +10,7 @@
     "lint": "expo lint"
   },
   "dependencies": {
+    "@expo-google-fonts/ibm-plex-mono": "^0.4.1",
     "@expo-google-fonts/noto-serif-jp": "^0.4.3",
     "@expo-google-fonts/space-mono": "^0.4.2",
     "@expo-google-fonts/ubuntu-mono": "^0.4.1",

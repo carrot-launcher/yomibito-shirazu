@@ -551,7 +551,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 6,
     borderRadius: 20, borderWidth: 1, borderColor: '#E8E0D0', backgroundColor: '#FFFDF8',
   },
-  commentLabel: { fontSize: 13, color: '#8B7E6A', marginLeft: 'auto' },
+  commentLabel: { fontSize: 14, color: '#8B7E6A', marginLeft: 'auto', fontFamily: 'NotoSerifJP_400Regular' },
   commentInput: { flexDirection: 'row', gap: 8, alignItems: 'flex-end', marginTop: 10 },
   commentTextInput: {
     flex: 1, backgroundColor: '#FFFDF8', borderRadius: 10, padding: 10,
@@ -560,11 +560,11 @@ const styles = StyleSheet.create({
   },
   commentSubmit: { backgroundColor: '#2C2418', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
   commentSubmitDisabled: { opacity: 0.4 },
-  commentSubmitText: { color: '#F5F0E8', fontSize: 14 },
+  commentSubmitText: { color: '#F5F0E8', fontSize: 15, fontFamily: 'NotoSerifJP_500Medium' },
   charCount: { fontSize: 12, color: '#A69880', textAlign: 'right', marginTop: 4 },
   webview: { flex: 1, backgroundColor: 'transparent' },
   deletedArea: { alignItems: 'center', marginTop: 80 },
-  deletedText: { fontSize: 16, color: '#8B7E6A', marginBottom: 20 },
+  deletedText: { fontSize: 17, color: '#8B7E6A', marginBottom: 20, fontFamily: 'NotoSerifJP_500Medium' },
   backBtn: { backgroundColor: '#2C2418', borderRadius: 8, paddingHorizontal: 20, paddingVertical: 10 },
-  backBtnText: { color: '#F5F0E8', fontSize: 15 },
+  backBtnText: { color: '#F5F0E8', fontSize: 16, fontFamily: 'NotoSerifJP_500Medium' },
 });

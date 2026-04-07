@@ -187,7 +187,6 @@ export default function TayoriScreen({ navigation }: any) {
       </View>
       {filteredItems.length === 0 ? (
         <View style={styles.emptyWrap}>
-          <MaterialCommunityIcons name="email-outline" size={48} color="#A69880" />
           <Text style={styles.emptyText}>{visibleItems.length === 0 ? 'まだたよりはありません' : 'このたよりはありません'}</Text>
         </View>
       ) : (
@@ -207,8 +206,8 @@ const styles = StyleSheet.create({
   segmentBar: { flexDirection: 'row', marginHorizontal: 16, marginTop: 8, marginBottom: 4, backgroundColor: '#E8E0D0', borderRadius: 8, padding: 3 },
   segment: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
   segmentActive: { backgroundColor: '#FFFDF8' },
-  segmentText: { fontSize: 14, color: '#8B7E6A' },
-  segmentTextActive: { color: '#2C2418', fontWeight: '500' },
+  segmentText: { fontSize: 15, color: '#8B7E6A', fontFamily: 'NotoSerifJP_400Regular' },
+  segmentTextActive: { color: '#2C2418', fontWeight: '500', fontFamily: 'NotoSerifJP_500Medium' },
   list: { paddingVertical: 4 },
   item: {
     flexDirection: 'row',
@@ -235,8 +234,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   title: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#8B7E6A',
+    fontFamily: 'NotoSerifJP_400Regular',
   },
   titleUnread: {
     color: '#2C2418',
@@ -258,7 +258,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 17,
     color: '#A69880',
+    fontFamily: 'NotoSerifJP_500Medium',
   },
 });

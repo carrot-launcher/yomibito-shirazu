@@ -158,7 +158,8 @@ export default function UtakaiListScreen({ navigation }: any) {
 
   return (
     <GradientBackground style={styles.container}>
-      <FlatList data={groups} keyExtractor={item => item.id} contentContainerStyle={styles.list}
+      <FlatList data={groups} keyExtractor={item => item.id}
+        contentContainerStyle={groups.length === 0 ? styles.emptyList : styles.list}
         ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyText}>歌会がありません</Text><Text style={styles.emptySubtext}>右上の＋から歌会を開くか{'\n'}参加しましょう</Text></View>}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Timeline', { groupId: item.id, groupName: item.name })}>
@@ -232,24 +233,25 @@ export default function UtakaiListScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F0E8' },
   list: { padding: 16, paddingBottom: 24 },
-  empty: { alignItems: 'center', marginTop: 80 },
-  emptyText: { fontSize: 18, color: '#8B7E6A', marginBottom: 8 },
-  emptySubtext: { fontSize: 13, color: '#A69880', textAlign: 'center', lineHeight: 20 },
+  emptyList: { flex: 1, justifyContent: 'center' as const },
+  empty: { alignItems: 'center' },
+  emptyText: { fontSize: 17, color: '#A69880', fontFamily: 'NotoSerifJP_500Medium' },
+  emptySubtext: { fontSize: 14, color: '#A69880', textAlign: 'center', lineHeight: 22, marginTop: 8 },
   card: { backgroundColor: '#FFFDF8', borderRadius: 12, paddingHorizontal: 18, paddingVertical: 14, marginBottom: 10, borderWidth: 1, borderColor: '#E8E0D0', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cardName: { fontSize: fs(18), color: '#2C2418', fontFamily: 'NotoSerifJP_500Medium', flex: 1, marginRight: 12 },
-  cardMembers: { fontSize: 13, color: '#A69880' },
+  cardMembers: { fontSize: 14, color: '#A69880' },
   menuModal: { backgroundColor: '#FFFDF8', borderRadius: 16, padding: 8, width: '75%' },
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
-  menuText: { fontSize: 16, color: '#2C2418' },
+  menuText: { fontSize: 17, color: '#2C2418', fontFamily: 'NotoSerifJP_500Medium' },
   menuDivider: { height: 1, backgroundColor: '#E8E0D0', marginHorizontal: 12 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
   modal: { backgroundColor: '#FFFDF8', borderRadius: 16, padding: 24, width: '85%' },
-  modalTitle: { fontSize: 18, color: '#2C2418', fontWeight: '500', marginBottom: 8 },
+  modalTitle: { fontSize: 18, color: '#2C2418', fontWeight: '500', marginBottom: 8, fontFamily: 'NotoSerifJP_500Medium' },
   modalHint: { fontSize: 12, color: '#8B7E6A', lineHeight: 18, marginBottom: 16 },
   input: { borderWidth: 1, borderColor: '#E8E0D0', borderRadius: 8, padding: 12, fontSize: 16, color: '#2C2418', marginBottom: 20 },
-  codeInput: { fontFamily: 'UbuntuMono_400Regular', letterSpacing: 4, textAlign: 'center', fontSize: 20 },
+  codeInput: { fontFamily: 'IBMPlexMono_600SemiBold', letterSpacing: 4, textAlign: 'center', fontSize: 20 },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 16, alignItems: 'center' },
-  cancelText: { color: '#8B7E6A', fontSize: 15 },
+  cancelText: { color: '#8B7E6A', fontSize: 16, fontFamily: 'NotoSerifJP_400Regular' },
   confirmBtn: { backgroundColor: '#2C2418', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  confirmText: { color: '#F5F0E8', fontSize: 15 },
+  confirmText: { color: '#F5F0E8', fontSize: 16, fontFamily: 'NotoSerifJP_500Medium' },
 });

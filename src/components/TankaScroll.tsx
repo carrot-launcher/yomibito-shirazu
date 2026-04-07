@@ -100,6 +100,7 @@ function buildHtml(cards: TankaCard[], mode: string): string {
     width: 100%;
     color: #A69880;
     font-size: 16px;
+    font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho Pro", serif;
   }
 </style>
 </head>

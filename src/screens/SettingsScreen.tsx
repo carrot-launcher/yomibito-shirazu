@@ -1,12 +1,15 @@
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { signOut } from 'firebase/auth';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Switch, ScrollView,
+  ScrollView,
+  StyleSheet, Switch,
+  Text, TouchableOpacity,
+  View,
 } from 'react-native';
-import GradientBackground from '../components/GradientBackground';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useAlert } from '../components/CustomAlert';
-import { signOut } from 'firebase/auth';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import GradientBackground from '../components/GradientBackground';
 import { auth, db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 
@@ -51,7 +54,7 @@ export default function SettingsScreen() {
       </View>
 
       <Text style={styles.sectionTitle}>短歌の変換</Text>
-      <Text style={styles.hint}>初心者の分かち書きを補正します。上級者はOFFにできます。</Text>
+      <Text style={styles.hint}>初心者の分かち書きを補正します。</Text>
 
       <View style={styles.switchRow}>
         <Text style={styles.switchLabel}>半角スペース → 全角</Text>
@@ -104,9 +107,9 @@ const styles = StyleSheet.create({
     marginBottom: 24, borderWidth: 1, borderColor: '#E8E0D0', alignItems: 'center',
   },
   idLabel: { fontSize: 12, color: '#8B7E6A', marginBottom: 4 },
-  idValue: { fontSize: 28, color: '#2C2418', fontWeight: '500', letterSpacing: 4 },
+  idValue: { fontSize: 28, color: '#2C2418', fontWeight: '500', letterSpacing: 4, fontFamily: 'IBMPlexMono_600SemiBold' },
   idHint: { fontSize: 11, color: '#A69880', marginTop: 6 },
-  sectionTitle: { fontSize: 16, color: '#2C2418', fontWeight: '500', marginBottom: 4 },
+  sectionTitle: { fontSize: 17, color: '#2C2418', fontWeight: '500', marginBottom: 4, fontFamily: 'NotoSerifJP_500Medium' },
   hint: { fontSize: 12, color: '#A69880', marginBottom: 12, lineHeight: 18 },
   input: {
     backgroundColor: '#FFFDF8', borderRadius: 10, padding: 14,
@@ -116,7 +119,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#E8E0D0',
   },
-  switchLabel: { fontSize: 15, color: '#2C2418' },
+  switchLabel: { fontSize: 16, color: '#2C2418', fontFamily: 'NotoSerifJP_400Regular' },
   logoutBtn: { alignItems: 'center', marginTop: 24, paddingVertical: 12 },
-  logoutText: { color: '#C53030', fontSize: 14 },
+  logoutText: { color: '#C53030', fontSize: 15, fontFamily: 'NotoSerifJP_400Regular' },
 });

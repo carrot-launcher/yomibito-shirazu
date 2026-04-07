@@ -76,13 +76,13 @@ export default function ComposeScreen({ route, navigation }: any) {
           <TouchableOpacity
             style={{
               backgroundColor: submitting || !body.trim() ? '#C4B8A0' : '#2C2418',
-              borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8,
+              borderRadius: 20, paddingHorizontal: 18, paddingVertical: 6,
             }}
             onPress={handleSubmit}
             disabled={submitting || !body.trim()}
           >
-            <Text style={{ color: '#F5F0E8', fontSize: 15, fontFamily: 'NotoSerifJP_400Regular' }}>
-              {submitting ? '...' : '詠む'}
+            <Text style={{ color: '#F5F0E8', fontSize: 15, fontFamily: 'NotoSerifJP_500Medium' }}>
+              詠む
             </Text>
           </TouchableOpacity>
         </View>
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   groupList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   groupChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#E8E0D0', backgroundColor: '#FFFDF8' },
   groupChipSelected: { backgroundColor: '#2C2418', borderColor: '#2C2418' },
-  groupChipText: { fontSize: 14, color: '#2C2418' },
+  groupChipText: { fontSize: 15, color: '#2C2418', fontFamily: 'NotoSerifJP_400Regular' },
   groupChipTextSelected: { color: '#F5F0E8' },
   inputArea: { flex: 1, marginHorizontal: 16, marginTop: 8, paddingTop: 8 },
   tankaInput: {
