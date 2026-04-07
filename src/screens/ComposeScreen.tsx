@@ -1,18 +1,20 @@
 import * as Crypto from 'expo-crypto';
 import { doc, getDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../theme/ThemeContext';
 
 const MAX_CHARS = 50;
 
 export default function ComposeScreen({ route, navigation }: any) {
   const preselectedGroupId = route.params?.preselectedGroupId;
   const { user } = useAuth();
+  const { colors } = useTheme();
   const [body, setBody] = useState('');
   const [groups, setGroups] = useState<{ id: string; name: string; selected: boolean }[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -71,25 +73,25 @@ export default function ComposeScreen({ route, navigation }: any) {
     navigation.setOptions({
       headerRight: () => (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginRight: 8 }}>
-          <Text style={{ fontSize: 14, color: '#8B7E6A', fontFamily: 'NotoSerifJP_400Regular' }}>
+          <Text style={{ fontSize: 14, color: colors.textSecondary, fontFamily: 'NotoSerifJP_400Regular' }}>
             {body.length}/{MAX_CHARS}
           </Text>
           <TouchableOpacity
             style={{
-              backgroundColor: submitting || body.trim().length < 2 ? '#C4B8A0' : '#2C2418',
+              backgroundColor: submitting || body.trim().length < 2 ? colors.disabled : colors.accent,
               borderRadius: 8, paddingHorizontal: 18, paddingVertical: 6,
             }}
             onPress={handleSubmit}
             disabled={submitting || body.trim().length < 2}
           >
-            <Text style={{ color: '#F5F0E8', fontSize: 15, fontFamily: 'NotoSerifJP_500Medium' }}>
+            <Text style={{ color: colors.accentText, fontSize: 15, fontFamily: 'NotoSerifJP_500Medium' }}>
               詠む
             </Text>
           </TouchableOpacity>
         </View>
       ),
     });
-  }, [body, submitting, handleSubmit]);
+  }, [body, submitting, handleSubmit, colors]);
 
   const hintParts: string[] = [];
   if (convertLineBreak) hintParts.push('改行');
@@ -98,13 +100,28 @@ export default function ComposeScreen({ route, navigation }: any) {
     ? `${hintParts.join('・')}は全角スペースに変換されます`
     : '';
 
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bg },
+    groupChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+    groupChipSelected: { backgroundColor: colors.accent, borderColor: colors.accent },
+    groupChipText: { fontSize: 15, lineHeight: 20, color: colors.text, fontFamily: 'NotoSerifJP_400Regular' },
+    groupChipTextSelected: { color: colors.accentText },
+    tankaInput: {
+      fontSize: 22, color: colors.text, lineHeight: 38,
+      letterSpacing: 2, textAlignVertical: 'top',
+      fontFamily: 'NotoSerifJP_400Regular',
+      includeFontPadding: false, paddingTop: 12,
+    },
+    hint: { fontSize: 11, color: colors.textTertiary, marginTop: 8 },
+  }), [colors]);
+
   return (
-    <GradientBackground style={styles.container}>
+    <GradientBackground style={dynamicStyles.container}>
       <View style={styles.topBar}>
         <View style={styles.groupList}>
           {groups.map(g => (
-            <TouchableOpacity key={g.id} style={[styles.groupChip, g.selected && styles.groupChipSelected]} onPress={() => toggleGroup(g.id)}>
-              <Text style={[styles.groupChipText, g.selected && styles.groupChipTextSelected]}>{g.selected ? '☑ ' : '☐ '}{g.name}</Text>
+            <TouchableOpacity key={g.id} style={[dynamicStyles.groupChip, g.selected && dynamicStyles.groupChipSelected]} onPress={() => toggleGroup(g.id)}>
+              <Text style={[dynamicStyles.groupChipText, g.selected && dynamicStyles.groupChipTextSelected]}>{g.selected ? '☑ ' : '☐ '}{g.name}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -112,38 +129,26 @@ export default function ComposeScreen({ route, navigation }: any) {
 
       <View style={styles.inputArea}>
         <TextInput
-          style={styles.tankaInput}
+          style={dynamicStyles.tankaInput}
           value={body}
           onChangeText={setBody}
           placeholder="歌を詠む..."
-          placeholderTextColor="#A69880"
+          placeholderTextColor={colors.textTertiary}
           multiline
           maxLength={MAX_CHARS}
           autoFocus
         />
         <View style={{ height: 20 }} />
-        {hintText ? <Text style={styles.hint}>{hintText}</Text> : null}
-        <Text style={styles.hint}>変換設定は「設定」タブから変更できます</Text>
-        <Text style={styles.hint}>ルビは波括弧で{'{漢字|よみ}'}と書くと振れます</Text>
+        {hintText ? <Text style={dynamicStyles.hint}>{hintText}</Text> : null}
+        <Text style={dynamicStyles.hint}>変換設定は「設定」タブから変更できます</Text>
+        <Text style={dynamicStyles.hint}>ルビは波括弧で{'{漢字|よみ}'}と書くと振れます</Text>
       </View>
     </GradientBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F0E8' },
   topBar: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
   groupList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  groupChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#E8E0D0', backgroundColor: '#FFFDF8' },
-  groupChipSelected: { backgroundColor: '#2C2418', borderColor: '#2C2418' },
-  groupChipText: { fontSize: 15, lineHeight: 20, color: '#2C2418', fontFamily: 'NotoSerifJP_400Regular' },
-  groupChipTextSelected: { color: '#F5F0E8' },
   inputArea: { flex: 1, marginHorizontal: 16, marginTop: 8, paddingTop: 8 },
-  tankaInput: {
-    fontSize: 22, color: '#2C2418', lineHeight: 38,
-    letterSpacing: 2, textAlignVertical: 'top',
-    fontFamily: 'NotoSerifJP_400Regular',
-    includeFontPadding: false, paddingTop: 12,
-  },
-  hint: { fontSize: 11, color: '#A69880', marginTop: 8 },
 });

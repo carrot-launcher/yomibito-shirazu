@@ -14,11 +14,13 @@ import {
 import { useAlert } from '../components/CustomAlert';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../theme/ThemeContext';
 import { MemberDoc } from '../types';
 
 export default function GroupSettingsScreen({ route, navigation }: any) {
   const { groupId } = route.params;
   const { user } = useAuth();
+  const { colors } = useTheme();
   const [groupName, setGroupName] = useState('');
   const [editingName, setEditingName] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -185,48 +187,48 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
     <GradientBackground>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* 招待コード */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>招待コード</Text>
+      <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>招待コード</Text>
         <View style={styles.codeRow}>
-          <Text style={styles.inviteCode}>{inviteCode}</Text>
-          <TouchableOpacity style={styles.copyBtn} onPress={handleCopyCode}>
-            <Text style={styles.copyBtnText}>{copied ? 'コピーしました' : 'コピー'}</Text>
+          <Text style={[styles.inviteCode, { color: colors.text }]}>{inviteCode}</Text>
+          <TouchableOpacity style={[styles.copyBtn, { backgroundColor: colors.accent }]} onPress={handleCopyCode}>
+            <Text style={[styles.copyBtnText, { color: colors.accentText }]}>{copied ? 'コピーしました' : 'コピー'}</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* 歌会名（オーナーのみ編集可） */}
       {isOwner && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>歌会の名前</Text>
-          <TextInput style={styles.input} value={editingName} onChangeText={setEditingName} onBlur={handleBlurGroupName} maxLength={16} />
-          {savedHint === 'groupName' && <Text style={styles.savedHint}>保存しました</Text>}
+        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>歌会の名前</Text>
+          <TextInput style={[styles.input, { borderColor: colors.border, color: colors.text }]} value={editingName} onChangeText={setEditingName} onBlur={handleBlurGroupName} maxLength={16} />
+          {savedHint === 'groupName' && <Text style={[styles.savedHint, { color: colors.textTertiary }]}>保存しました</Text>}
         </View>
       )}
 
       {/* 自分の表示名 */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>この歌会でのあなたの名前</Text>
-        <Text style={styles.hint}>この歌会でのみ使われる名前です。他の歌会には影響しません。</Text>
-        <TextInput style={styles.input} value={displayName} onChangeText={setDisplayName} onBlur={handleBlurDisplayName} placeholder="あなたの名前" placeholderTextColor="#A69880" maxLength={16} />
-        {savedHint === 'displayName' && <Text style={styles.savedHint}>保存しました</Text>}
+      <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>この歌会でのあなたの名前</Text>
+        <Text style={[styles.hint, { color: colors.textSecondary }]}>この歌会でのみ使われる名前です。他の歌会には影響しません。</Text>
+        <TextInput style={[styles.input, { borderColor: colors.border, color: colors.text }]} value={displayName} onChangeText={setDisplayName} onBlur={handleBlurDisplayName} placeholder="あなたの名前" placeholderTextColor={colors.textTertiary} maxLength={16} />
+        {savedHint === 'displayName' && <Text style={[styles.savedHint, { color: colors.textTertiary }]}>保存しました</Text>}
       </View>
 
       {/* 歌人一覧 */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>歌人一覧（{members.length}人）</Text>
+      <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>歌人一覧（{members.length}人）</Text>
         {members.map(m => (
-          <View key={m.id} style={styles.memberRow}>
+          <View key={m.id} style={[styles.memberRow, { borderBottomColor: colors.border }]}>
             <View style={styles.memberInfo}>
-              <Text style={styles.memberName}>
+              <Text style={[styles.memberName, { color: colors.text }]}>
                 {m.displayName || '名無し'}
-                {m.role === 'owner' && <MaterialCommunityIcons name="crown-outline" size={14} color="#8B7E6A" style={{ marginLeft: 4 }} />}
+                {m.role === 'owner' && <MaterialCommunityIcons name="crown-outline" size={14} color={colors.textSecondary} style={{ marginLeft: 4 }} />}
               </Text>
-              <Text style={styles.memberId}>#{m.userCode || '---'}</Text>
+              <Text style={[styles.memberId, { color: colors.textTertiary }]}>#{m.userCode || '---'}</Text>
             </View>
             {isOwner && m.id !== user?.uid && m.role !== 'owner' && (
-              <TouchableOpacity style={styles.kickBtn} onPress={() => handleKick(m)}>
-                <Text style={styles.kickBtnText}>追放</Text>
+              <TouchableOpacity style={[styles.kickBtn, { borderColor: colors.destructive }]} onPress={() => handleKick(m)}>
+                <Text style={[styles.kickBtnText, { color: colors.destructive }]}>追放</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -235,17 +237,17 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
 
       {/* 追放リスト（オーナーのみ） */}
       {isOwner && Object.keys(bannedUsers).length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>追放したユーザー（{Object.keys(bannedUsers).length}人）</Text>
-          <Text style={styles.hint}>解除すると、このユーザーは再び招待コードで参加できるようになります。</Text>
+        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>追放したユーザー（{Object.keys(bannedUsers).length}人）</Text>
+          <Text style={[styles.hint, { color: colors.textSecondary }]}>解除すると、このユーザーは再び招待コードで参加できるようになります。</Text>
           {Object.entries(bannedUsers).map(([uid, info]) => (
-            <View key={uid} style={styles.memberRow}>
+            <View key={uid} style={[styles.memberRow, { borderBottomColor: colors.border }]}>
               <View style={styles.memberInfo}>
-                <Text style={styles.memberName}>{info.displayName || '名無し'}</Text>
-                <Text style={styles.memberId}>#{info.userCode || '---'}</Text>
+                <Text style={[styles.memberName, { color: colors.text }]}>{info.displayName || '名無し'}</Text>
+                <Text style={[styles.memberId, { color: colors.textTertiary }]}>#{info.userCode || '---'}</Text>
               </View>
-              <TouchableOpacity style={styles.unbanBtn} onPress={() => handleUnban(uid)}>
-                <Text style={styles.unbanBtnText}>解除</Text>
+              <TouchableOpacity style={[styles.unbanBtn, { borderColor: colors.textSecondary }]} onPress={() => handleUnban(uid)}>
+                <Text style={[styles.unbanBtnText, { color: colors.textSecondary }]}>解除</Text>
               </TouchableOpacity>
             </View>
           ))}
@@ -254,9 +256,9 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
 
       {/* 裁きについて（オーナーのみ） */}
       {isOwner && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>裁きについて</Text>
-          <Text style={styles.judgmentExplain}>
+        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>裁きについて</Text>
+          <Text style={[styles.judgmentExplain, { color: colors.text }]}>
             歌や評の詳細画面から、不適切な投稿に対して裁きを行えます。{'\n\n'}
             <Text style={{ fontWeight: '600' }}>🟡 戒告</Text>
             {'　'}投稿を反故にし、著者に警告を与えます。同じ歌人への戒告が3回に達すると、自動的に破門されます。{'\n\n'}
@@ -269,7 +271,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
 
       {/* 歌会の退会（オーナー以外） */}
       {!isOwner && (
-        <TouchableOpacity style={styles.leaveBtn} onPress={() => {
+        <TouchableOpacity style={[styles.leaveBtn, { borderColor: colors.textSecondary }]} onPress={() => {
           alert('歌会を退会しますか？', '招待コードで再び参加できます。', [
             { text: 'やめる', style: 'cancel' },
             {
@@ -285,23 +287,23 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
             },
           ]);
         }}>
-          <Text style={styles.leaveBtnText}>歌会を退会する</Text>
+          <Text style={[styles.leaveBtnText, { color: colors.textSecondary }]}>歌会を退会する</Text>
         </TouchableOpacity>
       )}
 
       {/* 歌会の解散（オーナーのみ） */}
       {isOwner && (
-        <TouchableOpacity style={styles.dissolveBtn} onPress={() => setShowDissolve(true)}>
-          <Text style={styles.dissolveBtnText}>歌会を解散する</Text>
+        <TouchableOpacity style={[styles.dissolveBtn, { borderColor: colors.destructive }]} onPress={() => setShowDissolve(true)}>
+          <Text style={[styles.dissolveBtnText, { color: colors.destructive }]}>歌会を解散する</Text>
         </TouchableOpacity>
       )}
 
       {/* 解散確認モーダル */}
       <Modal visible={showDissolve} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.dissolveModal}>
-            <Text style={styles.dissolveTitle}>歌会の解散</Text>
-            <Text style={styles.dissolveWarning}>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.dissolveModal, { backgroundColor: colors.surface, borderColor: colors.destructive }]}>
+            <Text style={[styles.dissolveTitle, { color: colors.destructive }]}>歌会の解散</Text>
+            <Text style={[styles.dissolveWarning, { color: colors.text }]}>
               この操作は取り消せません。{'\n\n'}
               「{groupName}」のメンバー情報と歌会そのものが削除されます。{'\n'}
               歌はそのまま残り、歌集やブックマークから引き続き読めます。
@@ -312,40 +314,42 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
               onPress={() => setDeleteAllPosts(prev => !prev)}
               activeOpacity={0.7}
             >
-              <View style={[styles.checkbox, deleteAllPosts && styles.checkboxChecked]}>
+              <View style={[styles.checkbox, { borderColor: colors.destructive }, deleteAllPosts && { backgroundColor: colors.destructive }]}>
                 {deleteAllPosts && <Text style={styles.checkmark}>✓</Text>}
               </View>
-              <Text style={styles.checkboxLabel}>すべての歌・リアクション・評・栞も削除する</Text>
+              <Text style={[styles.checkboxLabel, { color: colors.destructive }]}>すべての歌・リアクション・評・栞も削除する</Text>
             </TouchableOpacity>
 
-            <Text style={styles.dissolveInstruction}>
+            <Text style={[styles.dissolveInstruction, { color: colors.textSecondary }]}>
               確認のため、歌会の名前を正確に入力してください：
             </Text>
-            <Text style={styles.dissolveGroupName}>
+            <Text style={[styles.dissolveGroupName, { color: colors.text, backgroundColor: colors.bg }]}>
               {groupName}
             </Text>
             <TextInput
               style={[
                 styles.dissolveInput,
-                dissolveConfirmText === groupName && styles.dissolveInputMatch,
+                { borderColor: colors.border, color: colors.text },
+                dissolveConfirmText === groupName && { borderColor: colors.destructive },
               ]}
               value={dissolveConfirmText}
               onChangeText={setDissolveConfirmText}
               placeholder="歌会の名前を入力"
-              placeholderTextColor="#A69880"
+              placeholderTextColor={colors.textTertiary}
               autoCorrect={false}
             />
 
             <View style={styles.dissolveButtons}>
               <TouchableOpacity
-                style={styles.dissolveCancelBtn}
+                style={[styles.dissolveCancelBtn, { borderColor: colors.border }]}
                 onPress={() => { setShowDissolve(false); setDissolveConfirmText(''); setDeleteAllPosts(false); }}
               >
-                <Text style={styles.dissolveCancelText}>やめる</Text>
+                <Text style={[styles.dissolveCancelText, { color: colors.textSecondary }]}>やめる</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
                   styles.dissolveConfirmBtn,
+                  { backgroundColor: colors.destructive },
                   (dissolveConfirmText !== groupName || dissolving) && styles.dissolveConfirmBtnDisabled,
                 ]}
                 onPress={handleDissolve}
@@ -368,76 +372,74 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
   content: { padding: 20, paddingBottom: 60 },
   section: {
-    backgroundColor: '#FFFDF8', borderRadius: 12, padding: 16,
-    marginBottom: 16, borderWidth: 1, borderColor: '#E8E0D0',
+    borderRadius: 12, padding: 16,
+    marginBottom: 16, borderWidth: 1,
   },
-  sectionTitle: { fontSize: 17, color: '#2C2418', fontWeight: '500', marginBottom: 8, fontFamily: 'NotoSerifJP_500Medium' },
-  hint: { fontSize: 12, color: '#8B7E6A', lineHeight: 18, marginBottom: 12 },
+  sectionTitle: { fontSize: 17, fontWeight: '500', marginBottom: 8, fontFamily: 'NotoSerifJP_500Medium' },
+  hint: { fontSize: 12, lineHeight: 18, marginBottom: 12 },
   codeRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  inviteCode: { fontSize: 24, color: '#2C2418', letterSpacing: 6, fontFamily: 'IBMPlexMono_600SemiBold', flex: 1 },
-  copyBtn: { backgroundColor: '#2C2418', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
-  copyBtnText: { color: '#F5F0E8', fontSize: 13 },
-  input: { borderWidth: 1, borderColor: '#E8E0D0', borderRadius: 8, padding: 12, fontSize: 16, color: '#2C2418', marginBottom: 12 },
-  savedHint: { fontSize: 12, color: '#A69880', marginTop: 4 },
+  inviteCode: { fontSize: 24, letterSpacing: 6, fontFamily: 'IBMPlexMono_600SemiBold', flex: 1 },
+  copyBtn: { borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
+  copyBtnText: { fontSize: 13 },
+  input: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 12 },
+  savedHint: { fontSize: 12, marginTop: 4 },
   memberRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F0EBE0',
+    paddingVertical: 10, borderBottomWidth: 1,
   },
   memberInfo: { flex: 1 },
-  memberName: { fontSize: 16, color: '#2C2418', fontFamily: 'NotoSerifJP_400Regular' },
+  memberName: { fontSize: 16, fontFamily: 'NotoSerifJP_400Regular' },
   ownerBadge: { fontSize: 14 },
-  memberId: { fontSize: 12, color: '#A69880', marginTop: 2 },
-  kickBtn: { borderWidth: 1, borderColor: '#C53030', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
-  kickBtnText: { color: '#C53030', fontSize: 12 },
-  unbanBtn: { borderWidth: 1, borderColor: '#8B7E6A', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
-  unbanBtnText: { color: '#8B7E6A', fontSize: 12 },
+  memberId: { fontSize: 12, marginTop: 2 },
+  kickBtn: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
+  kickBtnText: { fontSize: 12 },
+  unbanBtn: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
+  unbanBtnText: { fontSize: 12 },
 
   // 退会ボタン
   leaveBtn: {
     marginTop: 16, paddingVertical: 14, alignItems: 'center',
-    borderRadius: 12, borderWidth: 1, borderColor: '#8B7E6A',
+    borderRadius: 12, borderWidth: 1,
   },
-  leaveBtnText: { color: '#8B7E6A', fontSize: 15 },
+  leaveBtnText: { fontSize: 15 },
 
   // 解散ボタン
   dissolveBtn: {
     marginTop: 16, paddingVertical: 14, alignItems: 'center',
-    borderRadius: 12, borderWidth: 1, borderColor: '#C53030',
+    borderRadius: 12, borderWidth: 1,
   },
-  dissolveBtnText: { color: '#C53030', fontSize: 15 },
+  dissolveBtnText: { fontSize: 15 },
 
   // 解散確認モーダル
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   dissolveModal: {
-    backgroundColor: '#FFFDF8', borderRadius: 16, padding: 24,
-    width: '90%', borderWidth: 2, borderColor: '#C53030',
+    borderRadius: 16, padding: 24,
+    width: '90%', borderWidth: 2,
   },
-  dissolveTitle: { fontSize: 20, color: '#C53030', fontWeight: '600', marginBottom: 12, textAlign: 'center' },
-  dissolveWarning: { fontSize: 13, color: '#2C2418', lineHeight: 22, marginBottom: 20 },
-  dissolveInstruction: { fontSize: 13, color: '#8B7E6A', marginBottom: 8 },
+  dissolveTitle: { fontSize: 20, fontWeight: '600', marginBottom: 12, textAlign: 'center' },
+  dissolveWarning: { fontSize: 13, lineHeight: 22, marginBottom: 20 },
+  dissolveInstruction: { fontSize: 13, marginBottom: 8 },
   dissolveGroupName: {
-    fontSize: 16, color: '#2C2418', fontWeight: '600',
-    backgroundColor: '#F5F0E8', padding: 8, borderRadius: 6,
+    fontSize: 16, fontWeight: '600',
+    padding: 8, borderRadius: 6,
     textAlign: 'center', marginBottom: 12, overflow: 'hidden',
   },
   dissolveInput: {
-    borderWidth: 2, borderColor: '#E8E0D0', borderRadius: 8,
-    padding: 12, fontSize: 16, color: '#2C2418', marginBottom: 20, textAlign: 'center',
+    borderWidth: 2, borderRadius: 8,
+    padding: 12, fontSize: 16, marginBottom: 20, textAlign: 'center',
   },
-  dissolveInputMatch: { borderColor: '#C53030' },
   dissolveButtons: { flexDirection: 'row', gap: 12 },
-  dissolveCancelBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8, borderWidth: 1, borderColor: '#E8E0D0' },
-  dissolveCancelText: { color: '#8B7E6A', fontSize: 15 },
+  dissolveCancelBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8, borderWidth: 1 },
+  dissolveCancelText: { fontSize: 15 },
   checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16, marginBottom: 20 },
   checkbox: {
-    width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: '#C53030',
+    width: 22, height: 22, borderRadius: 4, borderWidth: 2,
     justifyContent: 'center', alignItems: 'center',
   },
-  checkboxChecked: { backgroundColor: '#C53030' },
   checkmark: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
-  checkboxLabel: { fontSize: 13, color: '#C53030', flex: 1 },
-  dissolveConfirmBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8, backgroundColor: '#C53030' },
+  checkboxLabel: { fontSize: 13, flex: 1 },
+  dissolveConfirmBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
   dissolveConfirmBtnDisabled: { opacity: 0.3 },
   dissolveConfirmText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
-  judgmentExplain: { fontSize: 13, color: '#2C2418', lineHeight: 22 },
+  judgmentExplain: { fontSize: 13, lineHeight: 22 },
 });

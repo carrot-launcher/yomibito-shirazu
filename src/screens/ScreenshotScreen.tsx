@@ -5,6 +5,7 @@ import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { WebView } from 'react-native-webview';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
+import { useTheme } from '../theme/ThemeContext';
 import { stripRuby } from '../utils/formatTanka';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -122,6 +123,7 @@ export default function ScreenshotScreen({ route }: any) {
   const { body } = route.params;
   const webViewRef = useRef<WebView>(null);
   const { alert } = useAlert();
+  const { colors } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -167,7 +169,7 @@ export default function ScreenshotScreen({ route }: any) {
           <WebView
             ref={webViewRef}
             source={{ html }}
-            style={styles.webview}
+            style={[styles.webview, { backgroundColor: colors.webViewBg }]}
             onMessage={handleMessage}
             onLoadEnd={() => setReady(true)}
             scrollEnabled={false}
@@ -176,12 +178,12 @@ export default function ScreenshotScreen({ route }: any) {
             androidLayerType="software"
           />
         ) : (
-          <View style={styles.webview} />
+          <View style={[styles.webview, { backgroundColor: colors.webViewBg }]} />
         )}
       </View>
       <View style={styles.buttonRow}>
-        <TouchableOpacity style={[styles.saveBtn, !ready && styles.saveBtnDisabled]} onPress={handleCapture} disabled={!ready}>
-          <Text style={styles.saveBtnText}>画像を保存</Text>
+        <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.accent }, !ready && styles.saveBtnDisabled]} onPress={handleCapture} disabled={!ready}>
+          <Text style={[styles.saveBtnText, { color: colors.accentText }]}>画像を保存</Text>
         </TouchableOpacity>
       </View>
     </GradientBackground>
@@ -189,11 +191,11 @@ export default function ScreenshotScreen({ route }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F0E8', alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   cardWrapper: { width: CARD_WIDTH, height: CARD_HEIGHT, borderRadius: 4, overflow: 'hidden' },
-  webview: { flex: 1, backgroundColor: '#FBF7F0' },
+  webview: { flex: 1 },
   buttonRow: { marginTop: 24, alignItems: 'center' },
-  saveBtn: { backgroundColor: '#2C2418', borderRadius: 10, paddingHorizontal: 28, paddingVertical: 14 },
+  saveBtn: { borderRadius: 10, paddingHorizontal: 28, paddingVertical: 14 },
   saveBtnDisabled: { opacity: 0.4 },
-  saveBtnText: { color: '#F5F0E8', fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular' },
+  saveBtnText: { fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular' },
 });

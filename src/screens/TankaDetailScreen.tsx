@@ -14,7 +14,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
   StyleSheet,
@@ -28,6 +28,8 @@ import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
+import { ThemeColors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { CommentDoc, PostDoc, REACTION_EMOJI } from '../types';
 import { compressNewlines, formatTankaBody } from '../utils/formatTanka';
 
@@ -40,7 +42,8 @@ function buildDetailHtml(
   body: string,
   comments: { body: string; time: string; id: string; hogo?: boolean; hogoReason?: string }[],
   isHogo: boolean,
-  hogoReason?: string,
+  hogoReason: string | undefined,
+  colors: ThemeColors,
 ): string {
   const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const commentsJson = JSON.stringify(comments.map(c => ({
@@ -62,7 +65,7 @@ function buildDetailHtml(
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
     height: 100%;
-    background: transparent;
+    background: ${colors.webViewBg};
     font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho Pro", serif;
     overflow-x: auto;
     overflow-y: hidden;
@@ -81,7 +84,7 @@ function buildDetailHtml(
     font-size: 22px;
     line-height: 2.0;
     letter-spacing: 0.12em;
-    color: #2C2418;
+    color: ${colors.text};
     padding: 8px 12px;
     white-space: pre-wrap;
     flex-shrink: 0;
@@ -89,12 +92,12 @@ function buildDetailHtml(
   .tanka-section rt { font-size: 0.45em; letter-spacing: 0; }
   .hogo-text {
     font-style: italic;
-    color: #A69880;
+    color: ${colors.textTertiary};
     font-size: 0.8em;
   }
   .divider {
     width: 1px;
-    background: #E8E0D0;
+    background: ${colors.border};
     margin: 16px 12px;
     flex-shrink: 0;
   }
@@ -110,33 +113,33 @@ function buildDetailHtml(
     font-size: 15px;
     line-height: 1.8;
     letter-spacing: 0.05em;
-    color: #2C2418;
+    color: ${colors.text};
     padding: 8px 6px;
     white-space: pre-wrap;
     cursor: pointer;
     transition: background 0.2s;
     flex-shrink: 0;
   }
-  .comment-item:active { background: rgba(0,0,0,0.04); }
+  .comment-item:active { background: ${colors.cardPress}; }
   .comment-hogo {
     font-style: italic;
-    color: #A69880;
+    color: ${colors.textTertiary};
   }
   .fold-hint {
     font-size: 12px;
-    color: #A69880;
+    color: ${colors.textTertiary};
     margin-top: 4px;
   }
   .comment-time {
     font-size: 10px;
-    color: #A69880;
+    color: ${colors.textTertiary};
     margin-top: 8px;
   }
   .no-comments {
     -webkit-writing-mode: vertical-rl;
     writing-mode: vertical-rl;
     font-size: 14px;
-    color: #A69880;
+    color: ${colors.textTertiary};
     padding: 8px 12px;
   }
 </style>
@@ -206,6 +209,8 @@ setTimeout(() => { document.body.scrollLeft = document.body.scrollWidth; }, 50);
 
 export default function TankaDetailScreen({ route, navigation }: any) {
   const { postId, groupId, batchId } = route.params;
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { user } = useAuth();
   const [post, setPost] = useState<PostDoc | null>(null);
   const [deleted, setDeleted] = useState(false);
@@ -569,7 +574,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     hogoReason: c.hogoReason,
   }));
 
-  const html = buildDetailHtml(displayBody, commentData, isHogo, post.hogoReason);
+  const html = buildDetailHtml(displayBody, commentData, isHogo, post.hogoReason, colors);
 
   // メニューで表示する項目を決定
   const isMenuForPost = menuTargetComment === null;
@@ -595,14 +600,14 @@ export default function TankaDetailScreen({ route, navigation }: any) {
               style={[styles.bookmarkBtn, isBookmarked && styles.bookmarkBtnActive]}
               onPress={handleBookmark}
             >
-              <MaterialCommunityIcons name={isBookmarked ? 'bookmark' : 'bookmark-outline'} size={20} color="#2C2418" />
+              <MaterialCommunityIcons name={isBookmarked ? 'bookmark' : 'bookmark-outline'} size={20} color={colors.text} />
             </TouchableOpacity>
           )}
 
           {/* 三点リーダメニュー（著者またはオーナーに表示、反故でない場合） */}
           {!isHogo && (
             <TouchableOpacity style={styles.moreBtn} onPress={openPostMenu}>
-              <MaterialCommunityIcons name="dots-horizontal" size={20} color="#2C2418" />
+              <MaterialCommunityIcons name="dots-horizontal" size={20} color={colors.text} />
             </TouchableOpacity>
           )}
 
@@ -617,7 +622,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
                 value={commentText}
                 onChangeText={setCommentText}
                 placeholder="評を書く..."
-                placeholderTextColor="#A69880"
+                placeholderTextColor={colors.textTertiary}
                 multiline maxLength={500}
               />
               <TouchableOpacity
@@ -638,7 +643,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
       <WebView
         ref={webViewRef}
         source={{ html }}
-        style={styles.webview}
+        style={[styles.webview, { backgroundColor: colors.webViewBg }]}
         onMessage={handleWebViewMessage}
         scrollEnabled={true}
         showsHorizontalScrollIndicator={false}
@@ -713,7 +718,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
               value={judgmentReason}
               onChangeText={setJudgmentReason}
               placeholder="仔細あり"
-              placeholderTextColor="#C4B8A0"
+              placeholderTextColor={colors.disabled}
               multiline
               maxLength={100}
             />
@@ -747,84 +752,86 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  loading: { textAlign: 'center', marginTop: 40, color: '#8B7E6A' },
-  topBar: {
-    borderBottomWidth: 1, borderBottomColor: '#E8E0D0',
-    paddingHorizontal: 16, paddingVertical: 10,
-  },
-  actionRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-  },
-  reactionBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: 20, borderWidth: 1, borderColor: '#E8E0D0', backgroundColor: '#FFFDF8',
-  },
-  reactionBtnActive: { backgroundColor: '#F0E8D8', borderColor: '#C4B8A0' },
-  reactionEmoji: { fontSize: 16 },
-  reactionCount: { fontSize: 13, color: '#8B7E6A' },
-  bookmarkBtn: {
-    paddingHorizontal: 8, paddingVertical: 6,
-    borderRadius: 20, borderWidth: 1, borderColor: '#E8E0D0', backgroundColor: '#FFFDF8',
-  },
-  bookmarkBtnActive: { backgroundColor: '#F0E8D8', borderColor: '#C4B8A0' },
-  moreBtn: {
-    paddingHorizontal: 8, paddingVertical: 6,
-    borderRadius: 20, borderWidth: 1, borderColor: '#E8E0D0', backgroundColor: '#FFFDF8',
-  },
-  commentLabel: { fontSize: 14, color: '#8B7E6A', marginLeft: 'auto', fontFamily: 'NotoSerifJP_400Regular' },
-  commentInput: { flexDirection: 'row', gap: 8, alignItems: 'flex-end', marginTop: 10 },
-  commentTextInput: {
-    flex: 1, backgroundColor: '#FFFDF8', borderRadius: 10, padding: 10,
-    fontSize: 15, color: '#2C2418', borderWidth: 1, borderColor: '#E8E0D0',
-    maxHeight: 80, textAlignVertical: 'top',
-  },
-  commentSubmit: { backgroundColor: '#2C2418', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12 },
-  commentSubmitDisabled: { opacity: 0.4 },
-  commentSubmitText: { color: '#F5F0E8', fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_500Medium' },
-  charCount: { fontSize: 12, color: '#A69880', textAlign: 'right', marginTop: 4 },
-  webview: { flex: 1, backgroundColor: 'transparent' },
-  deletedArea: { alignItems: 'center', marginTop: 80 },
-  deletedText: { fontSize: 17, color: '#8B7E6A', marginBottom: 20, fontFamily: 'NotoSerifJP_500Medium' },
-  backBtn: { backgroundColor: '#2C2418', borderRadius: 8, paddingHorizontal: 20, paddingVertical: 10 },
-  backBtnText: { color: '#F5F0E8', fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_500Medium' },
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1 },
+    loading: { textAlign: 'center', marginTop: 40, color: colors.textSecondary },
+    topBar: {
+      borderBottomWidth: 1, borderBottomColor: colors.border,
+      paddingHorizontal: 16, paddingVertical: 10,
+    },
+    actionRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+    },
+    reactionBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      paddingHorizontal: 12, paddingVertical: 6,
+      borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
+    },
+    reactionBtnActive: { backgroundColor: colors.activeHighlight, borderColor: colors.disabled },
+    reactionEmoji: { fontSize: 16 },
+    reactionCount: { fontSize: 13, color: colors.textSecondary },
+    bookmarkBtn: {
+      paddingHorizontal: 8, paddingVertical: 6,
+      borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
+    },
+    bookmarkBtnActive: { backgroundColor: colors.activeHighlight, borderColor: colors.disabled },
+    moreBtn: {
+      paddingHorizontal: 8, paddingVertical: 6,
+      borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
+    },
+    commentLabel: { fontSize: 14, color: colors.textSecondary, marginLeft: 'auto', fontFamily: 'NotoSerifJP_400Regular' },
+    commentInput: { flexDirection: 'row', gap: 8, alignItems: 'flex-end', marginTop: 10 },
+    commentTextInput: {
+      flex: 1, backgroundColor: colors.surface, borderRadius: 10, padding: 10,
+      fontSize: 15, color: colors.text, borderWidth: 1, borderColor: colors.border,
+      maxHeight: 80, textAlignVertical: 'top',
+    },
+    commentSubmit: { backgroundColor: colors.accent, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12 },
+    commentSubmitDisabled: { opacity: 0.4 },
+    commentSubmitText: { color: colors.accentText, fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_500Medium' },
+    charCount: { fontSize: 12, color: colors.textTertiary, textAlign: 'right', marginTop: 4 },
+    webview: { flex: 1 },
+    deletedArea: { alignItems: 'center', marginTop: 80 },
+    deletedText: { fontSize: 17, color: colors.textSecondary, marginBottom: 20, fontFamily: 'NotoSerifJP_500Medium' },
+    backBtn: { backgroundColor: colors.accent, borderRadius: 8, paddingHorizontal: 20, paddingVertical: 10 },
+    backBtnText: { color: colors.accentText, fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_500Medium' },
 
-  // アクションメニュー
-  menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  menuSheet: {
-    backgroundColor: '#FFFDF8', borderTopLeftRadius: 16, borderTopRightRadius: 16,
-    padding: 20, paddingBottom: 36,
-  },
-  menuTitle: { fontSize: 13, color: '#A69880', textAlign: 'center', marginBottom: 12, fontFamily: 'NotoSerifJP_400Regular' },
-  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
-  menuItemIcon: { fontSize: 18, width: 24, textAlign: 'center' },
-  menuItemText: { fontSize: 16, color: '#2C2418', fontFamily: 'NotoSerifJP_400Regular' },
-  menuItemTextDanger: { fontSize: 16, color: '#C53030', fontFamily: 'NotoSerifJP_400Regular' },
-  menuItemTextCancel: { fontSize: 16, color: '#8B7E6A', fontFamily: 'NotoSerifJP_400Regular', textAlign: 'center', flex: 1 },
-  menuItemHint: { fontSize: 12, color: '#A69880', marginLeft: 'auto' },
-  menuDivider: { height: 1, backgroundColor: '#E8E0D0', marginVertical: 2 },
+    // アクションメニュー
+    menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+    menuSheet: {
+      backgroundColor: colors.surface, borderTopLeftRadius: 16, borderTopRightRadius: 16,
+      padding: 20, paddingBottom: 36,
+    },
+    menuTitle: { fontSize: 13, color: colors.textTertiary, textAlign: 'center', marginBottom: 12, fontFamily: 'NotoSerifJP_400Regular' },
+    menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
+    menuItemIcon: { fontSize: 18, width: 24, textAlign: 'center' },
+    menuItemText: { fontSize: 16, color: colors.text, fontFamily: 'NotoSerifJP_400Regular' },
+    menuItemTextDanger: { fontSize: 16, color: '#C53030', fontFamily: 'NotoSerifJP_400Regular' },
+    menuItemTextCancel: { fontSize: 16, color: colors.textSecondary, fontFamily: 'NotoSerifJP_400Regular', textAlign: 'center', flex: 1 },
+    menuItemHint: { fontSize: 12, color: colors.textTertiary, marginLeft: 'auto' },
+    menuDivider: { height: 1, backgroundColor: colors.border, marginVertical: 2 },
 
-  // 裁き確認モーダル
-  judgmentOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-  judgmentModal: {
-    backgroundColor: '#FFFDF8', borderRadius: 16, padding: 24,
-    width: '85%', borderWidth: 1, borderColor: '#E8E0D0',
-  },
-  judgmentTitle: { fontSize: 20, color: '#2C2418', fontWeight: '600', marginBottom: 12, textAlign: 'center' },
-  judgmentDesc: { fontSize: 13, color: '#8B7E6A', lineHeight: 20, marginBottom: 16 },
-  judgmentLabel: { fontSize: 13, color: '#2C2418', marginBottom: 6, fontFamily: 'NotoSerifJP_400Regular' },
-  judgmentInput: {
-    borderWidth: 1, borderColor: '#E8E0D0', borderRadius: 8,
-    padding: 12, fontSize: 15, color: '#2C2418', marginBottom: 20,
-    minHeight: 48, textAlignVertical: 'top',
-  },
-  judgmentButtons: { flexDirection: 'row', gap: 12 },
-  judgmentCancelBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1, borderColor: '#E8E0D0' },
-  judgmentCancelText: { color: '#8B7E6A', fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular' },
-  judgmentConfirmBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: '#D4A017' },
-  judgmentConfirmBtnBan: { backgroundColor: '#C53030' },
-  judgmentConfirmBtnDisabled: { opacity: 0.4 },
-  judgmentConfirmText: { color: '#FFFFFF', fontSize: 15, lineHeight: 20, fontWeight: '600', fontFamily: 'NotoSerifJP_500Medium' },
-});
+    // 裁き確認モーダル
+    judgmentOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+    judgmentModal: {
+      backgroundColor: colors.surface, borderRadius: 16, padding: 24,
+      width: '85%', borderWidth: 1, borderColor: colors.border,
+    },
+    judgmentTitle: { fontSize: 20, color: colors.text, fontWeight: '600', marginBottom: 12, textAlign: 'center' },
+    judgmentDesc: { fontSize: 13, color: colors.textSecondary, lineHeight: 20, marginBottom: 16 },
+    judgmentLabel: { fontSize: 13, color: colors.text, marginBottom: 6, fontFamily: 'NotoSerifJP_400Regular' },
+    judgmentInput: {
+      borderWidth: 1, borderColor: colors.border, borderRadius: 8,
+      padding: 12, fontSize: 15, color: colors.text, marginBottom: 20,
+      minHeight: 48, textAlignVertical: 'top',
+    },
+    judgmentButtons: { flexDirection: 'row', gap: 12 },
+    judgmentCancelBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1, borderColor: colors.border },
+    judgmentCancelText: { color: colors.textSecondary, fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular' },
+    judgmentConfirmBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: '#D4A017' },
+    judgmentConfirmBtnBan: { backgroundColor: '#C53030' },
+    judgmentConfirmBtnDisabled: { opacity: 0.4 },
+    judgmentConfirmText: { color: '#FFFFFF', fontSize: 15, lineHeight: 20, fontWeight: '600', fontFamily: 'NotoSerifJP_500Medium' },
+  });
+}

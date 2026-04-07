@@ -6,6 +6,7 @@ import { IBMPlexMono_600SemiBold } from '@expo-google-fonts/ibm-plex-mono';
 import { AlertProvider } from './src/components/CustomAlert';
 import { AuthProvider } from './src/hooks/useAuth';
 import AppNavigator from './src/navigation/AppNavigator';
+import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 
 // 全てのTextとTextInputにデフォルトフォントを適用
 const defaultFontFamily = 'NotoSerifJP_400Regular';
@@ -42,11 +43,22 @@ export default function App() {
   }
 
   return (
-    <AlertProvider>
-      <AuthProvider>
-        <StatusBar style="dark" />
-        <AppNavigator />
-      </AuthProvider>
-    </AlertProvider>
+    <ThemeProvider>
+      <AlertProvider>
+        <AuthProvider>
+          <AppInner />
+        </AuthProvider>
+      </AlertProvider>
+    </ThemeProvider>
+  );
+}
+
+function AppInner() {
+  const { isDark } = useTheme();
+  return (
+    <>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <AppNavigator />
+    </>
   );
 }

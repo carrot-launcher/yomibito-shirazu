@@ -1,15 +1,17 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { auth, WEB_CLIENT_ID } from '../config/firebase';
+import { useTheme } from '../theme/ThemeContext';
 
 GoogleSignin.configure({ webClientId: WEB_CLIENT_ID });
 
 export default function LoginScreen() {
   const { alert } = useAlert();
+  const { colors } = useTheme();
   const handleGoogleSignIn = async () => {
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
@@ -24,21 +26,21 @@ export default function LoginScreen() {
     }
   };
 
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg },
+    title: { fontSize: 36, fontWeight: '300', color: colors.text, letterSpacing: 8, marginBottom: 8, fontFamily: 'NotoSerifJP_400Regular' },
+    subtitle: { fontSize: 15, color: colors.textSecondary, marginBottom: 48, letterSpacing: 2, fontFamily: 'NotoSerifJP_400Regular' },
+    button: { backgroundColor: colors.accent, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 8 },
+    buttonText: { color: colors.accentText, fontSize: 17, lineHeight: 24, letterSpacing: 1, fontFamily: 'NotoSerifJP_500Medium' },
+  }), [colors]);
+
   return (
-    <GradientBackground style={styles.container}>
-      <Text style={styles.title}>詠み人知らず</Text>
-      <Text style={styles.subtitle}>匿名で短歌を詠み合う</Text>
-      <TouchableOpacity style={styles.button} onPress={handleGoogleSignIn}>
-        <Text style={styles.buttonText}>Google でログイン</Text>
+    <GradientBackground style={dynamicStyles.container}>
+      <Text style={dynamicStyles.title}>詠み人知らず</Text>
+      <Text style={dynamicStyles.subtitle}>匿名で短歌を詠み合う</Text>
+      <TouchableOpacity style={dynamicStyles.button} onPress={handleGoogleSignIn}>
+        <Text style={dynamicStyles.buttonText}>Google でログイン</Text>
       </TouchableOpacity>
     </GradientBackground>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F0E8' },
-  title: { fontSize: 36, fontWeight: '300', color: '#2C2418', letterSpacing: 8, marginBottom: 8, fontFamily: 'NotoSerifJP_400Regular' },
-  subtitle: { fontSize: 15, color: '#8B7E6A', marginBottom: 48, letterSpacing: 2, fontFamily: 'NotoSerifJP_400Regular' },
-  button: { backgroundColor: '#2C2418', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 8 },
-  buttonText: { color: '#F5F0E8', fontSize: 17, lineHeight: 24, letterSpacing: 1, fontFamily: 'NotoSerifJP_500Medium' },
-});

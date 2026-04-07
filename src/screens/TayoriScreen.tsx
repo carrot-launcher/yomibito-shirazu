@@ -6,6 +6,7 @@ import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../theme/ThemeContext';
 import { NotificationDoc } from '../types';
 import { stripRuby } from '../utils/formatTanka';
 
@@ -30,6 +31,7 @@ type FilterType = 'all' | 'new_post' | 'reaction' | 'comment' | 'judgment' | 'ot
 export default function TayoriScreen({ navigation }: any) {
   const { user } = useAuth();
   const { alert } = useAlert();
+  const { colors } = useTheme();
   const [items, setItems] = useState<TayoriItem[]>([]);
   const [lastReadAt, setLastReadAt] = useState<Date | null | undefined>(undefined);
   const [clearedAt, setClearedAt] = useState<Date | null>(null);
@@ -84,11 +86,11 @@ export default function TayoriScreen({ navigation }: any) {
     navigation.setOptions({
       headerRight: () => visibleItems.length > 0 ? (
         <TouchableOpacity onPress={handleDeleteAll} hitSlop={8} style={{ padding: 8 }}>
-          <MaterialCommunityIcons name="delete-outline" size={22} color="#8B7E6A" />
+          <MaterialCommunityIcons name="delete-outline" size={22} color={colors.textSecondary} />
         </TouchableOpacity>
       ) : null,
     });
-  }, [navigation, visibleItems.length, handleDeleteAll]);
+  }, [navigation, visibleItems.length, handleDeleteAll, colors]);
 
   // 画面を離れた時に既読更新（focusだと未読が即座に消えてしまう）
   useEffect(() => {
@@ -112,6 +114,56 @@ export default function TayoriScreen({ navigation }: any) {
     if (!item.postId || !item.groupId) return;
     navigation.navigate('TankaDetail', { postId: item.postId, groupId: item.groupId });
   };
+
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    segmentBar: { flexDirection: 'row', marginHorizontal: 16, marginTop: 8, marginBottom: 4, backgroundColor: colors.segmentBg, borderRadius: 8, padding: 3 },
+    segmentActive: { backgroundColor: colors.segmentActive },
+    segmentText: { fontSize: 15, lineHeight: 20, color: colors.textSecondary, fontFamily: 'NotoSerifJP_400Regular' },
+    segmentTextActive: { color: colors.text, fontWeight: '500', fontFamily: 'NotoSerifJP_500Medium' },
+    item: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    itemUnread: {
+      backgroundColor: colors.unread,
+    },
+    iconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    title: {
+      fontSize: 15,
+      color: colors.textSecondary,
+      fontFamily: 'NotoSerifJP_400Regular',
+    },
+    titleUnread: {
+      color: colors.text,
+      fontWeight: '500',
+    },
+    body: {
+      fontSize: 13,
+      color: colors.textTertiary,
+      marginTop: 2,
+    },
+    time: {
+      fontSize: 11,
+      color: colors.textTertiary,
+    },
+    emptyText: {
+      fontSize: 17,
+      color: colors.textTertiary,
+      fontFamily: 'NotoSerifJP_500Medium',
+    },
+  }), [colors]);
 
   const renderItem = ({ item }: { item: TayoriItem }) => {
     const unread = isUnread(item);
@@ -162,18 +214,18 @@ export default function TayoriScreen({ navigation }: any) {
 
     return (
       <TouchableOpacity
-        style={[styles.item, unread && styles.itemUnread]}
+        style={[dynamicStyles.item, unread && dynamicStyles.itemUnread]}
         onPress={() => handleTap(item)}
         activeOpacity={0.6}
       >
-        <View style={styles.iconWrap}>
-          <MaterialCommunityIcons name={icon as any} size={20} color={unread ? '#2C2418' : '#A69880'} />
+        <View style={dynamicStyles.iconWrap}>
+          <MaterialCommunityIcons name={icon as any} size={20} color={unread ? colors.text : colors.textTertiary} />
         </View>
         <View style={styles.textWrap}>
-          <Text style={[styles.title, unread && styles.titleUnread]} numberOfLines={1}>{title}</Text>
-          {body ? <Text style={styles.body} numberOfLines={1}>{body}</Text> : null}
+          <Text style={[dynamicStyles.title, unread && dynamicStyles.titleUnread]} numberOfLines={1}>{title}</Text>
+          {body ? <Text style={dynamicStyles.body} numberOfLines={1}>{body}</Text> : null}
         </View>
-        {createdAt && <Text style={styles.time}>{timeAgo(createdAt)}</Text>}
+        {createdAt && <Text style={dynamicStyles.time}>{timeAgo(createdAt)}</Text>}
       </TouchableOpacity>
     );
   };
@@ -197,20 +249,20 @@ export default function TayoriScreen({ navigation }: any) {
 
   return (
     <GradientBackground style={styles.container}>
-      <View style={styles.segmentBar}>
+      <View style={dynamicStyles.segmentBar}>
         {filters.map(f => (
           <TouchableOpacity
             key={f.key}
-            style={[styles.segment, filter === f.key && styles.segmentActive]}
+            style={[styles.segment, filter === f.key && dynamicStyles.segmentActive]}
             onPress={() => setFilter(f.key)}
           >
-            <Text style={[styles.segmentText, filter === f.key && styles.segmentTextActive]}>{f.label}</Text>
+            <Text style={[dynamicStyles.segmentText, filter === f.key && dynamicStyles.segmentTextActive]}>{f.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
       {filteredItems.length === 0 ? (
         <View style={styles.emptyWrap}>
-          <Text style={styles.emptyText}>{visibleItems.length === 0 ? 'まだたよりはありません' : 'このたよりはありません'}</Text>
+          <Text style={dynamicStyles.emptyText}>{visibleItems.length === 0 ? 'まだたよりはありません' : 'このたよりはありません'}</Text>
         </View>
       ) : (
         <FlatList
@@ -226,63 +278,16 @@ export default function TayoriScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  segmentBar: { flexDirection: 'row', marginHorizontal: 16, marginTop: 8, marginBottom: 4, backgroundColor: '#E8E0D0', borderRadius: 8, padding: 3 },
   segment: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
-  segmentActive: { backgroundColor: '#FFFDF8' },
-  segmentText: { fontSize: 15, lineHeight: 20, color: '#8B7E6A', fontFamily: 'NotoSerifJP_400Regular' },
-  segmentTextActive: { color: '#2C2418', fontWeight: '500', fontFamily: 'NotoSerifJP_500Medium' },
   list: { paddingVertical: 4 },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8E0D0',
-  },
-  itemUnread: {
-    backgroundColor: 'rgba(255, 253, 248, 0.6)',
-  },
-  iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#E8E0D0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
   textWrap: {
     flex: 1,
     marginRight: 8,
-  },
-  title: {
-    fontSize: 15,
-    color: '#8B7E6A',
-    fontFamily: 'NotoSerifJP_400Regular',
-  },
-  titleUnread: {
-    color: '#2C2418',
-    fontWeight: '500',
-  },
-  body: {
-    fontSize: 13,
-    color: '#A69880',
-    marginTop: 2,
-  },
-  time: {
-    fontSize: 11,
-    color: '#A69880',
   },
   emptyWrap: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 12,
-  },
-  emptyText: {
-    fontSize: 17,
-    color: '#A69880',
-    fontFamily: 'NotoSerifJP_500Medium',
   },
 });

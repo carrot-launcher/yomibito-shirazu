@@ -7,12 +7,14 @@ import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../theme/ThemeContext';
 import { GroupDoc } from '../types';
 import { fs } from '../utils/scale';
 
 export default function UtakaiListScreen({ navigation }: any) {
   const { user, userCode } = useAuth();
   const { alert } = useAlert();
+  const { colors } = useTheme();
   const [groups, setGroups] = useState<(GroupDoc & { id: string })[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
@@ -27,11 +29,11 @@ export default function UtakaiListScreen({ navigation }: any) {
     navigation.setOptions({
       headerRight: () => (
         <TouchableOpacity onPress={() => setShowMenu(true)} hitSlop={8} style={{ padding: 8 }}>
-          <MaterialCommunityIcons name="plus" size={24} color="#2C2418" />
+          <MaterialCommunityIcons name="plus" size={24} color={colors.text} />
         </TouchableOpacity>
       ),
     });
-  }, [navigation]);
+  }, [navigation, colors]);
 
   useEffect(() => {
     if (!user) return;
@@ -158,27 +160,27 @@ export default function UtakaiListScreen({ navigation }: any) {
     <GradientBackground style={styles.container}>
       <FlatList data={groups} keyExtractor={item => item.id}
         contentContainerStyle={groups.length === 0 ? styles.emptyList : styles.list}
-        ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyText}>歌会がありません</Text><Text style={styles.emptySubtext}>右上の＋から歌会を開くか{'\n'}参加しましょう</Text></View>}
+        ListEmptyComponent={<View style={styles.empty}><Text style={[styles.emptyText, { color: colors.textTertiary }]}>歌会がありません</Text><Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>右上の＋から歌会を開くか{'\n'}参加しましょう</Text></View>}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Timeline', { groupId: item.id, groupName: item.name })}>
-            <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
-            <Text style={styles.cardMembers}>{item.memberCount}人</Text>
+          <TouchableOpacity style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => navigation.navigate('Timeline', { groupId: item.id, groupName: item.name })}>
+            <Text style={[styles.cardName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
+            <Text style={[styles.cardMembers, { color: colors.textTertiary }]}>{item.memberCount}人</Text>
           </TouchableOpacity>
         )}
       />
 
       {/* アクションメニュー */}
       <Modal visible={showMenu} transparent animationType="fade">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowMenu(false)}>
-          <View style={styles.menuModal}>
+        <TouchableOpacity style={[styles.modalOverlay, { backgroundColor: colors.overlay }]} activeOpacity={1} onPress={() => setShowMenu(false)}>
+          <View style={[styles.menuModal, { backgroundColor: colors.surface }]}>
             <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); setShowCreate(true); }}>
-              <MaterialCommunityIcons name="plus-circle-outline" size={22} color="#2C2418" />
-              <Text style={styles.menuText}>歌会を開く</Text>
+              <MaterialCommunityIcons name="plus-circle-outline" size={22} color={colors.text} />
+              <Text style={[styles.menuText, { color: colors.text }]}>歌会を開く</Text>
             </TouchableOpacity>
-            <View style={styles.menuDivider} />
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
             <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); setShowJoin(true); }}>
-              <MaterialCommunityIcons name="key-variant" size={22} color="#2C2418" />
-              <Text style={styles.menuText}>招待コードで参加</Text>
+              <MaterialCommunityIcons name="key-variant" size={22} color={colors.text} />
+              <Text style={[styles.menuText, { color: colors.text }]}>招待コードで参加</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -186,40 +188,40 @@ export default function UtakaiListScreen({ navigation }: any) {
 
       {/* 歌会作成モーダル */}
       <Modal visible={showCreate} transparent animationType="fade">
-        <View style={styles.modalOverlay}><View style={styles.modal}>
-          <Text style={styles.modalTitle}>歌会を開く</Text>
-          <TextInput style={styles.input} placeholder="歌会の名前" value={newName} onChangeText={setNewName} placeholderTextColor="#A69880" maxLength={16} />
+        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}><View style={[styles.modal, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>歌会を開く</Text>
+          <TextInput style={[styles.input, { borderColor: colors.border, color: colors.text }]} placeholder="歌会の名前" value={newName} onChangeText={setNewName} placeholderTextColor={colors.textTertiary} maxLength={16} />
           <View style={styles.modalButtons}>
-            <TouchableOpacity onPress={() => { setShowCreate(false); setNewName(''); }}><Text style={styles.cancelText}>やめる</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.confirmBtn} onPress={handleCreateStep1}><Text style={styles.confirmText}>次へ</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => { setShowCreate(false); setNewName(''); }}><Text style={[styles.cancelText, { color: colors.textSecondary }]}>やめる</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.confirmBtn, { backgroundColor: colors.accent }]} onPress={handleCreateStep1}><Text style={[styles.confirmText, { color: colors.accentText }]}>次へ</Text></TouchableOpacity>
           </View>
         </View></View>
       </Modal>
 
       {/* 招待コードモーダル */}
       <Modal visible={showJoin} transparent animationType="fade">
-        <View style={styles.modalOverlay}><View style={styles.modal}>
-          <Text style={styles.modalTitle}>歌会に参加</Text>
-          <TextInput style={[styles.input, styles.codeInput]} placeholder="招待コード（6文字）" value={joinCode} onChangeText={handleJoinCodeChange} autoCapitalize="characters" autoCorrect={false} placeholderTextColor="#A69880" />
+        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}><View style={[styles.modal, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>歌会に参加</Text>
+          <TextInput style={[styles.input, styles.codeInput, { borderColor: colors.border, color: colors.text }]} placeholder="招待コード（6文字）" value={joinCode} onChangeText={handleJoinCodeChange} autoCapitalize="characters" autoCorrect={false} placeholderTextColor={colors.textTertiary} />
           <View style={styles.modalButtons}>
-            <TouchableOpacity onPress={() => { setShowJoin(false); setJoinCode(''); }}><Text style={styles.cancelText}>やめる</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.confirmBtn} onPress={handleJoinStep1}><Text style={styles.confirmText}>次へ</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => { setShowJoin(false); setJoinCode(''); }}><Text style={[styles.cancelText, { color: colors.textSecondary }]}>やめる</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.confirmBtn, { backgroundColor: colors.accent }]} onPress={handleJoinStep1}><Text style={[styles.confirmText, { color: colors.accentText }]}>次へ</Text></TouchableOpacity>
           </View>
         </View></View>
       </Modal>
 
       {/* 表示名設定モーダル */}
       <Modal visible={showSetName} transparent animationType="fade">
-        <View style={styles.modalOverlay}><View style={styles.modal}>
-          <Text style={styles.modalTitle}>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}><View style={[styles.modal, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>
             {pendingAction?.type === 'create' ? '歌会を開く' : `「${pendingAction?.groupName}」に参加`}
           </Text>
-          <Text style={styles.modalHint}>この歌会でのあなたの名前を決めてください{'\n'}後から歌会設定で変更できます</Text>
-          <TextInput style={styles.input} placeholder="あなたの名前" value={memberDisplayName} onChangeText={setMemberDisplayName} placeholderTextColor="#A69880" maxLength={16} autoFocus />
+          <Text style={[styles.modalHint, { color: colors.textSecondary }]}>この歌会でのあなたの名前を決めてください{'\n'}後から歌会設定で変更できます</Text>
+          <TextInput style={[styles.input, { borderColor: colors.border, color: colors.text }]} placeholder="あなたの名前" value={memberDisplayName} onChangeText={setMemberDisplayName} placeholderTextColor={colors.textTertiary} maxLength={16} autoFocus />
           <View style={styles.modalButtons}>
-            <TouchableOpacity onPress={() => { setShowSetName(false); setPendingAction(null); }}><Text style={styles.cancelText}>やめる</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.confirmBtn, !memberDisplayName.trim() && { opacity: 0.4 }]} onPress={handleConfirmName} disabled={!memberDisplayName.trim()}>
-              <Text style={styles.confirmText}>{pendingAction?.type === 'create' ? '開く' : '参加'}</Text>
+            <TouchableOpacity onPress={() => { setShowSetName(false); setPendingAction(null); }}><Text style={[styles.cancelText, { color: colors.textSecondary }]}>やめる</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.confirmBtn, { backgroundColor: colors.accent }, !memberDisplayName.trim() && { opacity: 0.4 }]} onPress={handleConfirmName} disabled={!memberDisplayName.trim()}>
+              <Text style={[styles.confirmText, { color: colors.accentText }]}>{pendingAction?.type === 'create' ? '開く' : '参加'}</Text>
             </TouchableOpacity>
           </View>
         </View></View>
@@ -229,27 +231,27 @@ export default function UtakaiListScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F0E8' },
+  container: { flex: 1 },
   list: { padding: 16, paddingBottom: 24 },
   emptyList: { flex: 1, justifyContent: 'center' as const },
   empty: { alignItems: 'center' },
-  emptyText: { fontSize: 17, color: '#A69880', fontFamily: 'NotoSerifJP_500Medium' },
-  emptySubtext: { fontSize: 14, color: '#A69880', textAlign: 'center', lineHeight: 22, marginTop: 8 },
-  card: { backgroundColor: '#FFFDF8', borderRadius: 12, paddingHorizontal: 18, paddingVertical: 14, marginBottom: 10, borderWidth: 1, borderColor: '#E8E0D0', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cardName: { fontSize: fs(18), color: '#2C2418', fontFamily: 'NotoSerifJP_500Medium', flex: 1, marginRight: 12 },
-  cardMembers: { fontSize: 14, color: '#A69880' },
-  menuModal: { backgroundColor: '#FFFDF8', borderRadius: 16, padding: 8, width: '75%' },
+  emptyText: { fontSize: 17, fontFamily: 'NotoSerifJP_500Medium' },
+  emptySubtext: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginTop: 8 },
+  card: { borderRadius: 12, paddingHorizontal: 18, paddingVertical: 14, marginBottom: 10, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardName: { fontSize: fs(18), fontFamily: 'NotoSerifJP_500Medium', flex: 1, marginRight: 12 },
+  cardMembers: { fontSize: 14 },
+  menuModal: { borderRadius: 16, padding: 8, width: '75%' },
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
-  menuText: { fontSize: 17, color: '#2C2418', fontFamily: 'NotoSerifJP_500Medium' },
-  menuDivider: { height: 1, backgroundColor: '#E8E0D0', marginHorizontal: 12 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
-  modal: { backgroundColor: '#FFFDF8', borderRadius: 16, padding: 24, width: '85%' },
-  modalTitle: { fontSize: 18, color: '#2C2418', fontWeight: '500', marginBottom: 8, fontFamily: 'NotoSerifJP_500Medium' },
-  modalHint: { fontSize: 12, color: '#8B7E6A', lineHeight: 18, marginBottom: 16 },
-  input: { borderWidth: 1, borderColor: '#E8E0D0', borderRadius: 8, padding: 12, fontSize: 16, color: '#2C2418', marginBottom: 20 },
+  menuText: { fontSize: 17, fontFamily: 'NotoSerifJP_500Medium' },
+  menuDivider: { height: 1, marginHorizontal: 12 },
+  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  modal: { borderRadius: 16, padding: 24, width: '85%' },
+  modalTitle: { fontSize: 18, fontWeight: '500', marginBottom: 8, fontFamily: 'NotoSerifJP_500Medium' },
+  modalHint: { fontSize: 12, lineHeight: 18, marginBottom: 16 },
+  input: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 20 },
   codeInput: { fontFamily: 'IBMPlexMono_600SemiBold', letterSpacing: 4, textAlign: 'center', fontSize: 20 },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 16, alignItems: 'center' },
-  cancelText: { color: '#8B7E6A', fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular' },
-  confirmBtn: { backgroundColor: '#2C2418', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  confirmText: { color: '#F5F0E8', fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_500Medium' },
+  cancelText: { fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular' },
+  confirmBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  confirmText: { fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_500Medium' },
 });

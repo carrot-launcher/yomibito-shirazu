@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { ThemeColors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { TankaCard } from '../types';
 
 interface Props {
@@ -26,7 +28,7 @@ function serializeCards(cards: TankaCard[]) {
   }));
 }
 
-function buildHtml(cards: TankaCard[], mode: string, hasLoadMore: boolean): string {
+function buildHtml(cards: TankaCard[], mode: string, hasLoadMore: boolean, colors: ThemeColors): string {
   const cardsJson = JSON.stringify(serializeCards(cards));
 
   return `<!DOCTYPE html>
@@ -37,7 +39,7 @@ function buildHtml(cards: TankaCard[], mode: string, hasLoadMore: boolean): stri
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
     height: 100%;
-    background: transparent;
+    background: ${colors.webViewBg};
     font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho Pro", serif;
     overflow-x: auto;
     overflow-y: hidden;
@@ -60,23 +62,23 @@ function buildHtml(cards: TankaCard[], mode: string, hasLoadMore: boolean): stri
     padding: 8px 18px;
     cursor: pointer;
     transition: background 0.2s;
-    border-right: 1px solid rgba(0,0,0,0.06);
+    border-right: 1px solid ${colors.border};
   }
   .tanka-card:last-child { border-right: none; }
-  .tanka-card:active { background: rgba(0,0,0,0.04); }
+  .tanka-card:active { background: ${colors.cardPress}; }
   .tanka-body {
     writing-mode: vertical-rl;
     font-size: ${tankaFontSize}px;
     line-height: 2.0;
     letter-spacing: 0.1em;
-    color: #2C2418;
+    color: ${colors.text};
     flex: 1;
     display: flex;
     align-items: flex-start;
   }
   .tanka-body.hogo {
     font-style: italic;
-    color: #A69880;
+    color: ${colors.textTertiary};
     font-size: ${Math.round(tankaFontSize * 0.8)}px;
   }
   rt { font-size: 0.45em; letter-spacing: 0; }
@@ -87,7 +89,7 @@ function buildHtml(cards: TankaCard[], mode: string, hasLoadMore: boolean): stri
     gap: 4px;
     margin-top: 12px;
     font-size: ${metaFontSize}px;
-    color: #8B7E6A;
+    color: ${colors.textSecondary};
     width: 0;
     min-width: 100%;
   }
@@ -100,19 +102,19 @@ function buildHtml(cards: TankaCard[], mode: string, hasLoadMore: boolean): stri
   .reaction-item { white-space: nowrap; }
   .group-info {
     font-size: ${metaFontSize - 1}px;
-    color: #A69880;
+    color: ${colors.textTertiary};
     text-align: center;
     word-break: break-all;
   }
-  .comment-count { font-size: ${metaFontSize}px; color: #8B7E6A; }
-  .time-ago { font-size: ${metaFontSize - 1}px; color: #A69880; margin-top: 2px; }
+  .comment-count { font-size: ${metaFontSize}px; color: ${colors.textSecondary}; }
+  .time-ago { font-size: ${metaFontSize - 1}px; color: ${colors.textTertiary}; margin-top: 2px; }
   .empty-state {
     display: flex;
     align-items: center;
     justify-content: center;
     height: 100%;
     width: 100%;
-    color: #A69880;
+    color: ${colors.textTertiary};
     font-size: 16px;
     font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho Pro", serif;
   }
@@ -289,6 +291,7 @@ window.prependCards = function(newCards) {
 }
 
 export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation, newArrivals, arrivalGen }: Props) {
+  const { colors } = useTheme();
   const webViewRef = useRef<WebView>(null);
   const renderedCountRef = useRef(0);
   const isTimeline = mode === 'timeline';
@@ -296,12 +299,12 @@ export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation
   // For timeline: memoize HTML on generation change only (not on cards change)
   // For other modes: rebuild HTML on any cards change
   const timelineHtml = useMemo(
-    () => isTimeline ? buildHtml(cards, mode, !!onLoadMore) : '',
-    [generation, isTimeline],
+    () => isTimeline ? buildHtml(cards, mode, !!onLoadMore, colors) : '',
+    [generation, isTimeline, colors],
   );
   const otherHtml = useMemo(
-    () => !isTimeline ? buildHtml(cards, mode, false) : '',
-    [cards, mode, isTimeline],
+    () => !isTimeline ? buildHtml(cards, mode, false, colors) : '',
+    [cards, mode, isTimeline, colors],
   );
   const html = isTimeline ? timelineHtml : otherHtml;
 
@@ -352,7 +355,7 @@ export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation
         key={webViewKey}
         ref={webViewRef}
         source={{ html }}
-        style={styles.webview}
+        style={[styles.webview, { backgroundColor: colors.webViewBg }]}
         onMessage={handleMessage}
         scrollEnabled={true}
         nestedScrollEnabled={true}
@@ -367,5 +370,5 @@ export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  webview: { flex: 1, backgroundColor: 'transparent' },
+  webview: { flex: 1 },
 });

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Text, TouchableOpacity, StyleSheet, View } from 'react-native';
 import GradientBackground from '../components/GradientBackground';
 import { collection, doc, getDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
@@ -6,9 +6,11 @@ import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import TankaScroll from '../components/TankaScroll';
 import { TankaCard, MyPostDoc, BookmarkDoc, PostDoc } from '../types';
+import { useTheme } from '../theme/ThemeContext';
 
 export default function KashuScreen({ navigation }: any) {
   const { user } = useAuth();
+  const { colors } = useTheme();
   const [tab, setTab] = useState<'myPosts' | 'bookmarks'>('myPosts');
   const [myPosts, setMyPosts] = useState<TankaCard[]>([]);
   const [bookmarks, setBookmarks] = useState<TankaCard[]>([]);
@@ -70,11 +72,19 @@ export default function KashuScreen({ navigation }: any) {
 
   const handleTap = (postId: string, groupId: string, batchId?: string) => navigation.navigate('TankaDetail', { postId, groupId, batchId, fromMyPosts: tab === 'myPosts' });
 
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bg },
+    segmentBar: { flexDirection: 'row', marginHorizontal: 16, marginTop: 8, marginBottom: 4, backgroundColor: colors.segmentBg, borderRadius: 8, padding: 3 },
+    segmentActive: { backgroundColor: colors.segmentActive },
+    segmentText: { fontSize: 15, lineHeight: 20, color: colors.textSecondary, fontFamily: 'NotoSerifJP_400Regular' },
+    segmentTextActive: { color: colors.text, fontWeight: '500', fontFamily: 'NotoSerifJP_500Medium' },
+  }), [colors]);
+
   return (
-    <GradientBackground style={styles.container}>
-      <View style={styles.segmentBar}>
-        <TouchableOpacity style={[styles.segment, tab === 'myPosts' && styles.segmentActive]} onPress={() => setTab('myPosts')}><Text style={[styles.segmentText, tab === 'myPosts' && styles.segmentTextActive]}>自分の歌</Text></TouchableOpacity>
-        <TouchableOpacity style={[styles.segment, tab === 'bookmarks' && styles.segmentActive]} onPress={() => setTab('bookmarks')}><Text style={[styles.segmentText, tab === 'bookmarks' && styles.segmentTextActive]}>栞</Text></TouchableOpacity>
+    <GradientBackground style={dynamicStyles.container}>
+      <View style={dynamicStyles.segmentBar}>
+        <TouchableOpacity style={[styles.segment, tab === 'myPosts' && dynamicStyles.segmentActive]} onPress={() => setTab('myPosts')}><Text style={[dynamicStyles.segmentText, tab === 'myPosts' && dynamicStyles.segmentTextActive]}>自分の歌</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.segment, tab === 'bookmarks' && dynamicStyles.segmentActive]} onPress={() => setTab('bookmarks')}><Text style={[dynamicStyles.segmentText, tab === 'bookmarks' && dynamicStyles.segmentTextActive]}>栞</Text></TouchableOpacity>
       </View>
       <TankaScroll cards={tab === 'myPosts' ? myPosts : bookmarks} onTap={handleTap} mode={tab} />
     </GradientBackground>
@@ -82,9 +92,5 @@ export default function KashuScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F0E8' },
-  segmentBar: { flexDirection: 'row', marginHorizontal: 16, marginTop: 8, marginBottom: 4, backgroundColor: '#E8E0D0', borderRadius: 8, padding: 3 },
   segment: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
-  segmentActive: { backgroundColor: '#FFFDF8' },
-  segmentText: { fontSize: 15, lineHeight: 20, color: '#8B7E6A', fontFamily: 'NotoSerifJP_400Regular' }, segmentTextActive: { color: '#2C2418', fontWeight: '500', fontFamily: 'NotoSerifJP_500Medium' },
 });

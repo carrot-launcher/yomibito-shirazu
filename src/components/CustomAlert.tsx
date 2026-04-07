@@ -1,5 +1,7 @@
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+import { useTheme } from '../theme/ThemeContext';
 
 type AlertButton = {
   text: string;
@@ -23,6 +25,7 @@ const AlertContext = createContext<AlertContextType>({ alert: () => {} });
 export const useAlert = () => useContext(AlertContext);
 
 export function AlertProvider({ children }: { children: React.ReactNode }) {
+  const { colors } = useTheme();
   const [state, setState] = useState<AlertState>({ visible: false, title: '', buttons: [] });
 
   const alert = useCallback((title: string, message?: string, buttons?: AlertButton[]) => {
@@ -42,27 +45,58 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   const cancelButton = state.buttons.find(b => b.style === 'cancel');
   const actionButtons = state.buttons.filter(b => b.style !== 'cancel');
 
+  const dynamicStyles = useMemo(() => ({
+    overlay: {
+      backgroundColor: colors.overlay,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+    },
+    title: {
+      color: colors.text,
+    },
+    message: {
+      color: colors.textSecondary,
+    },
+    cancelBtn: {
+      borderColor: colors.border,
+    },
+    cancelText: {
+      color: colors.textSecondary,
+    },
+    actionBtn: {
+      backgroundColor: colors.text,
+    },
+    actionText: {
+      color: colors.bg,
+    },
+    destructiveBtn: {
+      backgroundColor: colors.destructive,
+    },
+  }), [colors]);
+
   return (
     <AlertContext.Provider value={{ alert }}>
       {children}
       <Modal visible={state.visible} transparent animationType="fade">
-        <View style={styles.overlay}>
-          <View style={styles.card}>
-            <Text style={styles.title}>{state.title}</Text>
-            {state.message ? <Text style={styles.message}>{state.message}</Text> : null}
+        <View style={[styles.overlay, dynamicStyles.overlay]}>
+          <View style={[styles.card, dynamicStyles.card]}>
+            <Text style={[styles.title, dynamicStyles.title]}>{state.title}</Text>
+            {state.message ? <Text style={[styles.message, dynamicStyles.message]}>{state.message}</Text> : null}
             <View style={styles.buttonRow}>
               {cancelButton && (
-                <TouchableOpacity style={styles.cancelBtn} onPress={() => handlePress(cancelButton)}>
-                  <Text style={styles.cancelText}>{cancelButton.text}</Text>
+                <TouchableOpacity style={[styles.cancelBtn, dynamicStyles.cancelBtn]} onPress={() => handlePress(cancelButton)}>
+                  <Text style={[styles.cancelText, dynamicStyles.cancelText]}>{cancelButton.text}</Text>
                 </TouchableOpacity>
               )}
               {actionButtons.map((btn, i) => (
                 <TouchableOpacity
                   key={i}
-                  style={[styles.actionBtn, btn.style === 'destructive' && styles.destructiveBtn]}
+                  style={[styles.actionBtn, dynamicStyles.actionBtn, btn.style === 'destructive' && dynamicStyles.destructiveBtn]}
                   onPress={() => handlePress(btn)}
                 >
-                  <Text style={[styles.actionText, btn.style === 'destructive' && styles.destructiveText]}>
+                  <Text style={[styles.actionText, dynamicStyles.actionText, btn.style === 'destructive' && styles.destructiveText]}>
                     {btn.text}
                   </Text>
                 </TouchableOpacity>
@@ -77,19 +111,19 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1, backgroundColor: 'rgba(44,36,24,0.4)',
+    flex: 1,
     justifyContent: 'center', alignItems: 'center',
   },
   card: {
-    backgroundColor: '#FFFDF8', borderRadius: 16, padding: 28,
-    width: '82%', borderWidth: 1, borderColor: '#E8E0D0',
+    borderRadius: 16, padding: 28,
+    width: '82%', borderWidth: 1,
   },
   title: {
-    fontSize: 17, color: '#2C2418', fontWeight: '500',
+    fontSize: 17, fontWeight: '500',
     textAlign: 'center', marginBottom: 8, lineHeight: 24,
   },
   message: {
-    fontSize: 14, color: '#8B7E6A', textAlign: 'center',
+    fontSize: 14, textAlign: 'center',
     lineHeight: 22, marginBottom: 4,
   },
   buttonRow: {
@@ -98,14 +132,13 @@ const styles = StyleSheet.create({
   },
   cancelBtn: {
     flex: 1, paddingVertical: 12, alignItems: 'center',
-    borderRadius: 10, borderWidth: 1, borderColor: '#E8E0D0',
+    borderRadius: 10, borderWidth: 1,
   },
-  cancelText: { color: '#8B7E6A', fontSize: 15 },
+  cancelText: { fontSize: 15 },
   actionBtn: {
     flex: 1, paddingVertical: 12, alignItems: 'center',
-    borderRadius: 10, backgroundColor: '#2C2418',
+    borderRadius: 10,
   },
-  actionText: { color: '#F5F0E8', fontSize: 15 },
-  destructiveBtn: { backgroundColor: '#C53030' },
+  actionText: { fontSize: 15 },
   destructiveText: { color: '#FFFFFF' },
 });

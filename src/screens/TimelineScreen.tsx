@@ -7,10 +7,12 @@ import GradientBackground from '../components/GradientBackground';
 import TankaScroll from '../components/TankaScroll';
 import { db } from '../config/firebase';
 import { usePaginatedPosts } from '../hooks/usePaginatedPosts';
+import { useTheme } from '../theme/ThemeContext';
 
 export default function TimelineScreen({ route, navigation }: any) {
   const { groupId, groupName } = route.params;
   const { alert } = useAlert();
+  const { colors } = useTheme();
   const { cards, loading, hasMore, refresh, loadMore, generation, newArrivals, arrivalGen } = usePaginatedPosts(groupId);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -26,10 +28,10 @@ export default function TimelineScreen({ route, navigation }: any) {
         headerRight: () => (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginRight: 4 }}>
             <TouchableOpacity onPress={() => navigation.navigate('GroupSettings', { groupId })} hitSlop={8} style={{ padding: 8 }}>
-              <MaterialCommunityIcons name="cog-outline" size={22} color="#2C2418" />
+              <MaterialCommunityIcons name="cog-outline" size={22} color={colors.text} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => navigation.navigate('Compose', { preselectedGroupId: groupId })} hitSlop={8} style={{ padding: 8 }}>
-              <MaterialCommunityIcons name="pen" size={22} color="#2C2418" />
+              <MaterialCommunityIcons name="pen" size={22} color={colors.text} />
             </TouchableOpacity>
           </View>
         ),
@@ -45,7 +47,7 @@ export default function TimelineScreen({ route, navigation }: any) {
     });
     const unsub = navigation.addListener('focus', () => { updateHeader(); refresh(); });
     return unsub;
-  }, [groupId, groupName, refresh, navigation, alert]);
+  }, [groupId, groupName, refresh, navigation, alert, colors]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -58,7 +60,7 @@ export default function TimelineScreen({ route, navigation }: any) {
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#A69880" colors={['#A69880']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textTertiary} colors={[colors.textTertiary]} />}
       >
         <TankaScroll
           cards={cards}
