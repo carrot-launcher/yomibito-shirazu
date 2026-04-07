@@ -1,0 +1,121 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    // ===== ヘルパー関数 =====
+    function isAuth() {
+      return request.auth != null;
+    }
+    function isGroupMember(groupId) {
+      return isAuth() &&
+        exists(/databases/$(db)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    }
+    function isGroupOwner(groupId) {
+      return isAuth() &&
+        get(/databases/$(db)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == 'owner';
+    }
+    function isBanned(groupId) {
+      let groupData = get(/databases/$(db)/documents/groups/$(groupId)).data;
+      return 'bannedUsers' in groupData && request.auth.uid in groupData.bannedUsers;
+    }
+
+    // ===== レートリミットカウンタ（サーバー専用） =====
+    match /rateLimits/{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===== users =====
+    match /users/{userId} {
+      allow read: if isAuth();
+      allow write: if request.auth.uid == userId;
+
+      // 歌集（自分の投稿一覧）
+      match /myPosts/{myPostId} {
+        allow read: if request.auth.uid == userId;
+        allow write: if request.auth.uid == userId;
+      }
+
+      // 栞（ブックマーク）
+      match /bookmarks/{postId} {
+        allow read, write: if request.auth.uid == userId;
+      }
+
+      // 便り（通知一覧）
+      match /notifications/{notifId} {
+        allow read, update: if request.auth.uid == userId;
+      }
+    }
+
+    // ===== 歌会 =====
+    match /groups/{groupId} {
+      allow read: if isAuth();
+      // 作成はCloud Function経由のみ
+      allow create: if false;
+      // オーナーは歌会名を変更可能、メンバーはmemberCountの更新
+      allow update: if isAuth();
+
+      match /members/{memberId} {
+        allow read: if isAuth();
+        allow create: if isAuth()
+                      && request.auth.uid == memberId
+                      && !isBanned(groupId)
+                      && get(/databases/$(db)/documents/groups/$(groupId)).data.memberCount < 500
+                      && request.resource.data.displayName is string
+                      && request.resource.data.displayName.size() >= 1
+                      && request.resource.data.displayName.size() <= 16;
+        allow update: if request.auth.uid == memberId;
+        // オーナーは他メンバーを削除可能（追放）、自分自身も削除可能（退会）
+        allow delete: if isGroupOwner(groupId) || request.auth.uid == memberId;
+      }
+    }
+
+    // ===== 投稿 =====
+    match /posts/{postId} {
+      // メンバーか、歌会が解散済み（ドキュメント不在）なら閲覧可
+      allow read: if isAuth() &&
+                    (isGroupMember(resource.data.groupId)
+                     || !exists(/databases/$(db)/documents/groups/$(resource.data.groupId)));
+      // 作成はCloud Function経由のみ
+      allow create: if false;
+      // reactionSummaryの更新のみ許可
+      allow update: if isAuth()
+                    && isGroupMember(resource.data.groupId)
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['reactionSummary']);
+
+      // authorId 格納先（Cloud Function経由のみ）
+      match /private/{doc} {
+        allow read: if false;
+        allow write: if false;
+      }
+
+      // リアクション
+      match /reactions/{reactionId} {
+        allow read: if isAuth() && resource.data.userId == request.auth.uid;
+        allow write: if isAuth()
+                     && isGroupMember(
+                          get(/databases/$(db)/documents/posts/$(postId)).data.groupId
+                        );
+      }
+
+      // 評
+      match /comments/{commentId} {
+        allow read: if isAuth() &&
+                    (isGroupMember(
+                      get(/databases/$(db)/documents/posts/$(postId)).data.groupId
+                    )
+                    || !exists(/databases/$(db)/documents/groups/$(
+                      get(/databases/$(db)/documents/posts/$(postId)).data.groupId
+                    )));
+        // 作成はCloud Function経由のみ
+        allow create: if false;
+
+        // 評のauthorId（Cloud Function経由のみ）
+        match /private/{doc} {
+          allow read: if false;
+          allow write: if false;
+        }
+      }
+    }
+  }
+}
