@@ -707,7 +707,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
                 : 'この投稿の著者を即座に破門します。歌会から追放され、再参加できなくなります。'}
             </Text>
 
-            <Text style={styles.judgmentLabel}>理由（任意）</Text>
+            <Text style={styles.judgmentLabel}>理由（任意）—— 反故に表示されます</Text>
             <TextInput
               style={styles.judgmentInput}
               value={judgmentReason}
