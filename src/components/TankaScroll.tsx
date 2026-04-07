@@ -48,6 +48,7 @@ function buildHtml(cards: TankaCard[], mode: string): string {
     flex-direction: column;
     align-items: center;
     min-width: 64px;
+    flex: none;
     padding: 8px 18px;
     cursor: pointer;
     transition: background 0.2s;
