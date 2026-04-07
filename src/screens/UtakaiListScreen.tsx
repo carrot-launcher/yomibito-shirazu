@@ -32,7 +32,7 @@ export default function UtakaiListScreen({ navigation }: any) {
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity onPress={() => setShowMenu(true)} hitSlop={8} style={{ padding: 8, marginRight: 8 }}>
+        <TouchableOpacity onPress={() => setShowMenu(true)} hitSlop={8} style={{ padding: 8 }}>
           <MaterialCommunityIcons name="plus" size={24} color="#2C2418" />
         </TouchableOpacity>
       ),

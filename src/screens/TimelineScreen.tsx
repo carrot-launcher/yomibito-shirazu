@@ -2,9 +2,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { collection, doc, getDoc, getDocs, orderBy, query, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import TankaScroll from '../components/TankaScroll';
-import { useAlert } from '../components/CustomAlert';
 import { db } from '../config/firebase';
 import { PostDoc, TankaCard } from '../types';
 
@@ -41,7 +41,7 @@ export default function TimelineScreen({ route, navigation }: any) {
       navigation.setOptions({
         title: name,
         headerRight: () => (
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginRight: 4 }}>
             <TouchableOpacity onPress={() => navigation.navigate('GroupSettings', { groupId })} hitSlop={8} style={{ padding: 8 }}>
               <MaterialCommunityIcons name="cog-outline" size={22} color="#2C2418" />
             </TouchableOpacity>

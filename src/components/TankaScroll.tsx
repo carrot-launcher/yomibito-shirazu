@@ -137,7 +137,7 @@ if (cards.length === 0) {
   displayCards.forEach((card, index) => {
     const el = document.createElement("div");
     el.className = "tanka-card";
-    const fade = Math.max(0.6, 1 - (index / 9) * 0.6);
+    const fade = Math.max(0.6, 1 - (index / 8) * 0.7);
     el.style.opacity = fade;
     el.onclick = () => {
       const msg = { postId: card.postId, groupId: card.groupId };
