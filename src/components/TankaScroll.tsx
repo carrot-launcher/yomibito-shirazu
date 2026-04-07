@@ -9,6 +9,8 @@ interface Props {
   mode: 'timeline' | 'myPosts' | 'bookmarks';
   onLoadMore?: () => void;
   generation?: number;
+  newArrivals?: TankaCard[];
+  arrivalGen?: number;
 }
 
 const screenWidth = Dimensions.get('window').width;
@@ -263,12 +265,30 @@ window.appendCards = function(newCards) {
   });
   loadMoreRequested = false;
 };
+
+window.prependCards = function(newCards) {
+  var scrollEl = document.body;
+  var oldScrollLeft = scrollEl.scrollLeft;
+  var oldScrollWidth = scrollEl.scrollWidth;
+
+  var fragment = document.createDocumentFragment();
+  newCards.forEach(function(card) {
+    fragment.appendChild(createCardEl(card, 0));
+    cardCount++;
+  });
+  container.insertBefore(fragment, container.firstChild);
+
+  if (oldScrollLeft > 0) {
+    var delta = scrollEl.scrollWidth - oldScrollWidth;
+    scrollEl.scrollLeft = oldScrollLeft + delta;
+  }
+};
 </script>
 </body>
 </html>`;
 }
 
-export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation }: Props) {
+export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation, newArrivals, arrivalGen }: Props) {
   const webViewRef = useRef<WebView>(null);
   const renderedCountRef = useRef(0);
   const isTimeline = mode === 'timeline';
@@ -294,7 +314,16 @@ export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation
     renderedCountRef.current = cards.length;
   }, [generation]);
 
-  // For timeline: inject new cards when cards array grows (loadMore appended)
+  // Prepend new real-time arrivals (declare BEFORE append effect)
+  useEffect(() => {
+    if (!isTimeline || !newArrivals?.length || !arrivalGen) return;
+    const serialized = serializeCards(newArrivals);
+    const js = `window.prependCards(${JSON.stringify(serialized)}); true;`;
+    webViewRef.current?.injectJavaScript(js);
+    renderedCountRef.current += newArrivals.length;
+  }, [arrivalGen, isTimeline, newArrivals]);
+
+  // For timeline: inject new cards when cards array grows from loadMore (append)
   useEffect(() => {
     if (!isTimeline) return;
     const prevCount = renderedCountRef.current;

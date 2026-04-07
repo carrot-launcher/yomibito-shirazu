@@ -11,7 +11,7 @@ import { usePaginatedPosts } from '../hooks/usePaginatedPosts';
 export default function TimelineScreen({ route, navigation }: any) {
   const { groupId, groupName } = route.params;
   const { alert } = useAlert();
-  const { cards, loading, hasMore, refresh, loadMore, generation } = usePaginatedPosts(groupId);
+  const { cards, loading, hasMore, refresh, loadMore, generation, newArrivals, arrivalGen } = usePaginatedPosts(groupId);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -66,6 +66,8 @@ export default function TimelineScreen({ route, navigation }: any) {
           mode="timeline"
           onLoadMore={hasMore && !loading ? loadMore : undefined}
           generation={generation}
+          newArrivals={newArrivals}
+          arrivalGen={arrivalGen}
         />
       </ScrollView>
     </GradientBackground>
