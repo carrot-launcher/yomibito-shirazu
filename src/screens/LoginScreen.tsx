@@ -27,7 +27,7 @@ export default function LoginScreen() {
   };
 
   const dynamicStyles = useMemo(() => StyleSheet.create({
-    container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg },
+    container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     title: { fontSize: 36, fontWeight: '300', color: colors.text, letterSpacing: 8, marginBottom: 48, fontFamily: 'NotoSerifJP_400Regular' },
     subtitle: { fontSize: 15, color: colors.textSecondary, marginBottom: 48, letterSpacing: 2, fontFamily: 'NotoSerifJP_400Regular' },
     button: { backgroundColor: colors.accent, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 8 },
