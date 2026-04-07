@@ -59,16 +59,19 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   userCode: string;
+  onboardingDone: boolean;
+  setOnboardingDone: (done: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
-  user: null, loading: true, userCode: '',
+  user: null, loading: true, userCode: '', onboardingDone: true, setOnboardingDone: () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [userCode, setUserCode] = useState('');
+  const [onboardingDone, setOnboardingDoneState] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -85,9 +88,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             createdAt: serverTimestamp(),
           });
           setUserCode(code);
+          setOnboardingDoneState(false);
         } else {
           const data = userSnap.data();
-          // 既存ユーザーで userCode がなければ生成
           if (!data.userCode) {
             const code = generateUserCode();
             await setDoc(userRef, { userCode: code }, { merge: true });
@@ -95,10 +98,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else {
             setUserCode(data.userCode);
           }
+          setOnboardingDoneState(data.onboardingDone ?? true);
         }
       } else {
         setUserCode('');
       }
+      if (!firebaseUser) setOnboardingDoneState(true);
       setUser(firebaseUser);
       setLoading(false);
 
@@ -110,8 +115,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsubscribe;
   }, []);
 
+  const setOnboardingDone = async (done: boolean) => {
+    setOnboardingDoneState(done);
+    if (user) {
+      await updateDoc(doc(db, 'users', user.uid), { onboardingDone: done }).catch(() => {});
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, userCode }}>
+    <AuthContext.Provider value={{ user, loading, userCode, onboardingDone, setOnboardingDone }}>
       {children}
     </AuthContext.Provider>
   );

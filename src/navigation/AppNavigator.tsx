@@ -20,6 +20,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import TankaDetailScreen from '../screens/TankaDetailScreen';
 import TayoriScreen from '../screens/TayoriScreen';
 import TimelineScreen from '../screens/TimelineScreen';
+import WelcomeScreen from '../screens/WelcomeScreen';
 import UtakaiListScreen from '../screens/UtakaiListScreen';
 
 const RootStack = createNativeStackNavigator();
@@ -121,7 +122,7 @@ function HomeTabs() {
 }
 
 export default function AppNavigator() {
-  const { user, loading } = useAuth();
+  const { user, loading, onboardingDone } = useAuth();
   const commonHeaderStyle = useCommonHeaderStyle();
 
   useEffect(() => {
@@ -156,6 +157,8 @@ export default function AppNavigator() {
       <RootStack.Navigator screenOptions={commonHeaderStyle}>
         {!user ? (
           <RootStack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+        ) : !onboardingDone ? (
+          <RootStack.Screen name="Welcome" component={WelcomeScreen} options={{ headerShown: false }} />
         ) : (
           <>
             <RootStack.Screen name="Main" component={HomeTabs} options={{ headerShown: false }} />
