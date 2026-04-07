@@ -28,8 +28,9 @@ export function usePaginatedPosts(groupId: string) {
   const [arrivalGen, setArrivalGen] = useState(0);
   const lastDocRef = useRef<QueryDocumentSnapshot | null>(null);
   const unsubRef = useRef<Unsubscribe | null>(null);
+  const knownIdsRef = useRef<Set<string>>(new Set());
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback(async () => {
     unsubRef.current?.();
     unsubRef.current = null;
     setLoading(true);
@@ -42,40 +43,32 @@ export function usePaginatedPosts(groupId: string) {
       limit(PAGE_SIZE),
     );
 
-    return new Promise<void>((resolve, reject) => {
-      let isInitial = true;
-      const knownIds = new Set<string>();
+    // getDocs で確実にデータを取得（空フラッシュなし）
+    const snap = await getDocs(q);
+    const initialCards = snap.docs.map(docToCard);
+    knownIdsRef.current = new Set(snap.docs.map(d => d.id));
 
-      unsubRef.current = onSnapshot(q, (snap) => {
-        if (isInitial) {
-          isInitial = false;
-          const initialCards = snap.docs.map(docToCard);
-          snap.docs.forEach(d => knownIds.add(d.id));
-          setCards(initialCards);
-          lastDocRef.current = snap.docs[snap.docs.length - 1] || null;
-          setHasMore(snap.docs.length >= PAGE_SIZE);
-          setGeneration(g => g + 1);
-          setLoading(false);
-          resolve();
-        } else {
-          const added: TankaCard[] = [];
-          snap.docChanges().forEach(change => {
-            if (change.type === 'added' && !knownIds.has(change.doc.id)) {
-              knownIds.add(change.doc.id);
-              added.push(docToCard(change.doc));
-            }
-          });
-          if (added.length > 0) {
-            added.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-            setNewArrivals(added);
-            setArrivalGen(g => g + 1);
-            setCards(prev => [...added, ...prev]);
-          }
+    setCards(initialCards);
+    lastDocRef.current = snap.docs[snap.docs.length - 1] || null;
+    setHasMore(snap.docs.length >= PAGE_SIZE);
+    setGeneration(g => g + 1);
+    setLoading(false);
+
+    // その後 onSnapshot でリアルタイム新着を監視
+    unsubRef.current = onSnapshot(q, (rtSnap) => {
+      const added: TankaCard[] = [];
+      rtSnap.docChanges().forEach(change => {
+        if (change.type === 'added' && !knownIdsRef.current.has(change.doc.id)) {
+          knownIdsRef.current.add(change.doc.id);
+          added.push(docToCard(change.doc));
         }
-      }, (error) => {
-        setLoading(false);
-        reject(error);
       });
+      if (added.length > 0) {
+        added.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        setNewArrivals(added);
+        setArrivalGen(g => g + 1);
+        setCards(prev => [...added, ...prev]);
+      }
     });
   }, [groupId]);
 
@@ -92,6 +85,7 @@ export function usePaginatedPosts(groupId: string) {
       );
       const snap = await getDocs(q);
       const newCards = snap.docs.map(docToCard);
+      snap.docs.forEach(d => knownIdsRef.current.add(d.id));
       setCards(prev => [...prev, ...newCards]);
       lastDocRef.current = snap.docs[snap.docs.length - 1] || lastDocRef.current;
       setHasMore(snap.docs.length >= PAGE_SIZE);
