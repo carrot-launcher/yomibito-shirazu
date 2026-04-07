@@ -28,6 +28,7 @@ export interface MemberDoc {
   userCode: string;
   joinedAt: Timestamp;
   role: 'owner' | 'member';
+  cautionCount?: number;
 }
 
 export interface PostDoc {
@@ -39,6 +40,9 @@ export interface PostDoc {
   createdAt: Timestamp;
   reactionSummary: Record<string, number>;
   commentCount: number;
+  hogo?: boolean;
+  hogoReason?: string;
+  hogoType?: 'caution' | 'ban';
 }
 
 export interface ReactionDoc {
@@ -51,6 +55,9 @@ export interface ReactionDoc {
 export interface CommentDoc {
   body: string;
   createdAt: Timestamp;
+  hogo?: boolean;
+  hogoReason?: string;
+  hogoType?: 'caution' | 'ban';
 }
 
 export interface MyPostDoc {
@@ -72,7 +79,7 @@ export interface BookmarkDoc {
 }
 
 export interface NotificationDoc {
-  type: 'new_post' | 'reaction' | 'comment';
+  type: 'new_post' | 'reaction' | 'comment' | 'caution' | 'ban';
   postId: string;
   groupId: string;
   groupName: string;
@@ -80,6 +87,8 @@ export interface NotificationDoc {
   emoji?: string;
   commentBody?: string;
   reactionCount?: number;
+  cautionCount?: number;
+  bannedUserName?: string;
   createdAt: Timestamp;
 }
 
@@ -97,4 +106,6 @@ export interface TankaCard {
   groupName?: string;
   batchId?: string;
   bookmarkedAt?: Date;
+  hogo?: boolean;
+  hogoReason?: string;
 }

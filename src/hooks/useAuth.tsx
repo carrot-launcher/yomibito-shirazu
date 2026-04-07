@@ -25,6 +25,11 @@ async function registerForPushNotifications(uid: string) {
         importance: Notifications.AndroidImportance.DEFAULT,
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
       });
+      await Notifications.setNotificationChannelAsync('judgments', {
+        name: '裁き',
+        importance: Notifications.AndroidImportance.HIGH,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
+      });
     }
 
     const { status } = await Notifications.getPermissionsAsync();

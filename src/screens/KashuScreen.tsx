@@ -20,7 +20,7 @@ export default function KashuScreen({ navigation }: any) {
         const postSnap = await getDoc(doc(db, 'posts', card.postId));
         if (postSnap.exists()) {
           const postData = postSnap.data() as PostDoc;
-          return { ...card, reactionSummary: postData.reactionSummary || {}, commentCount: postData.commentCount || 0 };
+          return { ...card, reactionSummary: postData.reactionSummary || {}, commentCount: postData.commentCount || 0, ...(postData.hogo ? { hogo: true, hogoReason: postData.hogoReason } : {}) };
         }
       } catch {}
       return null;

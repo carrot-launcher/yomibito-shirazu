@@ -20,7 +20,7 @@ export default function TimelineScreen({ route, navigation }: any) {
       const snap = await getDocs(q);
       setCards(snap.docs.map(d => {
         const data = d.data() as PostDoc;
-        return { postId: d.id, groupId: data.groupId, body: data.body, createdAt: data.createdAt?.toDate() || new Date(), reactionSummary: data.reactionSummary || {}, commentCount: data.commentCount || 0 };
+        return { postId: d.id, groupId: data.groupId, body: data.body, createdAt: data.createdAt?.toDate() || new Date(), reactionSummary: data.reactionSummary || {}, commentCount: data.commentCount || 0, hogo: data.hogo, hogoReason: data.hogoReason };
       }));
     } catch (error: any) {
       if (error.code === 'permission-denied') {

@@ -252,6 +252,21 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
         </View>
       )}
 
+      {/* 裁きについて（オーナーのみ） */}
+      {isOwner && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>裁きについて</Text>
+          <Text style={styles.judgmentExplain}>
+            歌や評の詳細画面から、不適切な投稿に対して裁きを行えます。{'\n\n'}
+            <Text style={{ fontWeight: '600' }}>🟡 戒告</Text>
+            {'　'}投稿を反故にし、著者に警告を与えます。同じ歌人への戒告が3回に達すると、自動的に破門されます。{'\n\n'}
+            <Text style={{ fontWeight: '600' }}>🔴 破門</Text>
+            {'　'}投稿を反故にし、著者を即座に歌会から追放します。追放されたユーザーは招待コードで再参加できなくなります。{'\n\n'}
+            裁かれた投稿は「反故」として跡地が残り、本文は見えなくなります。裁きは匿名のまま行われ、オーナーにも著者は分かりません。破門が発生した場合のみ、メンバー全員に通知されます。
+          </Text>
+        </View>
+      )}
+
       {/* 歌会の退会（オーナー以外） */}
       {!isOwner && (
         <TouchableOpacity style={styles.leaveBtn} onPress={() => {
@@ -424,4 +439,5 @@ const styles = StyleSheet.create({
   dissolveConfirmBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8, backgroundColor: '#C53030' },
   dissolveConfirmBtnDisabled: { opacity: 0.3 },
   dissolveConfirmText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+  judgmentExplain: { fontSize: 13, color: '#2C2418', lineHeight: 22 },
 });

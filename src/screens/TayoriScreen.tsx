@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { collection, doc, onSnapshot, orderBy, query, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '../components/CustomAlert';
@@ -25,7 +25,7 @@ function timeAgo(date: Date): string {
   return `${Math.floor(day / 30)}ヶ月前`;
 }
 
-type FilterType = 'all' | 'new_post' | 'reaction' | 'comment';
+type FilterType = 'all' | 'new_post' | 'reaction' | 'comment' | 'judgment';
 
 export default function TayoriScreen({ navigation }: any) {
   const { user } = useAuth();
@@ -138,6 +138,16 @@ export default function TayoriScreen({ navigation }: any) {
           ? item.commentBody.slice(0, 50) + '…'
           : item.commentBody;
         break;
+      case 'caution':
+        icon = 'alert-outline';
+        title = `${item.groupName}で戒告（${item.cautionCount || '?'}/3）`;
+        body = item.tankaBody ? stripRuby(item.tankaBody).replace(/[\n\r]+/g, '\u3000') : undefined;
+        break;
+      case 'ban':
+        icon = 'account-remove-outline';
+        title = `${item.groupName}にて事変`;
+        body = item.bannedUserName ? `${item.bannedUserName}が破門されました` : undefined;
+        break;
       default:
         icon = 'bell-outline';
         title = 'たより';
@@ -163,13 +173,18 @@ export default function TayoriScreen({ navigation }: any) {
     );
   };
 
-  const filteredItems = filter === 'all' ? visibleItems : visibleItems.filter(i => i.type === filter);
+  const filteredItems = filter === 'all'
+    ? visibleItems
+    : filter === 'judgment'
+    ? visibleItems.filter(i => i.type === 'caution' || i.type === 'ban')
+    : visibleItems.filter(i => i.type === filter);
 
   const filters: { key: FilterType; label: string }[] = [
     { key: 'all', label: 'すべて' },
     { key: 'new_post', label: '歌' },
     { key: 'reaction', label: '🌸' },
     { key: 'comment', label: '評' },
+    { key: 'judgment', label: '裁き' },
   ];
 
   return (

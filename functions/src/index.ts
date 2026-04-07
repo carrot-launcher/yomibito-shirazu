@@ -1,6 +1,6 @@
 import * as admin from "firebase-admin";
-import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { HttpsError, onCall } from "firebase-functions/v2/https";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -441,6 +441,271 @@ export const kickMember = onCall(
     return { success: true };
   }
 );
+
+/**
+ * judgeContent — 歌や評を裁く（戒告・破門）（オーナーのみ）
+ */
+export const judgeContent = onCall(
+  { region: "asia-northeast1" },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
+    const { groupId, postId, commentId, type, reason } = request.data as {
+      groupId: string;
+      postId: string;
+      commentId?: string;
+      type: "caution" | "ban";
+      reason: string;
+    };
+    if (!groupId || !postId || !type) throw new HttpsError("invalid-argument", "必須パラメータが不足しています");
+
+    // オーナーか確認
+    const callerSnap = await db.doc(`groups/${groupId}/members/${request.auth.uid}`).get();
+    if (!callerSnap.exists || callerSnap.data()?.role !== "owner") {
+      throw new HttpsError("permission-denied", "オーナーのみ裁くことができます");
+    }
+
+    // 対象コンテンツを取得
+    const isComment = !!commentId;
+    const contentPath = isComment
+      ? `posts/${postId}/comments/${commentId}`
+      : `posts/${postId}`;
+    const contentSnap = await db.doc(contentPath).get();
+    if (!contentSnap.exists) throw new HttpsError("not-found", "対象が見つかりません");
+    const contentData = contentSnap.data()!;
+
+    // 既に反故なら裁けない
+    if (contentData.hogo) throw new HttpsError("already-exists", "既に反故になっています");
+
+    // 著者を特定
+    const authorPath = isComment
+      ? `posts/${postId}/comments/${commentId}/private/author`
+      : `posts/${postId}/private/author`;
+    const authorSnap = await db.doc(authorPath).get();
+    if (!authorSnap.exists) throw new HttpsError("not-found", "著者情報が見つかりません");
+    const authorId = authorSnap.data()!.authorId;
+
+    // 歌会情報取得
+    const groupSnap = await db.doc(`groups/${groupId}`).get();
+    if (!groupSnap.exists) throw new HttpsError("not-found", "歌会が見つかりません");
+    const groupName = groupSnap.data()!.name || "";
+
+    // 著者のメンバー情報取得
+    const authorMemberSnap = await db.doc(`groups/${groupId}/members/${authorId}`).get();
+    const currentCautionCount = authorMemberSnap.data()?.cautionCount || 0;
+
+    const hogoReason = reason?.trim() || "仔細あり";
+    let effectiveType = type;
+
+    // 戒告の場合、カウント確認
+    if (type === "caution") {
+      const newCount = currentCautionCount + 1;
+      if (newCount >= 3) {
+        effectiveType = "ban"; // 3回目の戒告で自動破門
+      }
+      // cautionCount を更新（メンバーがまだ存在する場合）
+      if (authorMemberSnap.exists) {
+        await db.doc(`groups/${groupId}/members/${authorId}`).update({
+          cautionCount: newCount,
+        });
+      }
+    }
+
+    // コンテンツを反故にする（bodyを消去）
+    await db.doc(contentPath).update({
+      hogo: true,
+      hogoReason,
+      hogoType: type, // 元の裁きタイプを記録
+      body: "",
+    });
+
+    // 元の本文を通知用に保存
+    const originalBody = isComment ? contentData.body : contentData.body;
+
+    if (effectiveType === "ban") {
+      // 破門処理
+      const authorUserSnap = await db.doc(`users/${authorId}`).get();
+      const authorData = authorMemberSnap.exists ? authorMemberSnap.data()! : null;
+      const bannedDisplayName = authorData?.displayName || "名無し";
+      const bannedUserCode = authorData?.userCode || authorUserSnap.data()?.userCode || "---";
+      const bannedUserName = `${bannedDisplayName}#${bannedUserCode}`;
+
+      if (authorId === request.auth.uid) {
+        // オーナーが自身を破門 → 歌会解散（歌は削除しない）
+        const membersSnap = await db.collection(`groups/${groupId}/members`).get();
+
+        // 全メンバーに破門通知を送信（解散前に）
+        await Promise.all(
+          membersSnap.docs.map((m) =>
+            createBanNotification(m.id, {
+              postId,
+              groupId,
+              groupName,
+              bannedUserName,
+            })
+          )
+        );
+
+        // メンバー全員の joinedGroups から削除
+        for (const memberDoc of membersSnap.docs) {
+          await db.doc(`users/${memberDoc.id}`).update({
+            joinedGroups: admin.firestore.FieldValue.arrayRemove(groupId),
+          });
+          await memberDoc.ref.delete();
+        }
+
+        // 歌会本体を削除
+        await db.doc(`groups/${groupId}`).delete();
+      } else {
+        // 通常の破門：kickMember と同じ処理
+        if (authorMemberSnap.exists) {
+          await db.doc(`groups/${groupId}/members/${authorId}`).delete();
+          await db.doc(`groups/${groupId}`).update({
+            memberCount: admin.firestore.FieldValue.increment(-1),
+            [`bannedUsers.${authorId}`]: { displayName: bannedDisplayName, userCode: bannedUserCode },
+          });
+          await db.doc(`users/${authorId}`).update({
+            joinedGroups: admin.firestore.FieldValue.arrayRemove(groupId),
+          });
+        }
+
+        // 全メンバー + 破門された人に通知
+        const membersSnap = await db.collection(`groups/${groupId}/members`).get();
+        const notifyTargets = [...membersSnap.docs.map((m) => m.id), authorId];
+        const uniqueTargets = [...new Set(notifyTargets)];
+        await Promise.all(
+          uniqueTargets.map((uid) =>
+            createBanNotification(uid, {
+              postId,
+              groupId,
+              groupName,
+              bannedUserName,
+            })
+          )
+        );
+      }
+    } else {
+      // 戒告のみ（破門に至らず）
+      const newCount = currentCautionCount + 1;
+      await createCautionNotification(authorId, {
+        postId,
+        groupId,
+        groupName,
+        tankaBody: originalBody || "",
+        cautionCount: newCount,
+      });
+    }
+
+    // 破門時はユーザー名を返す（オーナーへの表示用）
+    const resultBannedUserName = effectiveType === "ban"
+      ? `${(authorMemberSnap.exists ? authorMemberSnap.data()?.displayName : null) || "名無し"}#${(authorMemberSnap.exists ? authorMemberSnap.data()?.userCode : null) || "---"}`
+      : undefined;
+    return { success: true, effectiveType, bannedUserName: resultBannedUserName };
+  }
+);
+
+// 戒告の通知（本人のみ）
+async function createCautionNotification(
+  targetUserId: string,
+  data: { postId: string; groupId: string; groupName: string; tankaBody: string; cautionCount: number }
+) {
+  const userSnap = await db.doc(`users/${targetUserId}`).get();
+  const userData = userSnap.data();
+  if (!userData) return;
+
+  const settings = userData.notificationSettings || {};
+  if (settings.judgment === false) return;
+
+  // FCM送信
+  const fcmToken = userData?.fcmToken;
+  if (fcmToken) {
+    try {
+      await admin.messaging().send({
+        token: fcmToken,
+        notification: {
+          title: `${data.groupName}で戒告されました（${data.cautionCount}/3）`,
+          body: truncate(data.tankaBody, 50),
+        },
+        android: {
+          notification: {
+            channelId: "judgments",
+            visibility: "private" as const,
+          },
+        },
+        data: { postId: data.postId, groupId: data.groupId, type: "caution" },
+      });
+    } catch (e: any) {
+      if (
+        e.code === "messaging/invalid-registration-token" ||
+        e.code === "messaging/registration-token-not-registered"
+      ) {
+        await db.doc(`users/${targetUserId}`).update({ fcmToken: "" });
+      }
+    }
+  }
+
+  // たよりdoc作成
+  await db.collection(`users/${targetUserId}/notifications`).add({
+    type: "caution",
+    postId: data.postId,
+    groupId: data.groupId,
+    groupName: data.groupName,
+    tankaBody: data.tankaBody,
+    cautionCount: data.cautionCount,
+    createdAt: admin.firestore.Timestamp.now(),
+  });
+}
+
+// 破門の通知（全員に）
+async function createBanNotification(
+  targetUserId: string,
+  data: { postId: string; groupId: string; groupName: string; bannedUserName: string }
+) {
+  const userSnap = await db.doc(`users/${targetUserId}`).get();
+  const userData = userSnap.data();
+  if (!userData) return;
+
+  const settings = userData.notificationSettings || {};
+  if (settings.judgment === false) return;
+
+  // FCM送信
+  const fcmToken = userData?.fcmToken;
+  if (fcmToken) {
+    try {
+      await admin.messaging().send({
+        token: fcmToken,
+        notification: {
+          title: `${data.groupName}にて事変が発生しました`,
+          body: `${data.bannedUserName}が破門されました`,
+        },
+        android: {
+          notification: {
+            channelId: "judgments",
+            visibility: "private" as const,
+          },
+        },
+        data: { postId: data.postId, groupId: data.groupId, type: "ban" },
+      });
+    } catch (e: any) {
+      if (
+        e.code === "messaging/invalid-registration-token" ||
+        e.code === "messaging/registration-token-not-registered"
+      ) {
+        await db.doc(`users/${targetUserId}`).update({ fcmToken: "" });
+      }
+    }
+  }
+
+  // たよりdoc作成
+  await db.collection(`users/${targetUserId}/notifications`).add({
+    type: "ban",
+    postId: data.postId,
+    groupId: data.groupId,
+    groupName: data.groupName,
+    tankaBody: "",
+    bannedUserName: data.bannedUserName,
+    createdAt: admin.firestore.Timestamp.now(),
+  });
+}
 
 /**
  * unbanMember — 追放解除（オーナーのみ）

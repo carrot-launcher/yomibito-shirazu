@@ -17,6 +17,7 @@ import {
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Modal,
   StyleSheet,
   Text,
   TextInput,
@@ -36,9 +37,23 @@ function rubyToHtml(escaped: string): string {
     '<ruby>$1<rp>(</rp><rt>$2</rt><rp>)</rp></ruby>');
 }
 
-function buildDetailHtml(body: string, comments: { body: string; time: string; id: string }[]): string {
+function buildDetailHtml(
+  body: string,
+  comments: { body: string; time: string; id: string; hogo?: boolean; hogoReason?: string }[],
+  isHogo: boolean,
+  hogoReason?: string,
+): string {
   const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  const commentsJson = JSON.stringify(comments.map(c => ({ ...c, body: escapeHtml(c.body) })));
+  const commentsJson = JSON.stringify(comments.map(c => ({
+    ...c,
+    body: c.hogo ? '' : escapeHtml(c.body),
+    hogo: !!c.hogo,
+    hogoReason: c.hogoReason || '仔細あり',
+  })));
+
+  const tankaContent = isHogo
+    ? `<span class="hogo-text">反故——${escapeHtml(hogoReason || '仔細あり')}</span>`
+    : rubyToHtml(escapeHtml(body));
 
   return `<!DOCTYPE html>
 <html>
@@ -73,6 +88,11 @@ function buildDetailHtml(body: string, comments: { body: string; time: string; i
     flex-shrink: 0;
   }
   .tanka-section rt { font-size: 0.45em; letter-spacing: 0; }
+  .hogo-text {
+    font-style: italic;
+    color: #A69880;
+    font-size: 0.8em;
+  }
   .divider {
     width: 1px;
     background: #E8E0D0;
@@ -99,6 +119,10 @@ function buildDetailHtml(body: string, comments: { body: string; time: string; i
     flex-shrink: 0;
   }
   .comment-item:active { background: rgba(0,0,0,0.04); }
+  .comment-hogo {
+    font-style: italic;
+    color: #A69880;
+  }
   .fold-hint {
     font-size: 12px;
     color: #A69880;
@@ -120,7 +144,7 @@ function buildDetailHtml(body: string, comments: { body: string; time: string; i
 </head>
 <body>
 <div class="container" id="container">
-  <div class="tanka-section" onclick="window.ReactNativeWebView.postMessage(JSON.stringify({action:'screenshot'}))">${rubyToHtml(escapeHtml(body))}</div>
+  <div class="tanka-section" onclick="${isHogo ? '' : "window.ReactNativeWebView.postMessage(JSON.stringify({action:'screenshot'}))"}">${tankaContent}</div>
   <div class="divider"></div>
   <div class="comments-section" id="comments"></div>
 </div>
@@ -132,7 +156,15 @@ if (comments.length === 0) {
 } else {
   comments.forEach(c => {
     const el = document.createElement("div");
-    el.className = "comment-item";
+    el.className = "comment-item" + (c.hogo ? " comment-hogo" : "");
+
+    if (c.hogo) {
+      el.innerHTML = '反故——' + c.hogoReason +
+        '<div class="comment-time">' + c.time + '</div>';
+      // 反故の評は長押しメニューを出さない
+      commentsEl.appendChild(el);
+      return;
+    }
 
     var bodyLines = c.body.split('\\n');
     var needsFold = bodyLines.length > 6;
@@ -153,7 +185,7 @@ if (comments.length === 0) {
       longPressed = false;
       pressTimer = setTimeout(function() {
         longPressed = true;
-        window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'deleteComment', commentId: c.id }));
+        window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'commentMenu', commentId: c.id }));
       }, 600);
     });
     el.addEventListener('touchend', function() {
@@ -186,9 +218,29 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   const [submitting, setSubmitting] = useState(false);
   const [batchPostIds, setBatchPostIds] = useState<string[]>([]);
   const [extraReactions, setExtraReactions] = useState(0);
+  const [isOwner, setIsOwner] = useState(false);
   const { alert } = useAlert();
   const webViewRef = useRef<WebView>(null);
   const fromMyPosts = !!route.params.fromMyPosts;
+
+  // 三点リーダメニュー
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [menuTargetComment, setMenuTargetComment] = useState<string | null>(null);
+
+  // 裁き確認ダイアログ
+  const [judgmentModal, setJudgmentModal] = useState<'caution' | 'ban' | null>(null);
+  const [judgmentReason, setJudgmentReason] = useState('');
+  const [judging, setJudging] = useState(false);
+  // 裁きの対象を記憶
+  const [judgmentTarget, setJudgmentTarget] = useState<{ type: 'post' | 'comment'; commentId?: string }>({ type: 'post' });
+
+  // オーナーか確認
+  useEffect(() => {
+    if (!user) return;
+    getDoc(doc(db, 'groups', groupId, 'members', user.uid)).then(snap => {
+      if (snap.exists()) setIsOwner(snap.data()?.role === 'owner');
+    }).catch(() => {});
+  }, [user, groupId]);
 
   // batchIdがある場合、全postIdを取得
   useEffect(() => {
@@ -377,6 +429,61 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     );
   };
 
+  const openPostMenu = () => {
+    setMenuTargetComment(null);
+    setMenuVisible(true);
+  };
+
+  const openCommentMenu = (commentId: string) => {
+    setMenuTargetComment(commentId);
+    setMenuVisible(true);
+  };
+
+  const openJudgmentModal = (type: 'caution' | 'ban', target: 'post' | 'comment', commentId?: string) => {
+    setMenuVisible(false);
+    setJudgmentTarget({ type: target, commentId });
+    setJudgmentReason('');
+    // 少し遅延を入れてモーダルの切り替えをスムーズに
+    setTimeout(() => setJudgmentModal(type), 200);
+  };
+
+  const handleJudge = async () => {
+    if (!user || !judgmentModal || judging) return;
+    setJudging(true);
+    try {
+      const functions = getFunctions(undefined, 'asia-northeast1');
+      const judgeContentFn = httpsCallable(functions, 'judgeContent');
+      const targetPostId = judgmentTarget.type === 'comment'
+        ? (comments.find(c => c.id === judgmentTarget.commentId) as any)?.postId || postId
+        : postId;
+      const result = await judgeContentFn({
+        groupId,
+        postId: targetPostId,
+        commentId: judgmentTarget.commentId || null,
+        type: judgmentModal,
+        reason: judgmentReason.trim(),
+      });
+      setJudgmentModal(null);
+      setJudgmentReason('');
+      const data = result.data as any;
+      if (data.effectiveType === 'ban') {
+        const name = data.bannedUserName || '（不明）';
+        alert('破門', judgmentModal === 'caution'
+          ? `戒告が3回に達したため、${name}が破門されました。`
+          : `${name}を破門しました。`);
+      }
+    } catch (e: any) {
+      const msg = e.message?.includes('already-exists')
+        ? '既に反故になっています'
+        : e.message?.includes('permission-denied')
+        ? 'オーナーのみ裁くことができます'
+        : e.message;
+      alert('エラー', msg);
+    } finally {
+      setJudging(false);
+    }
+  };
+
   const handleComment = async () => {
     if (!user || !commentText.trim() || submitting) return;
     if (commentText.length > 500) { alert('500文字以内にしてください'); return; }
@@ -403,6 +510,17 @@ export default function TankaDetailScreen({ route, navigation }: any) {
       .catch(() => {});
   }, [deleted, user, postId]);
 
+  const handleWebViewMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.action === 'screenshot') {
+        navigation.navigate('Screenshot', { body: displayBody });
+      } else if (data.action === 'commentMenu') {
+        openCommentMenu(data.commentId);
+      }
+    } catch {}
+  };
+
   if (deleted) return (
     <View style={styles.container}>
       <View style={styles.deletedArea}>
@@ -427,8 +545,9 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   };
 
   const reactionCount = (post.reactionSummary?.[REACTION_EMOJI] || 0) + extraReactions;
+  const isHogo = !!post.hogo;
 
-  const displayBody = formatTankaBody(post.body, 'detail', {
+  const displayBody = isHogo ? '' : formatTankaBody(post.body, 'detail', {
     convertHalfSpace: post.convertHalfSpace,
     convertLineBreak: post.convertLineBreak,
   });
@@ -437,20 +556,15 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     id: c.id,
     body: c.body,
     time: c.createdAt ? timeAgo(c.createdAt.toDate()) : '',
+    hogo: !!c.hogo,
+    hogoReason: c.hogoReason,
   }));
 
-  const html = buildDetailHtml(displayBody, commentData);
+  const html = buildDetailHtml(displayBody, commentData, isHogo, post.hogoReason);
 
-  const handleWebViewMessage = (event: any) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-      if (data.action === 'screenshot') {
-        navigation.navigate('Screenshot', { body: displayBody });
-      } else if (data.action === 'deleteComment') {
-        handleDeleteComment(data.commentId);
-      }
-    } catch {}
-  };
+  // メニューで表示する項目を決定
+  const isMenuForPost = menuTargetComment === null;
+  const menuCommentHogo = !isMenuForPost && comments.find(c => c.id === menuTargetComment)?.hogo;
 
   return (
     <GradientBackground style={styles.container}>
@@ -476,9 +590,12 @@ export default function TankaDetailScreen({ route, navigation }: any) {
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
-            <MaterialCommunityIcons name="delete-outline" size={20} color="#2C2418" />
-          </TouchableOpacity>
+          {/* 三点リーダメニュー（著者またはオーナーに表示、反故でない場合） */}
+          {!isHogo && (
+            <TouchableOpacity style={styles.moreBtn} onPress={openPostMenu}>
+              <MaterialCommunityIcons name="dots-horizontal" size={20} color="#2C2418" />
+            </TouchableOpacity>
+          )}
 
           <Text style={styles.commentLabel}>評 {comments.length}</Text>
         </View>
@@ -520,6 +637,103 @@ export default function TankaDetailScreen({ route, navigation }: any) {
         originWhitelist={['*']}
         androidLayerType="software"
       />
+
+      {/* アクションメニューモーダル */}
+      <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>
+        <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setMenuVisible(false)}>
+          <View style={styles.menuSheet}>
+            <Text style={styles.menuTitle}>{isMenuForPost ? '歌' : '評'}</Text>
+
+            {/* 削除（全員に表示、CloudFunctionで認証） */}
+            {!menuCommentHogo && (
+              <TouchableOpacity style={styles.menuItem} onPress={() => {
+                setMenuVisible(false);
+                if (isMenuForPost) handleDelete();
+                else handleDeleteComment(menuTargetComment!);
+              }}>
+                <MaterialCommunityIcons name="delete-outline" size={20} color="#C53030" />
+                <Text style={styles.menuItemTextDanger}>削除</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* 裁き（オーナーのみ） */}
+            {isOwner && !menuCommentHogo && (
+              <>
+                <View style={styles.menuDivider} />
+                <TouchableOpacity style={styles.menuItem} onPress={() => {
+                  openJudgmentModal('caution', isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined);
+                }}>
+                  <Text style={styles.menuItemIcon}>🟡</Text>
+                  <Text style={styles.menuItemText}>戒告</Text>
+                  <Text style={styles.menuItemHint}>3回で破門</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.menuItem} onPress={() => {
+                  openJudgmentModal('ban', isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined);
+                }}>
+                  <Text style={styles.menuItemIcon}>🔴</Text>
+                  <Text style={styles.menuItemText}>破門</Text>
+                  <Text style={styles.menuItemHint}>即追放</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem} onPress={() => setMenuVisible(false)}>
+              <Text style={styles.menuItemTextCancel}>やめる</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* 裁き確認モーダル */}
+      <Modal visible={judgmentModal !== null} transparent animationType="fade" onRequestClose={() => { if (!judging) setJudgmentModal(null); }}>
+        <View style={styles.judgmentOverlay}>
+          <View style={styles.judgmentModal}>
+            <Text style={styles.judgmentTitle}>
+              {judgmentModal === 'caution' ? '🟡 戒告' : '🔴 破門'}
+            </Text>
+            <Text style={styles.judgmentDesc}>
+              {judgmentModal === 'caution'
+                ? 'この投稿の著者に戒告を与えます。戒告が3回に達すると自動的に破門されます。'
+                : 'この投稿の著者を即座に破門します。歌会から追放され、再参加できなくなります。'}
+            </Text>
+
+            <Text style={styles.judgmentLabel}>理由（任意）</Text>
+            <TextInput
+              style={styles.judgmentInput}
+              value={judgmentReason}
+              onChangeText={setJudgmentReason}
+              placeholder="仔細あり"
+              placeholderTextColor="#C4B8A0"
+              multiline
+              maxLength={100}
+            />
+
+            <View style={styles.judgmentButtons}>
+              <TouchableOpacity
+                style={styles.judgmentCancelBtn}
+                onPress={() => { setJudgmentModal(null); setJudgmentReason(''); }}
+                disabled={judging}
+              >
+                <Text style={styles.judgmentCancelText}>やめる</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.judgmentConfirmBtn,
+                  judgmentModal === 'ban' && styles.judgmentConfirmBtnBan,
+                  judging && styles.judgmentConfirmBtnDisabled,
+                ]}
+                onPress={handleJudge}
+                disabled={judging}
+              >
+                <Text style={styles.judgmentConfirmText}>
+                  {judging ? '処理中...' : judgmentModal === 'caution' ? '戒告する' : '破門する'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </GradientBackground>
   );
 }
@@ -547,7 +761,7 @@ const styles = StyleSheet.create({
     borderRadius: 20, borderWidth: 1, borderColor: '#E8E0D0', backgroundColor: '#FFFDF8',
   },
   bookmarkBtnActive: { backgroundColor: '#F0E8D8', borderColor: '#C4B8A0' },
-  deleteBtn: {
+  moreBtn: {
     paddingHorizontal: 8, paddingVertical: 6,
     borderRadius: 20, borderWidth: 1, borderColor: '#E8E0D0', backgroundColor: '#FFFDF8',
   },
@@ -567,4 +781,41 @@ const styles = StyleSheet.create({
   deletedText: { fontSize: 17, color: '#8B7E6A', marginBottom: 20, fontFamily: 'NotoSerifJP_500Medium' },
   backBtn: { backgroundColor: '#2C2418', borderRadius: 8, paddingHorizontal: 20, paddingVertical: 10 },
   backBtnText: { color: '#F5F0E8', fontSize: 16, fontFamily: 'NotoSerifJP_500Medium' },
+
+  // アクションメニュー
+  menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  menuSheet: {
+    backgroundColor: '#FFFDF8', borderTopLeftRadius: 16, borderTopRightRadius: 16,
+    padding: 20, paddingBottom: 36,
+  },
+  menuTitle: { fontSize: 13, color: '#A69880', textAlign: 'center', marginBottom: 12, fontFamily: 'NotoSerifJP_400Regular' },
+  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
+  menuItemIcon: { fontSize: 18, width: 24, textAlign: 'center' },
+  menuItemText: { fontSize: 16, color: '#2C2418', fontFamily: 'NotoSerifJP_400Regular' },
+  menuItemTextDanger: { fontSize: 16, color: '#C53030', fontFamily: 'NotoSerifJP_400Regular' },
+  menuItemTextCancel: { fontSize: 16, color: '#8B7E6A', fontFamily: 'NotoSerifJP_400Regular', textAlign: 'center', flex: 1 },
+  menuItemHint: { fontSize: 12, color: '#A69880', marginLeft: 'auto' },
+  menuDivider: { height: 1, backgroundColor: '#E8E0D0', marginVertical: 2 },
+
+  // 裁き確認モーダル
+  judgmentOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  judgmentModal: {
+    backgroundColor: '#FFFDF8', borderRadius: 16, padding: 24,
+    width: '85%', borderWidth: 1, borderColor: '#E8E0D0',
+  },
+  judgmentTitle: { fontSize: 20, color: '#2C2418', fontWeight: '600', marginBottom: 12, textAlign: 'center' },
+  judgmentDesc: { fontSize: 13, color: '#8B7E6A', lineHeight: 20, marginBottom: 16 },
+  judgmentLabel: { fontSize: 13, color: '#2C2418', marginBottom: 6, fontFamily: 'NotoSerifJP_400Regular' },
+  judgmentInput: {
+    borderWidth: 1, borderColor: '#E8E0D0', borderRadius: 8,
+    padding: 12, fontSize: 15, color: '#2C2418', marginBottom: 20,
+    minHeight: 48, textAlignVertical: 'top',
+  },
+  judgmentButtons: { flexDirection: 'row', gap: 12 },
+  judgmentCancelBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8, borderWidth: 1, borderColor: '#E8E0D0' },
+  judgmentCancelText: { color: '#8B7E6A', fontSize: 15, fontFamily: 'NotoSerifJP_400Regular' },
+  judgmentConfirmBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8, backgroundColor: '#D4A017' },
+  judgmentConfirmBtnBan: { backgroundColor: '#C53030' },
+  judgmentConfirmBtnDisabled: { opacity: 0.4 },
+  judgmentConfirmText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600', fontFamily: 'NotoSerifJP_500Medium' },
 });

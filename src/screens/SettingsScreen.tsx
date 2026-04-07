@@ -18,6 +18,7 @@ export default function SettingsScreen() {
   const [notifNewPost, setNotifNewPost] = useState(true);
   const [notifReaction, setNotifReaction] = useState(true);
   const [notifComment, setNotifComment] = useState(true);
+  const [notifJudgment, setNotifJudgment] = useState(true);
   const [convertHalfSpace, setConvertHalfSpace] = useState(true);
   const [convertLineBreak, setConvertLineBreak] = useState(true);
   const { alert } = useAlert();
@@ -31,6 +32,7 @@ export default function SettingsScreen() {
         setNotifNewPost(data.notificationSettings?.newPost ?? true);
         setNotifReaction(data.notificationSettings?.reaction ?? true);
         setNotifComment(data.notificationSettings?.comment ?? true);
+        setNotifJudgment(data.notificationSettings?.judgment ?? true);
         setConvertHalfSpace(data.tankaConvert?.halfSpace ?? true);
         setConvertLineBreak(data.tankaConvert?.lineBreak ?? true);
       }
@@ -86,6 +88,11 @@ export default function SettingsScreen() {
         <Text style={styles.switchLabel}>評</Text>
         <Switch value={notifComment} onValueChange={(v) => { setNotifComment(v); saveSetting('notificationSettings.comment', v); }}
           trackColor={{ false: '#E8E0D0', true: '#A69880' }} thumbColor={notifComment ? '#2C2418' : '#FFFDF8'} />
+      </View>
+      <View style={styles.switchRow}>
+        <Text style={styles.switchLabel}>裁き</Text>
+        <Switch value={notifJudgment} onValueChange={(v) => { setNotifJudgment(v); saveSetting('notificationSettings.judgment', v); }}
+          trackColor={{ false: '#E8E0D0', true: '#A69880' }} thumbColor={notifJudgment ? '#2C2418' : '#FFFDF8'} />
       </View>
 
       <TouchableOpacity style={styles.logoutBtn} onPress={() => alert('ログアウト', 'ログアウトしますか？', [

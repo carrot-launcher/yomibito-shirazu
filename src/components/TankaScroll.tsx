@@ -65,6 +65,11 @@ function buildHtml(cards: TankaCard[], mode: string): string {
     display: flex;
     align-items: flex-start;
   }
+  .tanka-body.hogo {
+    font-style: italic;
+    color: #A69880;
+    font-size: ${Math.round(tankaFontSize * 0.8)}px;
+  }
   rt { font-size: 0.45em; letter-spacing: 0; }
   .tanka-meta {
     display: flex;
@@ -190,10 +195,16 @@ if (cards.length === 0) {
     }
 
     // Timeline: always single line (replace line breaks with full-width space)
-    var displayBody = card.body.replace(/[\\n\\r]+/g, '\\u3000');
-    el.innerHTML =
-      '<div class="tanka-body">' + rubyToHtml(escapeHtml(displayBody)) + '</div>' +
-      '<div class="tanka-meta">' + metaHtml + '</div>';
+    if (card.hogo) {
+      el.innerHTML =
+        '<div class="tanka-body hogo">反故——' + escapeHtml(card.hogoReason || '仔細あり') + '</div>' +
+        '<div class="tanka-meta">' + metaHtml + '</div>';
+    } else {
+      var displayBody = card.body.replace(/[\\n\\r]+/g, '\\u3000');
+      el.innerHTML =
+        '<div class="tanka-body">' + rubyToHtml(escapeHtml(displayBody)) + '</div>' +
+        '<div class="tanka-meta">' + metaHtml + '</div>';
+    }
     container.appendChild(el);
   });
 
