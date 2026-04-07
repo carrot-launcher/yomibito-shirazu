@@ -1,11 +1,12 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
 import {
-  ScrollView,
+  Modal, ScrollView,
   StyleSheet, Switch,
-  Text, TouchableOpacity,
+  Text, TextInput, TouchableOpacity,
   View,
 } from 'react-native';
 import { useAlert } from '../components/CustomAlert';
@@ -26,7 +27,25 @@ export default function SettingsScreen() {
   const [notifOther, setNotifOther] = useState(true);
   const [convertHalfSpace, setConvertHalfSpace] = useState(true);
   const [convertLineBreak, setConvertLineBreak] = useState(true);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deleteConfirmCode, setDeleteConfirmCode] = useState('');
+  const [deleting, setDeleting] = useState(false);
   const { alert } = useAlert();
+
+  const handleDeleteAccount = async () => {
+    if (!user || deleteConfirmCode !== userCode || deleting) return;
+    setDeleting(true);
+    try {
+      const fns = getFunctions(undefined, 'asia-northeast1');
+      await httpsCallable(fns, 'deleteAccount')({});
+      setShowDeleteAccount(false);
+      try { await GoogleSignin.signOut(); } catch {}
+      await signOut(auth);
+    } catch (e: any) {
+      alert('エラー', e?.message || 'アカウント削除に失敗しました');
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -139,6 +158,50 @@ export default function SettingsScreen() {
       ])}>
         <Text style={[styles.logoutText, { color: colors.destructive }]}>ログアウト</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity style={styles.logoutBtn} onPress={() => setShowDeleteAccount(true)}>
+        <Text style={[styles.logoutText, { color: colors.destructive }]}>消息を絶つ</Text>
+      </TouchableOpacity>
+
+      {/* 消息を絶つ確認モーダル */}
+      <Modal visible={showDeleteAccount} transparent animationType="fade" onRequestClose={() => { if (!deleting) setShowDeleteAccount(false); }}>
+        <View style={[styles.deleteOverlay, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.deleteModal, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.deleteTitle, { color: colors.destructive }]}>消息を絶つ</Text>
+            <Text style={[styles.deleteDesc, { color: colors.textSecondary }]}>
+              この操作は取り消せません。{'\n'}あなたの歌、評、歌会がすべて削除されます。
+            </Text>
+            <Text style={[styles.deleteHint, { color: colors.textTertiary }]}>
+              確認のため歌人ID（{userCode}）を入力してください
+            </Text>
+            <TextInput
+              style={[styles.deleteInput, { borderColor: colors.border, color: colors.text }]}
+              value={deleteConfirmCode}
+              onChangeText={setDeleteConfirmCode}
+              placeholder={userCode || ''}
+              placeholderTextColor={colors.disabled}
+              keyboardType="number-pad"
+              maxLength={6}
+            />
+            <View style={styles.deleteButtons}>
+              <TouchableOpacity
+                style={[styles.deleteCancelBtn, { borderColor: colors.border }]}
+                onPress={() => { setShowDeleteAccount(false); setDeleteConfirmCode(''); }}
+                disabled={deleting}
+              >
+                <Text style={[styles.deleteCancelText, { color: colors.textSecondary }]}>やめる</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.deleteConfirmBtn, { backgroundColor: colors.destructive }, (deleteConfirmCode !== userCode || deleting) && { opacity: 0.4 }]}
+                onPress={handleDeleteAccount}
+                disabled={deleteConfirmCode !== userCode || deleting}
+              >
+                <Text style={styles.deleteConfirmText}>{deleting ? '処理中...' : '消息を絶つ'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
     </GradientBackground>
   );
@@ -166,4 +229,15 @@ const styles = StyleSheet.create({
   segmentBar: { flexDirection: 'row', borderRadius: 8, padding: 3, marginBottom: 4 },
   segment: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
   segmentText: { fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular' },
+  deleteOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  deleteModal: { borderRadius: 16, padding: 28, width: '86%' },
+  deleteTitle: { fontSize: 18, fontWeight: '500', textAlign: 'center', marginBottom: 12, fontFamily: 'NotoSerifJP_500Medium' },
+  deleteDesc: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 12 },
+  deleteHint: { fontSize: 12, textAlign: 'center', marginBottom: 8 },
+  deleteInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, fontSize: 20, textAlign: 'center', letterSpacing: 4, fontFamily: 'IBMPlexMono_600SemiBold' },
+  deleteButtons: { flexDirection: 'row', gap: 12, marginTop: 20 },
+  deleteCancelBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, borderWidth: 1 },
+  deleteCancelText: { fontSize: 15 },
+  deleteConfirmBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10 },
+  deleteConfirmText: { color: '#FFFFFF', fontSize: 15, fontWeight: '500' },
 });

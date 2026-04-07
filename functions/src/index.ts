@@ -923,3 +923,169 @@ export const unbanMember = onCall(
     return { success: true };
   }
 );
+
+/**
+ * deleteAccount — ユーザーデータ全消去「消息を絶つ」
+ */
+export const deleteAccount = onCall(
+  { region: "asia-northeast1", timeoutSeconds: 300 },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
+    const uid = request.auth.uid;
+
+    const userSnap = await db.doc(`users/${uid}`).get();
+    if (!userSnap.exists) throw new HttpsError("not-found", "ユーザーが見つかりません");
+    const joinedGroups: string[] = userSnap.data()?.joinedGroups || [];
+
+    // 1. 所有歌会をソフト解散（通知なし、投稿は残す）
+    const ownedSnap = await db.collection("groups").where("createdBy", "==", uid).get();
+    for (const groupDoc of ownedSnap.docs) {
+      const groupId = groupDoc.id;
+      try {
+        const membersSnap = await db.collection(`groups/${groupId}/members`).get();
+        for (const memberDoc of membersSnap.docs) {
+          const memberId = memberDoc.id;
+          await db.doc(`users/${memberId}`).update({
+            joinedGroups: admin.firestore.FieldValue.arrayRemove(groupId),
+          }).catch(() => {});
+          await memberDoc.ref.delete();
+        }
+        await groupDoc.ref.delete();
+      } catch {
+        // 個別の歌会解散失敗は続行
+      }
+    }
+
+    // 2. 他の参加歌会から脱退
+    for (const groupId of joinedGroups) {
+      try {
+        const memberRef = db.doc(`groups/${groupId}/members/${uid}`);
+        const memberSnap = await memberRef.get();
+        if (memberSnap.exists) {
+          await memberRef.delete();
+          await db.doc(`groups/${groupId}`).update({
+            memberCount: admin.firestore.FieldValue.increment(-1),
+          }).catch(() => {});
+        }
+      } catch {
+        // 歌会が既に存在しない場合など
+      }
+    }
+
+    // 3. ユーザーの投稿を全削除
+    const myPostsSnap = await db.collection(`users/${uid}/myPosts`).get();
+    const deletedPostIds = new Set<string>();
+    for (const myPost of myPostsSnap.docs) {
+      const postId = myPost.data().postId;
+      if (deletedPostIds.has(postId)) continue;
+      deletedPostIds.add(postId);
+      try {
+        // リアクション削除
+        const reactionsSnap = await db.collection(`posts/${postId}/reactions`).get();
+        const rBatch = db.batch();
+        reactionsSnap.docs.forEach((d) => rBatch.delete(d.ref));
+        if (reactionsSnap.size > 0) await rBatch.commit();
+
+        // コメント削除
+        const commentsSnap = await db.collection(`posts/${postId}/comments`).get();
+        for (const commentDoc of commentsSnap.docs) {
+          const privSnap = await db.collection(`posts/${postId}/comments/${commentDoc.id}/private`).get();
+          const cBatch = db.batch();
+          privSnap.docs.forEach((d) => cBatch.delete(d.ref));
+          cBatch.delete(commentDoc.ref);
+          await cBatch.commit();
+        }
+
+        // 投稿本体削除
+        await db.doc(`posts/${postId}/private/author`).delete().catch(() => {});
+        await db.doc(`posts/${postId}`).delete();
+      } catch {
+        // 個別の投稿削除失敗は続行
+      }
+    }
+
+    // 4. ユーザーの評を全削除（collectionGroupでauthor検索）
+    try {
+      const authorSnap = await db.collectionGroup("author")
+        .where("authorId", "==", uid).get();
+      for (const authorDoc of authorSnap.docs) {
+        const path = authorDoc.ref.path;
+        // comments内のauthorのみ処理（投稿のauthorはステップ3で処理済み）
+        if (!path.includes("/comments/")) continue;
+        try {
+          // パス: posts/{postId}/comments/{commentId}/private/author
+          const parts = path.split("/");
+          const postId = parts[1];
+          const commentId = parts[3];
+          await authorDoc.ref.delete();
+          await db.doc(`posts/${postId}/comments/${commentId}`).delete();
+          await db.doc(`posts/${postId}`).update({
+            commentCount: admin.firestore.FieldValue.increment(-1),
+          }).catch(() => {});
+        } catch {
+          // 個別の評削除失敗は続行
+        }
+      }
+    } catch {
+      // collectionGroupクエリ失敗は続行
+    }
+
+    // 5. 他ユーザーの投稿へのリアクション削除
+    try {
+      const reactionsSnap = await db.collectionGroup("reactions")
+        .where("userId", "==", uid).get();
+      for (const reactionDoc of reactionsSnap.docs) {
+        try {
+          const emoji = reactionDoc.data().emoji;
+          // パス: posts/{postId}/reactions/{reactionId}
+          const postId = reactionDoc.ref.parent.parent?.id;
+          await reactionDoc.ref.delete();
+          if (postId && emoji) {
+            const postRef = db.doc(`posts/${postId}`);
+            const postSnap = await postRef.get();
+            if (postSnap.exists) {
+              const current = postSnap.data()?.reactionSummary?.[emoji] || 0;
+              if (current > 0) {
+                await postRef.update({
+                  [`reactionSummary.${emoji}`]: Math.max(0, current - 1),
+                });
+              }
+            }
+          }
+        } catch {
+          // 個別のリアクション削除失敗は続行
+        }
+      }
+    } catch {
+      // collectionGroupクエリ失敗は続行
+    }
+
+    // 6. サブコレクション削除
+    const subcollections = ["myPosts", "bookmarks", "notifications"];
+    for (const sub of subcollections) {
+      const snap = await db.collection(`users/${uid}/${sub}`).get();
+      const batch = db.batch();
+      snap.docs.forEach((d) => batch.delete(d.ref));
+      if (snap.size > 0) await batch.commit();
+    }
+
+    // 7. レートリミット削除
+    try {
+      const dailySnap = await db.collection(`rateLimits/${uid}/daily`).get();
+      const rlBatch = db.batch();
+      dailySnap.docs.forEach((d) => rlBatch.delete(d.ref));
+      rlBatch.delete(db.doc(`rateLimits/${uid}`));
+      await rlBatch.commit();
+    } catch {
+      // rateLimitsが存在しない場合
+    }
+
+    // 8. ユーザードキュメント削除
+    await db.doc(`users/${uid}`).delete();
+
+    // 9. Firebase Auth ユーザー削除
+    await admin.auth().deleteUser(uid);
+
+    return { success: true };
+  }
+);
