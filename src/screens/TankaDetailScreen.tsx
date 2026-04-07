@@ -29,6 +29,7 @@ import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { CommentDoc, PostDoc, REACTION_EMOJI } from '../types';
+import { compressNewlines, formatTankaBody } from '../utils/formatTanka';
 
 function buildDetailHtml(body: string, comments: { body: string; time: string; id: string }[]): string {
   const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -86,11 +87,17 @@ function buildDetailHtml(body: string, comments: { body: string; time: string; i
     letter-spacing: 0.05em;
     color: #2C2418;
     padding: 8px 6px;
+    white-space: pre-wrap;
     cursor: pointer;
     transition: background 0.2s;
     flex-shrink: 0;
   }
   .comment-item:active { background: rgba(0,0,0,0.04); }
+  .fold-hint {
+    font-size: 12px;
+    color: #A69880;
+    margin-top: 4px;
+  }
   .comment-time {
     font-size: 10px;
     color: #A69880;
@@ -120,15 +127,37 @@ if (comments.length === 0) {
   comments.forEach(c => {
     const el = document.createElement("div");
     el.className = "comment-item";
-    el.innerHTML = c.body + '<div class="comment-time">' + c.time + '</div>';
-    let pressTimer = null;
-    el.addEventListener('touchstart', (e) => {
-      pressTimer = setTimeout(() => {
+
+    var bodyLines = c.body.split('\\n');
+    var needsFold = bodyLines.length > 6;
+    var shortBody = needsFold ? bodyLines.slice(0, 6).join('\\n') : null;
+    var expanded = !needsFold;
+
+    function renderComment() {
+      var displayBody = expanded ? c.body : shortBody;
+      el.innerHTML = displayBody +
+        (needsFold ? '<div class="fold-hint">' + (expanded ? '▲ 閉じる' : '▼ 続きを読む') + '</div>' : '') +
+        '<div class="comment-time">' + c.time + '</div>';
+    }
+    renderComment();
+
+    var pressTimer = null;
+    var longPressed = false;
+    el.addEventListener('touchstart', function(e) {
+      longPressed = false;
+      pressTimer = setTimeout(function() {
+        longPressed = true;
         window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'deleteComment', commentId: c.id }));
       }, 600);
     });
-    el.addEventListener('touchend', () => { clearTimeout(pressTimer); });
-    el.addEventListener('touchmove', () => { clearTimeout(pressTimer); });
+    el.addEventListener('touchend', function() {
+      clearTimeout(pressTimer);
+      if (!longPressed && needsFold) {
+        expanded = !expanded;
+        renderComment();
+      }
+    });
+    el.addEventListener('touchmove', function() { clearTimeout(pressTimer); });
     commentsEl.appendChild(el);
   });
 }
@@ -348,7 +377,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     setSubmitting(true);
     try {
       const commentRef = await addDoc(collection(db, 'posts', postId, 'comments'), {
-        body: commentText.trim(), createdAt: serverTimestamp(),
+        body: compressNewlines(commentText.trim()), createdAt: serverTimestamp(),
       });
       await setDoc(doc(db, 'posts', postId, 'comments', commentRef.id, 'private', 'author'), {
         authorId: user.uid,
@@ -393,19 +422,24 @@ export default function TankaDetailScreen({ route, navigation }: any) {
 
   const reactionCount = (post.reactionSummary?.[REACTION_EMOJI] || 0) + extraReactions;
 
+  const displayBody = formatTankaBody(post.body, 'detail', {
+    convertHalfSpace: post.convertHalfSpace,
+    convertLineBreak: post.convertLineBreak,
+  });
+
   const commentData = comments.map(c => ({
     id: c.id,
     body: c.body,
     time: c.createdAt ? timeAgo(c.createdAt.toDate()) : '',
   }));
 
-  const html = buildDetailHtml(post.body, commentData);
+  const html = buildDetailHtml(displayBody, commentData);
 
   const handleWebViewMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.action === 'screenshot') {
-        navigation.navigate('Screenshot', { body: post!.body });
+        navigation.navigate('Screenshot', { body: displayBody });
       } else if (data.action === 'deleteComment') {
         handleDeleteComment(data.commentId);
       }

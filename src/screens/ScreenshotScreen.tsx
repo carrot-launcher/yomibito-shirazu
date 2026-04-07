@@ -77,21 +77,33 @@ function capture() {
 
     const maxHeight = h * 0.80;
     const charStep = fontSize + charSpacing;
-    const chars = text.split('');
-
-    // Calculate how many chars per column and total columns
     const charsPerCol = Math.floor(maxHeight / charStep);
-    const totalCols = Math.ceil(chars.length / charsPerCol);
+
+    // Split by line breaks first, then wrap each line into columns
+    const lines = text.split('\\n');
+    const columns = [];
+    lines.forEach(function(line) {
+      var lineChars = line.split('');
+      if (lineChars.length === 0) {
+        columns.push([]);
+      } else {
+        for (var i = 0; i < lineChars.length; i += charsPerCol) {
+          columns.push(lineChars.slice(i, i + charsPerCol));
+        }
+      }
+    });
+
+    const totalCols = columns.length;
     const totalWidth = totalCols * colSpacing;
     const startX = w / 2 + totalWidth / 2 - colSpacing + (colSpacing - fontSize) / 2;
     const startY = h * 0.10;
 
-    chars.forEach(function(ch, i) {
-      const col = Math.floor(i / charsPerCol);
-      const row = i % charsPerCol;
-      const x = startX - col * colSpacing;
-      const y = startY + row * charStep;
-      ctx.fillText(ch, x, y);
+    columns.forEach(function(col, colIdx) {
+      col.forEach(function(ch, rowIdx) {
+        const x = startX - colIdx * colSpacing;
+        const y = startY + rowIdx * charStep;
+        ctx.fillText(ch, x, y);
+      });
     });
 
     const dataUrl = canvas.toDataURL('image/png');

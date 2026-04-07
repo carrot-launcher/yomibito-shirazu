@@ -86,14 +86,14 @@ export default function TayoriScreen({ navigation }: any) {
       case 'new_post':
         icon = 'pen';
         title = `${item.groupName}に新しい歌`;
-        body = item.tankaBody;
+        body = item.tankaBody?.replace(/[\n\r]+/g, '\u3000');
         break;
       case 'reaction':
         icon = 'flower-tulip';
         title = item.reactionCount && item.reactionCount > 1
           ? `あなたの歌に${item.emoji || '🌸'}が${item.reactionCount}件`
           : `あなたの歌に${item.emoji || '🌸'}`;
-        body = item.tankaBody;
+        body = item.tankaBody?.replace(/[\n\r]+/g, '\u3000');
         break;
       case 'comment':
         icon = 'comment-text-outline';

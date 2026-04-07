@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
-import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
@@ -15,13 +15,19 @@ export default function ComposeScreen({ route, navigation }: any) {
   const [body, setBody] = useState('');
   const [groups, setGroups] = useState<{ id: string; name: string; selected: boolean }[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [convertHalfSpace, setConvertHalfSpace] = useState(true);
+  const [convertLineBreak, setConvertLineBreak] = useState(true);
   const { alert } = useAlert();
 
   useEffect(() => {
     if (!user) return;
     (async () => {
       const userSnap = await getDoc(doc(db, 'users', user.uid));
-      const joinedGroups: string[] = userSnap.data()?.joinedGroups || [];
+      const data = userSnap.data();
+      const joinedGroups: string[] = data?.joinedGroups || [];
+      // Load user's conversion settings
+      setConvertHalfSpace(data?.tankaConvert?.halfSpace ?? true);
+      setConvertLineBreak(data?.tankaConvert?.lineBreak ?? true);
       const fetched = await Promise.all(joinedGroups.map(async (gid) => {
         const gSnap = await getDoc(doc(db, 'groups', gid));
         return { id: gid, name: gSnap.data()?.name || '不明', selected: gid === preselectedGroupId };
@@ -32,25 +38,53 @@ export default function ComposeScreen({ route, navigation }: any) {
 
   const toggleGroup = (id: string) => setGroups(prev => prev.map(g => g.id === id ? { ...g, selected: !g.selected } : g));
 
+  // Persist conversion setting to user doc
+  const updateConvertSetting = async (key: 'halfSpace' | 'lineBreak', value: boolean) => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        [`tankaConvert.${key}`]: value,
+      });
+    } catch {}
+  };
+
+  const handleToggleHalfSpace = (value: boolean) => {
+    setConvertHalfSpace(value);
+    updateConvertSetting('halfSpace', value);
+  };
+
+  const handleToggleLineBreak = (value: boolean) => {
+    setConvertLineBreak(value);
+    updateConvertSetting('lineBreak', value);
+  };
+
   const handleSubmit = useCallback(async () => {
     if (!user || !body.trim()) return;
     const selectedGroups = groups.filter(g => g.selected);
     if (selectedGroups.length === 0) { alert('送り先を選んでください'); return; }
-    // 改行・半角スペースを全角スペースに変換
-    const normalizedBody = body.trim().replace(/[\n\r ]/g, '\u3000');
-    if (normalizedBody.length > MAX_CHARS) { alert(`${MAX_CHARS}文字以内にしてください`); return; }
+    const trimmedBody = body.trim();
+    if (trimmedBody.length > MAX_CHARS) { alert(`${MAX_CHARS}文字以内にしてください`); return; }
     setSubmitting(true);
     try {
       const batchId = Crypto.randomUUID();
       for (const group of selectedGroups) {
-        const postRef = await addDoc(collection(db, 'posts'), { groupId: group.id, body: normalizedBody, batchId, createdAt: serverTimestamp(), reactionSummary: {}, commentCount: 0 });
+        const postRef = await addDoc(collection(db, 'posts'), {
+          groupId: group.id, body: trimmedBody, batchId,
+          convertHalfSpace, convertLineBreak,
+          createdAt: serverTimestamp(), reactionSummary: {}, commentCount: 0,
+        });
         await setDoc(doc(db, 'posts', postRef.id, 'private', 'author'), { authorId: user.uid });
-        await addDoc(collection(db, 'users', user.uid, 'myPosts'), { postId: postRef.id, groupId: group.id, groupName: group.name, tankaBody: normalizedBody, batchId, createdAt: serverTimestamp() });
+        await addDoc(collection(db, 'users', user.uid, 'myPosts'), {
+          postId: postRef.id, groupId: group.id, groupName: group.name,
+          tankaBody: trimmedBody, batchId,
+          convertHalfSpace, convertLineBreak,
+          createdAt: serverTimestamp(),
+        });
       }
       navigation.goBack();
     } catch (e: any) { alert('エラー', e.message); }
     finally { setSubmitting(false); }
-  }, [user, body, groups, alert, navigation]);
+  }, [user, body, groups, alert, navigation, convertHalfSpace, convertLineBreak]);
 
   useEffect(() => {
     navigation.setOptions({
@@ -76,6 +110,13 @@ export default function ComposeScreen({ route, navigation }: any) {
     });
   }, [body, submitting, handleSubmit]);
 
+  const hintParts: string[] = [];
+  if (convertLineBreak) hintParts.push('改行');
+  if (convertHalfSpace) hintParts.push('半角スペース');
+  const hintText = hintParts.length > 0
+    ? `${hintParts.join('・')}は全角スペースに変換されます`
+    : '';
+
   return (
     <GradientBackground style={styles.container}>
       <View style={styles.topBar}>
@@ -99,7 +140,20 @@ export default function ComposeScreen({ route, navigation }: any) {
           maxLength={MAX_CHARS}
           autoFocus
         />
-        <Text style={styles.hint}>改行・半角スペースは全角スペースに変換されます</Text>
+      </View>
+
+      <View style={styles.convertArea}>
+        <View style={styles.convertRow}>
+          <Text style={styles.convertLabel}>半角スペース → 全角</Text>
+          <Switch value={convertHalfSpace} onValueChange={handleToggleHalfSpace}
+            trackColor={{ false: '#E8E0D0', true: '#A69880' }} thumbColor={convertHalfSpace ? '#2C2418' : '#FFFDF8'} />
+        </View>
+        <View style={styles.convertRow}>
+          <Text style={styles.convertLabel}>改行 → 全角スペース</Text>
+          <Switch value={convertLineBreak} onValueChange={handleToggleLineBreak}
+            trackColor={{ false: '#E8E0D0', true: '#A69880' }} thumbColor={convertLineBreak ? '#2C2418' : '#FFFDF8'} />
+        </View>
+        {hintText ? <Text style={styles.hint}>{hintText}</Text> : null}
       </View>
     </GradientBackground>
   );
@@ -120,5 +174,11 @@ const styles = StyleSheet.create({
     fontFamily: 'NotoSerifJP_400Regular',
     includeFontPadding: false, paddingTop: 12,
   },
-  hint: { fontSize: 11, color: '#A69880', marginTop: 8 },
+  convertArea: { paddingHorizontal: 16, paddingBottom: 16 },
+  convertRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 6,
+  },
+  convertLabel: { fontSize: 13, color: '#8B7E6A' },
+  hint: { fontSize: 11, color: '#A69880', marginTop: 4 },
 });

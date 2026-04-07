@@ -34,6 +34,8 @@ export interface PostDoc {
   groupId: string;
   body: string;
   batchId: string;
+  convertHalfSpace?: boolean;
+  convertLineBreak?: boolean;
   createdAt: Timestamp;
   reactionSummary: Record<string, number>;
   commentCount: number;
@@ -57,6 +59,8 @@ export interface MyPostDoc {
   groupName: string;
   tankaBody: string;
   batchId: string;
+  convertHalfSpace?: boolean;
+  convertLineBreak?: boolean;
   createdAt: Timestamp;
 }
 

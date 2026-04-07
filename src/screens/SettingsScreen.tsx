@@ -15,6 +15,8 @@ export default function SettingsScreen() {
   const [notifNewPost, setNotifNewPost] = useState(true);
   const [notifReaction, setNotifReaction] = useState(true);
   const [notifComment, setNotifComment] = useState(true);
+  const [convertHalfSpace, setConvertHalfSpace] = useState(true);
+  const [convertLineBreak, setConvertLineBreak] = useState(true);
   const [saving, setSaving] = useState(false);
   const { alert } = useAlert();
 
@@ -27,6 +29,8 @@ export default function SettingsScreen() {
         setNotifNewPost(data.notificationSettings?.newPost ?? true);
         setNotifReaction(data.notificationSettings?.reaction ?? true);
         setNotifComment(data.notificationSettings?.comment ?? true);
+        setConvertHalfSpace(data.tankaConvert?.halfSpace ?? true);
+        setConvertLineBreak(data.tankaConvert?.lineBreak ?? true);
       }
     })();
   }, [user]);
@@ -40,6 +44,10 @@ export default function SettingsScreen() {
           newPost: notifNewPost,
           reaction: notifReaction,
           comment: notifComment,
+        },
+        tankaConvert: {
+          halfSpace: convertHalfSpace,
+          lineBreak: convertLineBreak,
         },
       });
       alert('保存しました');
@@ -59,6 +67,22 @@ export default function SettingsScreen() {
         <Text style={styles.idValue}>#{userCode}</Text>
         <Text style={styles.idHint}>他の歌人があなたを識別するためのIDです</Text>
       </View>
+
+      <Text style={styles.sectionTitle}>短歌の変換</Text>
+      <Text style={styles.hint}>初心者の分かち書きを補正します。上級者はOFFにできます。</Text>
+
+      <View style={styles.switchRow}>
+        <Text style={styles.switchLabel}>半角スペース → 全角</Text>
+        <Switch value={convertHalfSpace} onValueChange={setConvertHalfSpace}
+          trackColor={{ false: '#E8E0D0', true: '#A69880' }} thumbColor={convertHalfSpace ? '#2C2418' : '#FFFDF8'} />
+      </View>
+      <View style={styles.switchRow}>
+        <Text style={styles.switchLabel}>改行 → 全角スペース</Text>
+        <Switch value={convertLineBreak} onValueChange={setConvertLineBreak}
+          trackColor={{ false: '#E8E0D0', true: '#A69880' }} thumbColor={convertLineBreak ? '#2C2418' : '#FFFDF8'} />
+      </View>
+
+      <View style={{ height: 24 }} />
 
       <Text style={styles.sectionTitle}>たよりの設定</Text>
       <Text style={styles.hint}>音やバイブの設定は端末のOS設定から変更できます。</Text>

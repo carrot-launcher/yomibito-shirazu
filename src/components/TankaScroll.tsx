@@ -187,8 +187,10 @@ if (cards.length === 0) {
         '<div class="group-info">' + timeAgo + '</div>';
     }
 
+    // Timeline: always single line (replace line breaks with full-width space)
+    var displayBody = card.body.replace(/[\\n\\r]+/g, '\\u3000');
     el.innerHTML =
-      '<div class="tanka-body">' + escapeHtml(card.body) + '</div>' +
+      '<div class="tanka-body">' + escapeHtml(displayBody) + '</div>' +
       '<div class="tanka-meta">' + metaHtml + '</div>';
     container.appendChild(el);
   });
