@@ -15,7 +15,7 @@ export default function KashuScreen({ navigation }: any) {
   const baseCardsRef = useRef<TankaCard[]>([]);
 
   const enrichPosts = useCallback(async (cards: TankaCard[]) => {
-    const enriched = await Promise.all(cards.map(async (card) => {
+    const enriched = (await Promise.all(cards.map(async (card) => {
       try {
         const postSnap = await getDoc(doc(db, 'posts', card.postId));
         if (postSnap.exists()) {
@@ -23,8 +23,8 @@ export default function KashuScreen({ navigation }: any) {
           return { ...card, reactionSummary: postData.reactionSummary || {}, commentCount: postData.commentCount || 0 };
         }
       } catch {}
-      return card;
-    }));
+      return null;
+    }))).filter((c): c is TankaCard => c !== null);
     setMyPosts(enriched);
   }, []);
 
@@ -36,7 +36,6 @@ export default function KashuScreen({ navigation }: any) {
         return { postId: data.postId, groupId: data.groupId, body: data.tankaBody, createdAt: data.createdAt?.toDate() || new Date(), reactionSummary: {} as any, commentCount: 0, groupName: data.groupName, batchId: data.batchId };
       });
       baseCardsRef.current = baseCards;
-      setMyPosts(baseCards);
       enrichPosts(baseCards);
     });
   }, [user, enrichPosts]);
