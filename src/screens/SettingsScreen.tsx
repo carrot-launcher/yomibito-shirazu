@@ -17,7 +17,6 @@ export default function SettingsScreen() {
   const [notifComment, setNotifComment] = useState(true);
   const [convertHalfSpace, setConvertHalfSpace] = useState(true);
   const [convertLineBreak, setConvertLineBreak] = useState(true);
-  const [saving, setSaving] = useState(false);
   const { alert } = useAlert();
 
   useEffect(() => {
@@ -35,27 +34,10 @@ export default function SettingsScreen() {
     })();
   }, [user]);
 
-  const handleSave = async () => {
+  const saveSetting = async (field: string, value: any) => {
     if (!user) return;
-    setSaving(true);
-    try {
-      await updateDoc(doc(db, 'users', user.uid), {
-        notificationSettings: {
-          newPost: notifNewPost,
-          reaction: notifReaction,
-          comment: notifComment,
-        },
-        tankaConvert: {
-          halfSpace: convertHalfSpace,
-          lineBreak: convertLineBreak,
-        },
-      });
-      alert('保存しました');
-    } catch (e: any) {
-      alert('エラー', e.message);
-    } finally {
-      setSaving(false);
-    }
+    try { await updateDoc(doc(db, 'users', user.uid), { [field]: value }); }
+    catch {}
   };
 
   return (
@@ -73,12 +55,12 @@ export default function SettingsScreen() {
 
       <View style={styles.switchRow}>
         <Text style={styles.switchLabel}>半角スペース → 全角</Text>
-        <Switch value={convertHalfSpace} onValueChange={setConvertHalfSpace}
+        <Switch value={convertHalfSpace} onValueChange={(v) => { setConvertHalfSpace(v); saveSetting('tankaConvert.halfSpace', v); }}
           trackColor={{ false: '#E8E0D0', true: '#A69880' }} thumbColor={convertHalfSpace ? '#2C2418' : '#FFFDF8'} />
       </View>
       <View style={styles.switchRow}>
         <Text style={styles.switchLabel}>改行 → 全角スペース</Text>
-        <Switch value={convertLineBreak} onValueChange={setConvertLineBreak}
+        <Switch value={convertLineBreak} onValueChange={(v) => { setConvertLineBreak(v); saveSetting('tankaConvert.lineBreak', v); }}
           trackColor={{ false: '#E8E0D0', true: '#A69880' }} thumbColor={convertLineBreak ? '#2C2418' : '#FFFDF8'} />
       </View>
 
@@ -89,26 +71,19 @@ export default function SettingsScreen() {
 
       <View style={styles.switchRow}>
         <Text style={styles.switchLabel}>新しい歌</Text>
-        <Switch value={notifNewPost} onValueChange={setNotifNewPost}
+        <Switch value={notifNewPost} onValueChange={(v) => { setNotifNewPost(v); saveSetting('notificationSettings.newPost', v); }}
           trackColor={{ false: '#E8E0D0', true: '#A69880' }} thumbColor={notifNewPost ? '#2C2418' : '#FFFDF8'} />
       </View>
       <View style={styles.switchRow}>
         <Text style={styles.switchLabel}>リアクション</Text>
-        <Switch value={notifReaction} onValueChange={setNotifReaction}
+        <Switch value={notifReaction} onValueChange={(v) => { setNotifReaction(v); saveSetting('notificationSettings.reaction', v); }}
           trackColor={{ false: '#E8E0D0', true: '#A69880' }} thumbColor={notifReaction ? '#2C2418' : '#FFFDF8'} />
       </View>
       <View style={styles.switchRow}>
         <Text style={styles.switchLabel}>評</Text>
-        <Switch value={notifComment} onValueChange={setNotifComment}
+        <Switch value={notifComment} onValueChange={(v) => { setNotifComment(v); saveSetting('notificationSettings.comment', v); }}
           trackColor={{ false: '#E8E0D0', true: '#A69880' }} thumbColor={notifComment ? '#2C2418' : '#FFFDF8'} />
       </View>
-
-      <TouchableOpacity
-        style={[styles.saveBtn, saving && { opacity: 0.4 }]}
-        onPress={handleSave} disabled={saving}
-      >
-        <Text style={styles.saveBtnText}>保存</Text>
-      </TouchableOpacity>
 
       <TouchableOpacity style={styles.logoutBtn} onPress={() => alert('ログアウト', 'ログアウトしますか？', [
         { text: 'やめる', style: 'cancel' },
@@ -142,11 +117,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#E8E0D0',
   },
   switchLabel: { fontSize: 15, color: '#2C2418' },
-  saveBtn: {
-    backgroundColor: '#2C2418', borderRadius: 10, paddingVertical: 14,
-    alignItems: 'center', marginTop: 32,
-  },
-  saveBtnText: { color: '#F5F0E8', fontSize: 16 },
   logoutBtn: { alignItems: 'center', marginTop: 24, paddingVertical: 12 },
   logoutText: { color: '#C53030', fontSize: 14 },
 });

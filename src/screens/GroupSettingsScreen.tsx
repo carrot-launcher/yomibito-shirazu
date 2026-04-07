@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { arrayRemove, collection, deleteDoc, doc, getDoc, getDocs, increment, updateDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import GradientBackground from '../components/GradientBackground';
 import {
   Modal,
@@ -25,10 +25,15 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
   const [inviteCode, setInviteCode] = useState('');
   const [isOwner, setIsOwner] = useState(false);
   const [members, setMembers] = useState<(MemberDoc & { id: string })[]>([]);
-  const [savingName, setSavingName] = useState(false);
-  const [savingGroupName, setSavingGroupName] = useState(false);
+  const [savedHint, setSavedHint] = useState('');
   const [copied, setCopied] = useState(false);
   const { alert } = useAlert();
+  const originalDisplayName = useRef('');
+  const originalGroupName = useRef('');
+  const displayNameRef = useRef('');
+  const editingNameRef = useRef('');
+  displayNameRef.current = displayName;
+  editingNameRef.current = editingName;
 
   // 追放リスト
   const [bannedUsers, setBannedUsers] = useState<Record<string, { displayName: string; userCode: string }>>({});
@@ -47,6 +52,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
         const data = groupSnap.data();
         setGroupName(data.name);
         setEditingName(data.name);
+        originalGroupName.current = data.name;
         setInviteCode(data.inviteCode);
         setBannedUsers(data.bannedUsers || []);
       }
@@ -54,6 +60,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
       if (memberSnap.exists()) {
         const data = memberSnap.data();
         setDisplayName(data.displayName || '');
+        originalDisplayName.current = data.displayName || '';
         setIsOwner(data.role === 'owner');
       }
       const membersSnap = await getDocs(collection(db, 'groups', groupId, 'members'));
@@ -67,28 +74,47 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSaveDisplayName = async () => {
-    if (!user || !displayName.trim()) { alert('名前を入力してください'); return; }
-    setSavingName(true);
-    try {
-      await updateDoc(doc(db, 'groups', groupId, 'members', user.uid), { displayName: displayName.trim() });
-      setMembers(prev => prev.map(m => m.id === user.uid ? { ...m, displayName: displayName.trim() } : m));
-      alert('保存しました');
-    } catch (e: any) { alert('エラー', e.message); }
-    finally { setSavingName(false); }
+  const showSaved = (key: string) => {
+    setSavedHint(key);
+    setTimeout(() => setSavedHint(''), 2000);
   };
 
-  const handleSaveGroupName = async () => {
-    if (!editingName.trim()) { alert('歌会の名前を入力してください'); return; }
-    setSavingGroupName(true);
+  const handleBlurDisplayName = async () => {
+    const v = displayName.trim();
+    if (!user || !v || v === originalDisplayName.current) return;
     try {
-      await updateDoc(doc(db, 'groups', groupId), { name: editingName.trim() });
-      setGroupName(editingName.trim());
-      navigation.setParams({ groupName: editingName.trim() });
-      alert('保存しました');
-    } catch (e: any) { alert('エラー', e.message); }
-    finally { setSavingGroupName(false); }
+      await updateDoc(doc(db, 'groups', groupId, 'members', user.uid), { displayName: v });
+      setMembers(prev => prev.map(m => m.id === user.uid ? { ...m, displayName: v } : m));
+      originalDisplayName.current = v;
+      showSaved('displayName');
+    } catch {}
   };
+
+  const handleBlurGroupName = async () => {
+    const v = editingName.trim();
+    if (!v || v === originalGroupName.current) return;
+    try {
+      await updateDoc(doc(db, 'groups', groupId), { name: v });
+      setGroupName(v);
+      navigation.setParams({ groupName: v });
+      originalGroupName.current = v;
+      showSaved('groupName');
+    } catch {}
+  };
+
+  // Save unsaved changes on navigation away
+  useEffect(() => {
+    return navigation.addListener('beforeRemove', () => {
+      const dn = displayNameRef.current.trim();
+      const gn = editingNameRef.current.trim();
+      if (user && dn && dn !== originalDisplayName.current) {
+        updateDoc(doc(db, 'groups', groupId, 'members', user.uid), { displayName: dn }).catch(() => {});
+      }
+      if (isOwner && gn && gn !== originalGroupName.current) {
+        updateDoc(doc(db, 'groups', groupId), { name: gn }).catch(() => {});
+      }
+    });
+  }, [navigation, user, isOwner, groupId]);
 
   const handleKick = (member: MemberDoc & { id: string }) => {
     if (member.id === user?.uid) { alert('自分自身は追放できません'); return; }
@@ -173,13 +199,8 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
       {isOwner && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>歌会の名前</Text>
-          <TextInput style={styles.input} value={editingName} onChangeText={setEditingName} maxLength={16} />
-          <TouchableOpacity
-            style={[styles.saveBtn, savingGroupName && styles.saveBtnDisabled]}
-            onPress={handleSaveGroupName} disabled={savingGroupName}
-          >
-            <Text style={styles.saveBtnText}>名前を保存</Text>
-          </TouchableOpacity>
+          <TextInput style={styles.input} value={editingName} onChangeText={setEditingName} onBlur={handleBlurGroupName} maxLength={16} />
+          {savedHint === 'groupName' && <Text style={styles.savedHint}>保存しました</Text>}
         </View>
       )}
 
@@ -187,13 +208,8 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>この歌会でのあなたの名前</Text>
         <Text style={styles.hint}>この歌会でのみ使われる名前です。他の歌会には影響しません。</Text>
-        <TextInput style={styles.input} value={displayName} onChangeText={setDisplayName} placeholder="あなたの名前" placeholderTextColor="#A69880" maxLength={16} />
-        <TouchableOpacity
-          style={[styles.saveBtn, savingName && styles.saveBtnDisabled]}
-          onPress={handleSaveDisplayName} disabled={savingName}
-        >
-          <Text style={styles.saveBtnText}>名前を保存</Text>
-        </TouchableOpacity>
+        <TextInput style={styles.input} value={displayName} onChangeText={setDisplayName} onBlur={handleBlurDisplayName} placeholder="あなたの名前" placeholderTextColor="#A69880" maxLength={16} />
+        {savedHint === 'displayName' && <Text style={styles.savedHint}>保存しました</Text>}
       </View>
 
       {/* 歌人一覧 */}
@@ -347,9 +363,7 @@ const styles = StyleSheet.create({
   copyBtn: { backgroundColor: '#2C2418', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
   copyBtnText: { color: '#F5F0E8', fontSize: 13 },
   input: { borderWidth: 1, borderColor: '#E8E0D0', borderRadius: 8, padding: 12, fontSize: 16, color: '#2C2418', marginBottom: 12 },
-  saveBtn: { backgroundColor: '#2C2418', borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
-  saveBtnDisabled: { opacity: 0.4 },
-  saveBtnText: { color: '#F5F0E8', fontSize: 14 },
+  savedHint: { fontSize: 12, color: '#A69880', marginTop: 4 },
   memberRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F0EBE0',
