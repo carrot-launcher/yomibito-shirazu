@@ -25,12 +25,13 @@ export default function UtakaiListScreen({ navigation }: any) {
   const [newName, setNewName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [memberDisplayName, setMemberDisplayName] = useState('');
+  const [showMenu, setShowMenu] = useState(false);
   const [pendingAction, setPendingAction] = useState<null | { type: 'create'; groupName: string } | { type: 'join'; groupId: string; groupName: string }>(null);
 
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity onPress={() => setShowCreate(true)} hitSlop={8} style={{ padding: 8, marginRight: 8 }}>
+        <TouchableOpacity onPress={() => setShowMenu(true)} hitSlop={8} style={{ padding: 8, marginRight: 8 }}>
           <MaterialCommunityIcons name="plus" size={24} color="#2C2418" />
         </TouchableOpacity>
       ),
@@ -157,19 +158,31 @@ export default function UtakaiListScreen({ navigation }: any) {
   return (
     <GradientBackground style={styles.container}>
       <FlatList data={groups} keyExtractor={item => item.id} contentContainerStyle={styles.list}
-        ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyText}>歌会がありません</Text><Text style={styles.emptySubtext}>右上の＋から歌会を開くか{'\n'}招待コードで参加しましょう</Text></View>}
+        ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyText}>歌会がありません</Text><Text style={styles.emptySubtext}>右上の＋から歌会を開くか{'\n'}参加しましょう</Text></View>}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Timeline', { groupId: item.id, groupName: item.name })}>
             <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
             <Text style={styles.cardMembers}>{item.memberCount}人</Text>
           </TouchableOpacity>
         )}
-        ListFooterComponent={
-          <TouchableOpacity style={styles.joinLink} onPress={() => setShowJoin(true)}>
-            <Text style={styles.joinLinkText}>招待コードで参加</Text>
-          </TouchableOpacity>
-        }
       />
+
+      {/* アクションメニュー */}
+      <Modal visible={showMenu} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowMenu(false)}>
+          <View style={styles.menuModal}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); setShowCreate(true); }}>
+              <MaterialCommunityIcons name="plus-circle-outline" size={22} color="#2C2418" />
+              <Text style={styles.menuText}>歌会を開く</Text>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); setShowJoin(true); }}>
+              <MaterialCommunityIcons name="key-variant" size={22} color="#2C2418" />
+              <Text style={styles.menuText}>招待コードで参加</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* 歌会作成モーダル */}
       <Modal visible={showCreate} transparent animationType="fade">
@@ -224,8 +237,10 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#FFFDF8', borderRadius: 12, paddingHorizontal: 18, paddingVertical: 14, marginBottom: 10, borderWidth: 1, borderColor: '#E8E0D0', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cardName: { fontSize: 18, color: '#2C2418', fontFamily: 'NotoSerifJP_500Medium', flex: 1, marginRight: 12 },
   cardMembers: { fontSize: 13, color: '#A69880' },
-  joinLink: { alignItems: 'center', paddingVertical: 16 },
-  joinLinkText: { color: '#8B7E6A', fontSize: 14 },
+  menuModal: { backgroundColor: '#FFFDF8', borderRadius: 16, padding: 8, width: '75%' },
+  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
+  menuText: { fontSize: 16, color: '#2C2418' },
+  menuDivider: { height: 1, backgroundColor: '#E8E0D0', marginHorizontal: 12 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
   modal: { backgroundColor: '#FFFDF8', borderRadius: 16, padding: 24, width: '85%' },
   modalTitle: { fontSize: 18, color: '#2C2418', fontWeight: '500', marginBottom: 8 },
