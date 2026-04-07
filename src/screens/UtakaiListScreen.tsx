@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: '#E8E0D0', borderRadius: 8, padding: 12, fontSize: 16, color: '#2C2418', marginBottom: 20 },
   codeInput: { fontFamily: 'IBMPlexMono_600SemiBold', letterSpacing: 4, textAlign: 'center', fontSize: 20 },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 16, alignItems: 'center' },
-  cancelText: { color: '#8B7E6A', fontSize: 16, fontFamily: 'NotoSerifJP_400Regular' },
+  cancelText: { color: '#8B7E6A', fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular' },
   confirmBtn: { backgroundColor: '#2C2418', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  confirmText: { color: '#F5F0E8', fontSize: 16, fontFamily: 'NotoSerifJP_500Medium' },
+  confirmText: { color: '#F5F0E8', fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_500Medium' },
 });

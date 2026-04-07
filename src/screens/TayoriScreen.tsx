@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   segmentBar: { flexDirection: 'row', marginHorizontal: 16, marginTop: 8, marginBottom: 4, backgroundColor: '#E8E0D0', borderRadius: 8, padding: 3 },
   segment: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
   segmentActive: { backgroundColor: '#FFFDF8' },
-  segmentText: { fontSize: 15, color: '#8B7E6A', fontFamily: 'NotoSerifJP_400Regular' },
+  segmentText: { fontSize: 15, lineHeight: 20, color: '#8B7E6A', fontFamily: 'NotoSerifJP_400Regular' },
   segmentTextActive: { color: '#2C2418', fontWeight: '500', fontFamily: 'NotoSerifJP_500Medium' },
   list: { paddingVertical: 4 },
   item: {

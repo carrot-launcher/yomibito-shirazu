@@ -128,5 +128,5 @@ const styles = StyleSheet.create({
   },
   switchLabel: { fontSize: 16, color: '#2C2418', fontFamily: 'NotoSerifJP_400Regular' },
   logoutBtn: { alignItems: 'center', marginTop: 24, paddingVertical: 12 },
-  logoutText: { color: '#C53030', fontSize: 15, fontFamily: 'NotoSerifJP_400Regular' },
+  logoutText: { color: '#C53030', fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular' },
 });

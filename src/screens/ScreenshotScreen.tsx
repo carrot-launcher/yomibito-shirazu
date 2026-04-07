@@ -195,5 +195,5 @@ const styles = StyleSheet.create({
   buttonRow: { marginTop: 24, alignItems: 'center' },
   saveBtn: { backgroundColor: '#2C2418', borderRadius: 10, paddingHorizontal: 28, paddingVertical: 14 },
   saveBtnDisabled: { opacity: 0.4 },
-  saveBtnText: { color: '#F5F0E8', fontSize: 16, fontFamily: 'NotoSerifJP_400Regular' },
+  saveBtnText: { color: '#F5F0E8', fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular' },
 });

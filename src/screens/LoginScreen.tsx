@@ -40,5 +40,5 @@ const styles = StyleSheet.create({
   title: { fontSize: 36, fontWeight: '300', color: '#2C2418', letterSpacing: 8, marginBottom: 8, fontFamily: 'NotoSerifJP_400Regular' },
   subtitle: { fontSize: 15, color: '#8B7E6A', marginBottom: 48, letterSpacing: 2, fontFamily: 'NotoSerifJP_400Regular' },
   button: { backgroundColor: '#2C2418', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 8 },
-  buttonText: { color: '#F5F0E8', fontSize: 17, letterSpacing: 1, fontFamily: 'NotoSerifJP_500Medium' },
+  buttonText: { color: '#F5F0E8', fontSize: 17, lineHeight: 24, letterSpacing: 1, fontFamily: 'NotoSerifJP_500Medium' },
 });
