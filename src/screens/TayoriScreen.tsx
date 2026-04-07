@@ -23,10 +23,13 @@ function timeAgo(date: Date): string {
   return `${Math.floor(day / 30)}ヶ月前`;
 }
 
+type FilterType = 'all' | 'new_post' | 'reaction' | 'comment';
+
 export default function TayoriScreen({ navigation }: any) {
   const { user } = useAuth();
   const [items, setItems] = useState<TayoriItem[]>([]);
   const [lastReadAt, setLastReadAt] = useState<Date | null>(null);
+  const [filter, setFilter] = useState<FilterType>('all');
 
   // 通知一覧をリアルタイムで取得
   useEffect(() => {
@@ -124,16 +127,36 @@ export default function TayoriScreen({ navigation }: any) {
     );
   };
 
+  const filteredItems = filter === 'all' ? items : items.filter(i => i.type === filter);
+
+  const filters: { key: FilterType; label: string }[] = [
+    { key: 'all', label: 'すべて' },
+    { key: 'new_post', label: '歌' },
+    { key: 'reaction', label: '🌸' },
+    { key: 'comment', label: '評' },
+  ];
+
   return (
     <GradientBackground style={styles.container}>
-      {items.length === 0 ? (
+      <View style={styles.segmentBar}>
+        {filters.map(f => (
+          <TouchableOpacity
+            key={f.key}
+            style={[styles.segment, filter === f.key && styles.segmentActive]}
+            onPress={() => setFilter(f.key)}
+          >
+            <Text style={[styles.segmentText, filter === f.key && styles.segmentTextActive]}>{f.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {filteredItems.length === 0 ? (
         <View style={styles.emptyWrap}>
           <MaterialCommunityIcons name="email-outline" size={48} color="#A69880" />
-          <Text style={styles.emptyText}>まだたよりはありません</Text>
+          <Text style={styles.emptyText}>{items.length === 0 ? 'まだたよりはありません' : 'このたよりはありません'}</Text>
         </View>
       ) : (
         <FlatList
-          data={items}
+          data={filteredItems}
           keyExtractor={i => i.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
@@ -145,6 +168,11 @@ export default function TayoriScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  segmentBar: { flexDirection: 'row', marginHorizontal: 16, marginTop: 8, marginBottom: 4, backgroundColor: '#E8E0D0', borderRadius: 8, padding: 3 },
+  segment: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
+  segmentActive: { backgroundColor: '#FFFDF8' },
+  segmentText: { fontSize: 14, color: '#8B7E6A' },
+  segmentTextActive: { color: '#2C2418', fontWeight: '500' },
   list: { paddingVertical: 4 },
   item: {
     flexDirection: 'row',
