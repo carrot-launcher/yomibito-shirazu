@@ -60,7 +60,7 @@ function buildDetailHtml(
 <head>
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
     height: 100%;
     background: transparent;

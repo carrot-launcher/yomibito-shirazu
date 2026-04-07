@@ -123,6 +123,7 @@ export default function ComposeScreen({ route, navigation }: any) {
         <View style={{ height: 20 }} />
         {hintText ? <Text style={styles.hint}>{hintText}</Text> : null}
         <Text style={styles.hint}>変換設定は「設定」タブから変更できます</Text>
+        <Text style={styles.hint}>ルビは波括弧で{'{漢字|よみ}'}と書くと振れます</Text>
       </View>
     </GradientBackground>
   );
