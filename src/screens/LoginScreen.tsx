@@ -28,7 +28,7 @@ export default function LoginScreen() {
 
   const dynamicStyles = useMemo(() => StyleSheet.create({
     container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg },
-    title: { fontSize: 36, fontWeight: '300', color: colors.text, letterSpacing: 8, marginBottom: 8, fontFamily: 'NotoSerifJP_400Regular' },
+    title: { fontSize: 36, fontWeight: '300', color: colors.text, letterSpacing: 8, marginBottom: 48, fontFamily: 'NotoSerifJP_400Regular' },
     subtitle: { fontSize: 15, color: colors.textSecondary, marginBottom: 48, letterSpacing: 2, fontFamily: 'NotoSerifJP_400Regular' },
     button: { backgroundColor: colors.accent, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 8 },
     buttonText: { color: colors.accentText, fontSize: 17, lineHeight: 24, letterSpacing: 1, fontFamily: 'NotoSerifJP_500Medium' },
@@ -37,7 +37,6 @@ export default function LoginScreen() {
   return (
     <GradientBackground style={dynamicStyles.container}>
       <Text style={dynamicStyles.title}>詠み人知らず</Text>
-      <Text style={dynamicStyles.subtitle}>匿名で短歌を詠み合う</Text>
       <TouchableOpacity style={dynamicStyles.button} onPress={handleGoogleSignIn}>
         <Text style={dynamicStyles.buttonText}>Google でログイン</Text>
       </TouchableOpacity>
