@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { TankaCard } from '../types';
@@ -7,6 +7,8 @@ interface Props {
   cards: TankaCard[];
   onTap: (postId: string, groupId: string, batchId?: string) => void;
   mode: 'timeline' | 'myPosts' | 'bookmarks';
+  onLoadMore?: () => void;
+  generation?: number;
 }
 
 const screenWidth = Dimensions.get('window').width;
@@ -14,12 +16,16 @@ const scale = screenWidth / 390;
 const tankaFontSize = Math.round(20 * (scale < 1 ? scale : 1 + (scale - 1) * 0.7));
 const metaFontSize = Math.round(11 * Math.max(screenWidth / 390, 1));
 
-function buildHtml(cards: TankaCard[], mode: string): string {
-  const cardsJson = JSON.stringify(cards.map(c => ({
+function serializeCards(cards: TankaCard[]) {
+  return cards.map(c => ({
     ...c,
     createdAt: c.createdAt?.toISOString?.() || new Date().toISOString(),
     bookmarkedAt: c.bookmarkedAt?.toISOString?.() || null,
-  })));
+  }));
+}
+
+function buildHtml(cards: TankaCard[], mode: string, hasLoadMore: boolean): string {
+  const cardsJson = JSON.stringify(serializeCards(cards));
 
   return `<!DOCTYPE html>
 <html>
@@ -36,7 +42,7 @@ function buildHtml(cards: TankaCard[], mode: string): string {
   }
   .container {
     display: inline-flex;
-    flex-direction: row-reverse;
+    flex-direction: row;
     align-items: stretch;
     height: 100%;
     min-width: 100%;
@@ -54,7 +60,7 @@ function buildHtml(cards: TankaCard[], mode: string): string {
     transition: background 0.2s;
     border-right: 1px solid rgba(0,0,0,0.06);
   }
-  .tanka-card:first-child { border-right: none; }
+  .tanka-card:last-child { border-right: none; }
   .tanka-card:active { background: rgba(0,0,0,0.04); }
   .tanka-body {
     writing-mode: vertical-rl;
@@ -113,24 +119,115 @@ function buildHtml(cards: TankaCard[], mode: string): string {
 <body>
 <div class="container" id="container"></div>
 <script>
-const cards = ${cardsJson};
-const mode = "${mode}";
-const container = document.getElementById("container");
+var cards = ${cardsJson};
+var mode = "${mode}";
+var hasLoadMore = ${hasLoadMore};
+var container = document.getElementById("container");
+var cardCount = 0;
+var loadMoreRequested = false;
+
+function escapeHtml(str) {
+  var div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function rubyToHtml(escaped) {
+  return escaped.replace(/\\{([^|{}]+)\\|([^|{}]+)\\}/g,
+    '<ruby>$1<rp>(</rp><rt>$2</rt><rp>)</rp></ruby>');
+}
+
+function getTimeAgo(date) {
+  var now = new Date();
+  var diff = now - date;
+  var min = Math.floor(diff / 60000);
+  if (min < 1) return 'たった今';
+  if (min < 60) return min + '分前';
+  var hr = Math.floor(min / 60);
+  if (hr < 24) return hr + '時間前';
+  var day = Math.floor(hr / 24);
+  if (day < 30) return day + '日前';
+  return Math.floor(day / 30) + 'ヶ月前';
+}
+
+function createCardEl(card, index) {
+  var el = document.createElement("div");
+  el.className = "tanka-card";
+  var fade = Math.max(0.6, 1 - (index / 8) * 0.7);
+  el.style.opacity = fade;
+  el.onclick = function() {
+    var msg = { postId: card.postId, groupId: card.groupId };
+    if (mode === 'myPosts' && card.batchId) msg.batchId = card.batchId;
+    window.ReactNativeWebView.postMessage(JSON.stringify(msg));
+  };
+
+  var metaHtml = '';
+  if (mode === 'timeline') {
+    var reactions = Object.entries(card.reactionSummary || {})
+      .filter(function(e) { return e[1] > 0; })
+      .map(function(e) { return e[0] + e[1]; })
+      .join(' ');
+    var timeAgo = getTimeAgo(new Date(card.createdAt));
+    metaHtml = '<div class="reactions">' +
+      (reactions ? '<div class="reaction-item">' + reactions + '</div>' : '') +
+      (card.commentCount > 0 ? '<div class="comment-count">評 ' + card.commentCount + '</div>' : '') +
+      '</div>' +
+      '<div class="time-ago">' + timeAgo + '</div>';
+  } else if (mode === 'myPosts' && card.groups) {
+    var merged = {};
+    var totalComments = 0;
+    card.groups.forEach(function(g) {
+      Object.entries(g.reactionSummary || {}).forEach(function(e) {
+        merged[e[0]] = (merged[e[0]] || 0) + e[1];
+      });
+      totalComments += g.commentCount || 0;
+    });
+    var reactions = Object.entries(merged)
+      .filter(function(e) { return e[1] > 0; })
+      .map(function(e) { return e[0] + e[1]; })
+      .join(' ');
+    var groupNames = card.groups.map(function(g) { return g.groupName; }).join('・');
+    if (groupNames.length > 50) groupNames = groupNames.slice(0, 50) + '…';
+    metaHtml = '<div class="reactions">' +
+      (reactions ? '<div class="reaction-item">' + reactions + '</div>' : '') +
+      (totalComments > 0 ? '<div class="comment-count">評 ' + totalComments + '</div>' : '') +
+      '</div>' +
+      '<div class="group-info">' + groupNames + '</div>';
+  } else if (mode === 'bookmarks') {
+    var d = new Date(card.bookmarkedAt || card.createdAt);
+    var timeAgo = getTimeAgo(d);
+    var bmGroupName = card.groupName || '';
+    if (bmGroupName.length > 50) bmGroupName = bmGroupName.slice(0, 50) + '…';
+    metaHtml = '<div class="group-info">' + bmGroupName + '</div>' +
+      '<div class="group-info">' + timeAgo + '</div>';
+  }
+
+  if (card.hogo) {
+    el.innerHTML =
+      '<div class="tanka-body hogo">反故——' + escapeHtml(card.hogoReason || '仔細あり') + '</div>' +
+      '<div class="tanka-meta">' + metaHtml + '</div>';
+  } else {
+    var displayBody = card.body.replace(/[\\n\\r]+/g, '\\u3000');
+    el.innerHTML =
+      '<div class="tanka-body">' + rubyToHtml(escapeHtml(displayBody)) + '</div>' +
+      '<div class="tanka-meta">' + metaHtml + '</div>';
+  }
+  return el;
+}
 
 if (cards.length === 0) {
   container.innerHTML = '<div class="empty-state">' +
     (mode === 'timeline' ? 'まだ歌が詠まれていません' :
      mode === 'myPosts' ? 'まだ歌を詠んでいません' :
      '栞はまだありません') + '</div>';
-  container.style.flexDirection = 'row';
   container.style.justifyContent = 'center';
 } else {
-  let displayCards = cards;
+  var displayCards = cards;
   if (mode === 'myPosts') {
-    const grouped = {};
-    cards.forEach(c => {
-      const key = c.batchId || c.postId;
-      if (!grouped[key]) grouped[key] = { ...c, groups: [] };
+    var grouped = {};
+    cards.forEach(function(c) {
+      var key = c.batchId || c.postId;
+      if (!grouped[key]) grouped[key] = Object.assign({}, c, { groups: [] });
       grouped[key].groups.push({
         groupName: c.groupName || '',
         groupId: c.groupId,
@@ -142,112 +239,80 @@ if (cards.length === 0) {
     displayCards = Object.values(grouped);
   }
 
-  displayCards.forEach((card, index) => {
-    const el = document.createElement("div");
-    el.className = "tanka-card";
-    const fade = Math.max(0.6, 1 - (index / 8) * 0.7);
-    el.style.opacity = fade;
-    el.onclick = () => {
-      const msg = { postId: card.postId, groupId: card.groupId };
-      if (mode === 'myPosts' && card.batchId) msg.batchId = card.batchId;
-      window.ReactNativeWebView.postMessage(JSON.stringify(msg));
-    };
-
-    let metaHtml = '';
-    if (mode === 'timeline') {
-      const reactions = Object.entries(card.reactionSummary || {})
-        .filter(([,v]) => v > 0)
-        .map(([emoji, count]) => emoji + count)
-        .join(' ');
-      const timeAgo = getTimeAgo(new Date(card.createdAt));
-      metaHtml = '<div class="reactions">' +
-        (reactions ? '<div class="reaction-item">' + reactions + '</div>' : '') +
-        (card.commentCount > 0 ? '<div class="comment-count">評 ' + card.commentCount + '</div>' : '') +
-        '</div>' +
-        '<div class="time-ago">' + timeAgo + '</div>';
-    } else if (mode === 'myPosts' && card.groups) {
-      // Merge reactions and comments across all groups
-      const merged = {};
-      let totalComments = 0;
-      card.groups.forEach(g => {
-        Object.entries(g.reactionSummary || {}).forEach(([emoji, count]) => {
-          merged[emoji] = (merged[emoji] || 0) + count;
-        });
-        totalComments += g.commentCount || 0;
-      });
-      const reactions = Object.entries(merged)
-        .filter(([,v]) => v > 0)
-        .map(([emoji, count]) => emoji + count)
-        .join(' ');
-      let groupNames = card.groups.map(g => g.groupName).join('・');
-      if (groupNames.length > 50) groupNames = groupNames.slice(0, 50) + '…';
-      metaHtml = '<div class="reactions">' +
-        (reactions ? '<div class="reaction-item">' + reactions + '</div>' : '') +
-        (totalComments > 0 ? '<div class="comment-count">評 ' + totalComments + '</div>' : '') +
-        '</div>' +
-        '<div class="group-info">' + groupNames + '</div>';
-    } else if (mode === 'bookmarks') {
-      const d = new Date(card.bookmarkedAt || card.createdAt);
-      const timeAgo = getTimeAgo(d);
-      let bmGroupName = card.groupName || '';
-      if (bmGroupName.length > 50) bmGroupName = bmGroupName.slice(0, 50) + '…';
-      metaHtml = '<div class="group-info">' + bmGroupName + '</div>' +
-        '<div class="group-info">' + timeAgo + '</div>';
-    }
-
-    // Timeline: always single line (replace line breaks with full-width space)
-    if (card.hogo) {
-      el.innerHTML =
-        '<div class="tanka-body hogo">反故——' + escapeHtml(card.hogoReason || '仔細あり') + '</div>' +
-        '<div class="tanka-meta">' + metaHtml + '</div>';
-    } else {
-      var displayBody = card.body.replace(/[\\n\\r]+/g, '\\u3000');
-      el.innerHTML =
-        '<div class="tanka-body">' + rubyToHtml(escapeHtml(displayBody)) + '</div>' +
-        '<div class="tanka-meta">' + metaHtml + '</div>';
-    }
-    container.appendChild(el);
+  displayCards.forEach(function(card, index) {
+    container.appendChild(createCardEl(card, index));
+    cardCount++;
   });
-
-  setTimeout(() => { document.body.scrollLeft = document.body.scrollWidth; }, 50);
 }
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+// Scroll edge detection for loading more
+if (hasLoadMore) {
+  document.body.addEventListener('scroll', function() {
+    var scrollRight = document.body.scrollWidth - document.body.scrollLeft - document.body.clientWidth;
+    if (scrollRight < 300 && !loadMoreRequested) {
+      loadMoreRequested = true;
+      window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'loadMore' }));
+    }
+  });
 }
 
-function rubyToHtml(escaped) {
-  return escaped.replace(/\\{([^|{}]+)\\|([^|{}]+)\\}/g,
-    '<ruby>$1<rp>(</rp><rt>$2</rt><rp>)</rp></ruby>');
-}
-
-function getTimeAgo(date) {
-  const now = new Date();
-  const diff = now - date;
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return 'たった今';
-  if (min < 60) return min + '分前';
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return hr + '時間前';
-  const day = Math.floor(hr / 24);
-  if (day < 30) return day + '日前';
-  return Math.floor(day / 30) + 'ヶ月前';
-}
+window.appendCards = function(newCards) {
+  newCards.forEach(function(card) {
+    container.appendChild(createCardEl(card, cardCount));
+    cardCount++;
+  });
+  loadMoreRequested = false;
+};
 </script>
 </body>
 </html>`;
 }
 
-export default function TankaScroll({ cards, onTap, mode }: Props) {
+export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation }: Props) {
   const webViewRef = useRef<WebView>(null);
-  const html = buildHtml(cards, mode);
-  const webViewKey = cards.map(c => `${c.postId}:${c.commentCount || 0}:${JSON.stringify(c.reactionSummary || {})}`).join(',');
+  const renderedCountRef = useRef(0);
+  const isTimeline = mode === 'timeline';
+
+  // For timeline: memoize HTML on generation change only (not on cards change)
+  // For other modes: rebuild HTML on any cards change
+  const timelineHtml = useMemo(
+    () => isTimeline ? buildHtml(cards, mode, !!onLoadMore) : '',
+    [generation, isTimeline],
+  );
+  const otherHtml = useMemo(
+    () => !isTimeline ? buildHtml(cards, mode, false) : '',
+    [cards, mode, isTimeline],
+  );
+  const html = isTimeline ? timelineHtml : otherHtml;
+
+  const webViewKey = isTimeline
+    ? `tl-${generation ?? 0}`
+    : cards.map(c => `${c.postId}:${c.commentCount || 0}:${JSON.stringify(c.reactionSummary || {})}`).join(',');
+
+  // Reset rendered count when generation changes (full refresh)
+  useEffect(() => {
+    renderedCountRef.current = cards.length;
+  }, [generation]);
+
+  // For timeline: inject new cards when cards array grows (loadMore appended)
+  useEffect(() => {
+    if (!isTimeline) return;
+    const prevCount = renderedCountRef.current;
+    if (cards.length > prevCount && prevCount > 0) {
+      const newCards = serializeCards(cards.slice(prevCount));
+      const js = `window.appendCards(${JSON.stringify(newCards)}); true;`;
+      webViewRef.current?.injectJavaScript(js);
+      renderedCountRef.current = cards.length;
+    }
+  }, [cards, isTimeline]);
 
   const handleMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
+      if (data.action === 'loadMore') {
+        onLoadMore?.();
+        return;
+      }
       onTap(data.postId, data.groupId, data.batchId);
     } catch {}
   };

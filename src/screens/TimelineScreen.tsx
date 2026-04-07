@@ -1,35 +1,18 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { collection, doc, getDoc, getDocs, orderBy, query, where } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import TankaScroll from '../components/TankaScroll';
 import { db } from '../config/firebase';
-import { PostDoc, TankaCard } from '../types';
+import { usePaginatedPosts } from '../hooks/usePaginatedPosts';
 
 export default function TimelineScreen({ route, navigation }: any) {
   const { groupId, groupName } = route.params;
   const { alert } = useAlert();
-  const [cards, setCards] = useState<TankaCard[]>([]);
+  const { cards, loading, hasMore, refresh, loadMore, generation } = usePaginatedPosts(groupId);
   const [refreshing, setRefreshing] = useState(false);
-
-  const fetchPosts = useCallback(async () => {
-    try {
-      const q = query(collection(db, 'posts'), where('groupId', '==', groupId), orderBy('createdAt', 'desc'));
-      const snap = await getDocs(q);
-      setCards(snap.docs.map(d => {
-        const data = d.data() as PostDoc;
-        return { postId: d.id, groupId: data.groupId, body: data.body, createdAt: data.createdAt?.toDate() || new Date(), reactionSummary: data.reactionSummary || {}, commentCount: data.commentCount || 0, hogo: data.hogo, hogoReason: data.hogoReason };
-      }));
-    } catch (error: any) {
-      if (error.code === 'permission-denied') {
-        alert('この歌会にアクセスできません', '追放されたか、歌会が解散された可能性があります。', [
-          { text: 'OK', onPress: () => navigation.popToTop() },
-        ]);
-      }
-    }
-  }, [groupId, alert, navigation]);
 
   useEffect(() => {
     const updateHeader = async () => {
@@ -53,16 +36,22 @@ export default function TimelineScreen({ route, navigation }: any) {
       });
     };
     updateHeader();
-    fetchPosts();
-    const unsub = navigation.addListener('focus', () => { updateHeader(); fetchPosts(); });
+    refresh().catch((error: any) => {
+      if (error?.code === 'permission-denied') {
+        alert('この歌会にアクセスできません', '追放されたか、歌会が解散された可能性があります。', [
+          { text: 'OK', onPress: () => navigation.popToTop() },
+        ]);
+      }
+    });
+    const unsub = navigation.addListener('focus', () => { updateHeader(); refresh(); });
     return unsub;
-  }, [groupId, groupName, fetchPosts, navigation]);
+  }, [groupId, groupName, refresh, navigation, alert]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchPosts();
+    await refresh();
     setRefreshing(false);
-  }, [fetchPosts]);
+  }, [refresh]);
 
   return (
     <GradientBackground>
@@ -71,7 +60,13 @@ export default function TimelineScreen({ route, navigation }: any) {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#A69880" colors={['#A69880']} />}
       >
-        <TankaScroll cards={cards} onTap={(postId, gId) => navigation.navigate('TankaDetail', { postId, groupId: gId })} mode="timeline" />
+        <TankaScroll
+          cards={cards}
+          onTap={(postId, gId) => navigation.navigate('TankaDetail', { postId, groupId: gId })}
+          mode="timeline"
+          onLoadMore={hasMore && !loading ? loadMore : undefined}
+          generation={generation}
+        />
       </ScrollView>
     </GradientBackground>
   );
