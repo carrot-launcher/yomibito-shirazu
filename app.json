@@ -8,7 +8,8 @@
     "scheme": "yomibitoshirazu",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/images/icon-ios.png",
+      "bundleIdentifier": "com.yomibito.shirazu"
     },
     "android": {
       "adaptiveIcon": {
@@ -26,11 +27,22 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#F5F0E8",
           "android": {
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 76
+          },
+          "ios": {
+            "image": "./assets/images/splash-icon.png",
+            "imageWidth": 76
           }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#2C2418"
         }
       ],
       "@react-native-google-signin/google-signin",
