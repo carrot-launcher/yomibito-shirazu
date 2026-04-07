@@ -20,7 +20,11 @@ import TayoriScreen from '../screens/TayoriScreen';
 import TimelineScreen from '../screens/TimelineScreen';
 import UtakaiListScreen from '../screens/UtakaiListScreen';
 
-const Stack = createNativeStackNavigator();
+const RootStack = createNativeStackNavigator();
+const UtakaiStack = createNativeStackNavigator();
+const TayoriStack = createNativeStackNavigator();
+const KashuStack = createNativeStackNavigator();
+const SettingsStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const navigationRef = createNavigationContainerRef();
 
@@ -37,6 +41,53 @@ const commonHeaderStyle = {
   headerShadowVisible: false,
 };
 
+// 共通画面（TankaDetail, GroupSettings）を各タブStackに登録するヘルパー
+function sharedScreens(Stack: ReturnType<typeof createNativeStackNavigator>) {
+  return (
+    <>
+      <Stack.Screen name="TankaDetail" component={TankaDetailScreen} options={{ title: '' }} />
+      <Stack.Screen name="GroupSettings" component={GroupSettingsScreen} options={{ title: '歌会設定' }} />
+    </>
+  );
+}
+
+function UtakaiStackScreen() {
+  return (
+    <UtakaiStack.Navigator screenOptions={commonHeaderStyle}>
+      <UtakaiStack.Screen name="UtakaiList" component={UtakaiListScreen} options={{ title: '歌会' }} />
+      <UtakaiStack.Screen name="Timeline" component={TimelineScreen}
+        options={({ route }: any) => ({ title: route.params?.groupName || 'タイムライン' })} />
+      {sharedScreens(UtakaiStack)}
+    </UtakaiStack.Navigator>
+  );
+}
+
+function TayoriStackScreen() {
+  return (
+    <TayoriStack.Navigator screenOptions={commonHeaderStyle}>
+      <TayoriStack.Screen name="TayoriList" component={TayoriScreen} options={{ title: 'たより' }} />
+      {sharedScreens(TayoriStack)}
+    </TayoriStack.Navigator>
+  );
+}
+
+function KashuStackScreen() {
+  return (
+    <KashuStack.Navigator screenOptions={commonHeaderStyle}>
+      <KashuStack.Screen name="KashuList" component={KashuScreen} options={{ title: '歌集' }} />
+      {sharedScreens(KashuStack)}
+    </KashuStack.Navigator>
+  );
+}
+
+function SettingsStackScreen() {
+  return (
+    <SettingsStack.Navigator screenOptions={commonHeaderStyle}>
+      <SettingsStack.Screen name="SettingsList" component={SettingsScreen} options={{ title: '設定' }} />
+    </SettingsStack.Navigator>
+  );
+}
+
 function HomeTabs() {
   const unread = useTayoriUnread();
   return (
@@ -46,16 +97,16 @@ function HomeTabs() {
         tabBarLabelStyle: { fontFamily: 'NotoSerifJP_400Regular', fontSize: 12 },
         tabBarActiveTintColor: '#2C2418',
         tabBarInactiveTintColor: '#A69880',
-        ...commonHeaderStyle,
+        headerShown: false,
       }}
     >
-      <Tab.Screen name="UtakaiTab" component={UtakaiListScreen}
+      <Tab.Screen name="UtakaiTab" component={UtakaiStackScreen}
         options={{ title: '歌会', tabBarIcon: ({ color }) => <MaterialCommunityIcons name="book-open-variant" size={22} color={color} /> }} />
-      <Tab.Screen name="TayoriTab" component={TayoriScreen}
+      <Tab.Screen name="TayoriTab" component={TayoriStackScreen}
         options={{ title: 'たより', tabBarIcon: ({ color }) => <MaterialCommunityIcons name="email-outline" size={22} color={color} />, tabBarBadge: unread > 0 ? unread : undefined, tabBarBadgeStyle: { backgroundColor: '#C53030', fontSize: 11 } }} />
-      <Tab.Screen name="KashuTab" component={KashuScreen}
+      <Tab.Screen name="KashuTab" component={KashuStackScreen}
         options={{ title: '歌集', tabBarIcon: ({ color }) => <MaterialCommunityIcons name="notebook-outline" size={22} color={color} /> }} />
-      <Tab.Screen name="SettingsTab" component={SettingsScreen}
+      <Tab.Screen name="SettingsTab" component={SettingsStackScreen}
         options={{ title: '設定', tabBarIcon: ({ color }) => <MaterialCommunityIcons name="cog-outline" size={22} color={color} /> }} />
     </Tab.Navigator>
   );
@@ -68,7 +119,11 @@ export default function AppNavigator() {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data;
       if (data?.postId && data?.groupId && navigationRef.isReady()) {
-        (navigationRef as any).navigate('TankaDetail', { postId: data.postId, groupId: data.groupId });
+        // たよりタブに切り替えてからTankaDetailに遷移
+        (navigationRef as any).navigate('TayoriTab', {
+          screen: 'TankaDetail',
+          params: { postId: data.postId, groupId: data.groupId },
+        });
       }
     });
     return () => sub.remove();
@@ -78,21 +133,17 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer ref={navigationRef}>
-      <Stack.Navigator screenOptions={commonHeaderStyle}>
+      <RootStack.Navigator screenOptions={commonHeaderStyle}>
         {!user ? (
-          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+          <RootStack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
         ) : (
           <>
-            <Stack.Screen name="Main" component={HomeTabs} options={{ headerShown: false }} />
-            <Stack.Screen name="Timeline" component={TimelineScreen}
-              options={({ route }: any) => ({ title: route.params?.groupName || 'タイムライン' })} />
-            <Stack.Screen name="Compose" component={ComposeScreen} options={{ title: '詠む', presentation: 'modal' }} />
-            <Stack.Screen name="TankaDetail" component={TankaDetailScreen} options={{ title: '' }} />
-            <Stack.Screen name="GroupSettings" component={GroupSettingsScreen} options={{ title: '歌会設定' }} />
-            <Stack.Screen name="Screenshot" component={ScreenshotScreen} options={{ title: '', presentation: 'modal' }} />
+            <RootStack.Screen name="Main" component={HomeTabs} options={{ headerShown: false }} />
+            <RootStack.Screen name="Compose" component={ComposeScreen} options={{ title: '詠む', presentation: 'modal' }} />
+            <RootStack.Screen name="Screenshot" component={ScreenshotScreen} options={{ title: '', presentation: 'modal' }} />
           </>
         )}
-      </Stack.Navigator>
+      </RootStack.Navigator>
     </NavigationContainer>
   );
 }
