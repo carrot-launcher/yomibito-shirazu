@@ -46,7 +46,8 @@
         }
       ],
       "@react-native-google-signin/google-signin",
-      "expo-sharing"
+      "expo-sharing",
+      "expo-web-browser"
     ],
     "experiments": {
       "reactCompiler": true
