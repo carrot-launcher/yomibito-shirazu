@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
-import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
@@ -37,26 +37,6 @@ export default function ComposeScreen({ route, navigation }: any) {
   }, [user]);
 
   const toggleGroup = (id: string) => setGroups(prev => prev.map(g => g.id === id ? { ...g, selected: !g.selected } : g));
-
-  // Persist conversion setting to user doc
-  const updateConvertSetting = async (key: 'halfSpace' | 'lineBreak', value: boolean) => {
-    if (!user) return;
-    try {
-      await updateDoc(doc(db, 'users', user.uid), {
-        [`tankaConvert.${key}`]: value,
-      });
-    } catch {}
-  };
-
-  const handleToggleHalfSpace = (value: boolean) => {
-    setConvertHalfSpace(value);
-    updateConvertSetting('halfSpace', value);
-  };
-
-  const handleToggleLineBreak = (value: boolean) => {
-    setConvertLineBreak(value);
-    updateConvertSetting('lineBreak', value);
-  };
 
   const handleSubmit = useCallback(async () => {
     if (!user || !body.trim()) return;
@@ -140,20 +120,9 @@ export default function ComposeScreen({ route, navigation }: any) {
           maxLength={MAX_CHARS}
           autoFocus
         />
-      </View>
-
-      <View style={styles.convertArea}>
-        <View style={styles.convertRow}>
-          <Text style={styles.convertLabel}>半角スペース → 全角</Text>
-          <Switch value={convertHalfSpace} onValueChange={handleToggleHalfSpace}
-            trackColor={{ false: '#E8E0D0', true: '#A69880' }} thumbColor={convertHalfSpace ? '#2C2418' : '#FFFDF8'} />
-        </View>
-        <View style={styles.convertRow}>
-          <Text style={styles.convertLabel}>改行 → 全角スペース</Text>
-          <Switch value={convertLineBreak} onValueChange={handleToggleLineBreak}
-            trackColor={{ false: '#E8E0D0', true: '#A69880' }} thumbColor={convertLineBreak ? '#2C2418' : '#FFFDF8'} />
-        </View>
+        <View style={{ height: 20 }} />
         {hintText ? <Text style={styles.hint}>{hintText}</Text> : null}
+        <Text style={styles.hint}>変換設定は「設定」タブから変更できます</Text>
       </View>
     </GradientBackground>
   );
@@ -174,11 +143,5 @@ const styles = StyleSheet.create({
     fontFamily: 'NotoSerifJP_400Regular',
     includeFontPadding: false, paddingTop: 12,
   },
-  convertArea: { paddingHorizontal: 16, paddingBottom: 16 },
-  convertRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 6,
-  },
-  convertLabel: { fontSize: 13, color: '#8B7E6A' },
-  hint: { fontSize: 11, color: '#A69880', marginTop: 4 },
+  hint: { fontSize: 11, color: '#A69880', marginTop: 8 },
 });
