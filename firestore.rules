@@ -19,6 +19,11 @@ service cloud.firestore {
       return 'bannedUsers' in groupData && request.auth.uid in groupData.bannedUsers;
     }
 
+    // ===== レートリミットカウンタ（サーバー専用） =====
+    match /rateLimits/{document=**} {
+      allow read, write: if false;
+    }
+
     // ===== users =====
     match /users/{userId} {
       allow read: if isAuth();
@@ -44,7 +49,8 @@ service cloud.firestore {
     // ===== 歌会 =====
     match /groups/{groupId} {
       allow read: if isAuth();
-      allow create: if isAuth();
+      // 作成はCloud Function経由のみ
+      allow create: if false;
       // オーナーは歌会名を変更可能、メンバーはmemberCountの更新
       allow update: if isAuth();
 
@@ -52,7 +58,8 @@ service cloud.firestore {
         allow read: if isAuth();
         allow create: if isAuth()
                       && request.auth.uid == memberId
-                      && !isBanned(groupId);
+                      && !isBanned(groupId)
+                      && get(/databases/$(db)/documents/groups/$(groupId)).data.memberCount < 500;
         allow update: if request.auth.uid == memberId;
         // オーナーは他メンバーを削除可能（追放）、自分自身も削除可能（退会）
         allow delete: if isGroupOwner(groupId) || request.auth.uid == memberId;
@@ -65,16 +72,18 @@ service cloud.firestore {
       allow read: if isAuth() &&
                     (isGroupMember(resource.data.groupId)
                      || !exists(/databases/$(db)/documents/groups/$(resource.data.groupId)));
-      allow create: if isAuth()
-                    && isGroupMember(request.resource.data.groupId)
-                    && request.resource.data.body.size() <= 50;
+      // 作成はCloud Function経由のみ
+      allow create: if false;
+      // reactionSummaryの更新のみ許可
       allow update: if isAuth()
-                    && isGroupMember(resource.data.groupId);
+                    && isGroupMember(resource.data.groupId)
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['reactionSummary']);
 
-      // authorId 格納先
+      // authorId 格納先（Cloud Function経由のみ）
       match /private/{doc} {
         allow read: if false;
-        allow write: if isAuth();
+        allow write: if false;
       }
 
       // リアクション
@@ -95,15 +104,13 @@ service cloud.firestore {
                     || !exists(/databases/$(db)/documents/groups/$(
                       get(/databases/$(db)/documents/posts/$(postId)).data.groupId
                     )));
-        allow create: if isAuth()
-                      && isGroupMember(
-                           get(/databases/$(db)/documents/posts/$(postId)).data.groupId
-                         )
-                      && request.resource.data.body.size() <= 500;
+        // 作成はCloud Function経由のみ
+        allow create: if false;
 
+        // 評のauthorId（Cloud Function経由のみ）
         match /private/{doc} {
           allow read: if false;
-          allow write: if isAuth();
+          allow write: if false;
         }
       }
     }

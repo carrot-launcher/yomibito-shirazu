@@ -1,5 +1,6 @@
 import * as Crypto from 'expo-crypto';
-import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '../components/CustomAlert';
@@ -43,26 +44,26 @@ export default function ComposeScreen({ route, navigation }: any) {
     const selectedGroups = groups.filter(g => g.selected);
     if (selectedGroups.length === 0) { alert('送り先を選んでください'); return; }
     const trimmedBody = body.trim();
+    if (trimmedBody.length < 2) { alert('2文字以上入力してください'); return; }
     if (trimmedBody.length > MAX_CHARS) { alert(`${MAX_CHARS}文字以内にしてください`); return; }
     setSubmitting(true);
     try {
+      const fns = getFunctions(undefined, 'asia-northeast1');
+      const createPostFn = httpsCallable(fns, 'createPost');
       const batchId = Crypto.randomUUID();
       for (const group of selectedGroups) {
-        const postRef = await addDoc(collection(db, 'posts'), {
+        await createPostFn({
           groupId: group.id, body: trimmedBody, batchId,
           convertHalfSpace, convertLineBreak,
-          createdAt: serverTimestamp(), reactionSummary: {}, commentCount: 0,
-        });
-        await setDoc(doc(db, 'posts', postRef.id, 'private', 'author'), { authorId: user.uid });
-        await addDoc(collection(db, 'users', user.uid, 'myPosts'), {
-          postId: postRef.id, groupId: group.id, groupName: group.name,
-          tankaBody: trimmedBody, batchId,
-          convertHalfSpace, convertLineBreak,
-          createdAt: serverTimestamp(),
         });
       }
       navigation.goBack();
-    } catch (e: any) { alert('エラー', e.message); }
+    } catch (e: any) {
+      const msg = e?.code === 'functions/resource-exhausted'
+        ? e.message
+        : e?.message || 'エラーが発生しました';
+      alert('エラー', msg);
+    }
     finally { setSubmitting(false); }
   }, [user, body, groups, alert, navigation, convertHalfSpace, convertLineBreak]);
 
@@ -75,11 +76,11 @@ export default function ComposeScreen({ route, navigation }: any) {
           </Text>
           <TouchableOpacity
             style={{
-              backgroundColor: submitting || !body.trim() ? '#C4B8A0' : '#2C2418',
+              backgroundColor: submitting || body.trim().length < 2 ? '#C4B8A0' : '#2C2418',
               borderRadius: 8, paddingHorizontal: 18, paddingVertical: 6,
             }}
             onPress={handleSubmit}
-            disabled={submitting || !body.trim()}
+            disabled={submitting || body.trim().length < 2}
           >
             <Text style={{ color: '#F5F0E8', fontSize: 15, fontFamily: 'NotoSerifJP_500Medium' }}>
               詠む

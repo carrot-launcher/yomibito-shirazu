@@ -1,6 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
-  addDoc,
   collection,
   deleteDoc,
   doc, getDoc,
@@ -498,15 +497,16 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     if (commentText.length > 500) { alert('500文字以内にしてください'); return; }
     setSubmitting(true);
     try {
-      const commentRef = await addDoc(collection(db, 'posts', postId, 'comments'), {
-        body: compressNewlines(commentText.trim()), createdAt: serverTimestamp(),
-      });
-      await setDoc(doc(db, 'posts', postId, 'comments', commentRef.id, 'private', 'author'), {
-        authorId: user.uid,
-      });
-      await updateDoc(doc(db, 'posts', postId), { commentCount: increment(1) });
+      const fns = getFunctions(undefined, 'asia-northeast1');
+      const createCommentFn = httpsCallable(fns, 'createComment');
+      await createCommentFn({ postId, body: compressNewlines(commentText.trim()) });
       setCommentText('');
-    } catch (e: any) { alert('エラー', e.message); }
+    } catch (e: any) {
+      const msg = e?.code === 'functions/resource-exhausted'
+        ? e.message
+        : e?.message || 'エラーが発生しました';
+      alert('エラー', msg);
+    }
     finally { setSubmitting(false); }
   };
 

@@ -111,6 +111,165 @@ async function createNotification(
   }
 }
 
+// ===== レートリミット付き作成 =====
+
+function todayKey(): string {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+}
+
+/**
+ * createPost — 歌の投稿（レートリミット付き）
+ */
+export const createPost = onCall(
+  { region: "asia-northeast1" },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
+    const uid = request.auth.uid;
+    const { groupId, body, batchId, convertHalfSpace, convertLineBreak } = request.data;
+    if (!groupId || typeof body !== "string") throw new HttpsError("invalid-argument", "groupId と body が必要です");
+    const trimmed = body.trim();
+    if (trimmed.length < 2 || trimmed.length > 50) throw new HttpsError("invalid-argument", "歌は2〜50文字で入力してください");
+
+    // メンバーシップ確認
+    const memberSnap = await db.doc(`groups/${groupId}/members/${uid}`).get();
+    if (!memberSnap.exists) throw new HttpsError("permission-denied", "この歌会のメンバーではありません");
+
+    // グループ名を取得（myPosts用）
+    const groupSnap = await db.doc(`groups/${groupId}`).get();
+    const groupName = groupSnap.data()?.name || "";
+
+    const today = todayKey();
+    const userCounterRef = db.doc(`rateLimits/${uid}/daily/${today}`);
+    const groupCounterRef = db.doc(`rateLimits/group_${groupId}/daily/${today}`);
+
+    // レートリミット確認 + 投稿作成をトランザクションで
+    const postId = await db.runTransaction(async (tx) => {
+      const userCounter = await tx.get(userCounterRef);
+      const groupCounter = await tx.get(groupCounterRef);
+      const userPostCount = userCounter.data()?.postCount || 0;
+      const groupPostCount = groupCounter.data()?.postCount || 0;
+
+      if (userPostCount > 30) throw new HttpsError("resource-exhausted", "本日の投稿上限に達しました");
+      if (groupPostCount > 200) throw new HttpsError("resource-exhausted", "この歌会の本日の投稿上限に達しました");
+
+      const postRef = db.collection("posts").doc();
+      tx.set(postRef, {
+        groupId, body: trimmed, batchId: batchId || null,
+        convertHalfSpace: convertHalfSpace ?? true,
+        convertLineBreak: convertLineBreak ?? true,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        reactionSummary: {}, commentCount: 0,
+      });
+      tx.set(db.doc(`posts/${postRef.id}/private/author`), { authorId: uid });
+      tx.set(db.collection(`users/${uid}/myPosts`).doc(), {
+        postId: postRef.id, groupId, groupName,
+        tankaBody: trimmed, batchId: batchId || null,
+        convertHalfSpace: convertHalfSpace ?? true,
+        convertLineBreak: convertLineBreak ?? true,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // カウンタ更新
+      tx.set(userCounterRef, { postCount: (userPostCount + 1), commentCount: userCounter.data()?.commentCount || 0 }, { merge: true });
+      tx.set(groupCounterRef, { postCount: (groupPostCount + 1) }, { merge: true });
+
+      return postRef.id;
+    });
+
+    return { postId };
+  }
+);
+
+/**
+ * createComment — 評の投稿（レートリミット付き）
+ */
+export const createComment = onCall(
+  { region: "asia-northeast1" },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
+    const uid = request.auth.uid;
+    const { postId, body } = request.data;
+    if (!postId || typeof body !== "string") throw new HttpsError("invalid-argument", "postId と body が必要です");
+    const trimmed = body.trim();
+    if (trimmed.length < 1 || trimmed.length > 500) throw new HttpsError("invalid-argument", "評は1〜500文字で入力してください");
+
+    // 投稿の存在とメンバーシップ確認
+    const postSnap = await db.doc(`posts/${postId}`).get();
+    if (!postSnap.exists) throw new HttpsError("not-found", "投稿が見つかりません");
+    const groupId = postSnap.data()?.groupId;
+    const memberSnap = await db.doc(`groups/${groupId}/members/${uid}`).get();
+    if (!memberSnap.exists) throw new HttpsError("permission-denied", "この歌会のメンバーではありません");
+
+    const today = todayKey();
+    const userCounterRef = db.doc(`rateLimits/${uid}/daily/${today}`);
+
+    const commentId = await db.runTransaction(async (tx) => {
+      const userCounter = await tx.get(userCounterRef);
+      const commentCount = userCounter.data()?.commentCount || 0;
+
+      if (commentCount > 50) throw new HttpsError("resource-exhausted", "本日の評の上限に達しました");
+
+      const commentRef = db.collection(`posts/${postId}/comments`).doc();
+      tx.set(commentRef, {
+        body: trimmed,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      tx.set(db.doc(`posts/${postId}/comments/${commentRef.id}/private/author`), { authorId: uid });
+      tx.update(db.doc(`posts/${postId}`), { commentCount: admin.firestore.FieldValue.increment(1) });
+
+      // カウンタ更新
+      tx.set(userCounterRef, { commentCount: (commentCount + 1), postCount: userCounter.data()?.postCount || 0 }, { merge: true });
+
+      return commentRef.id;
+    });
+
+    return { commentId };
+  }
+);
+
+/**
+ * createGroup — 歌会の作成（上限チェック付き）
+ */
+export const createGroup = onCall(
+  { region: "asia-northeast1" },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
+    const uid = request.auth.uid;
+    const { groupName, displayName } = request.data;
+    if (!groupName?.trim() || !displayName?.trim()) throw new HttpsError("invalid-argument", "歌会名と表示名が必要です");
+
+    // ユーザーコードを取得
+    const userSnap = await db.doc(`users/${uid}`).get();
+    const userCode = userSnap.data()?.userCode || "000000";
+
+    // 作成済み歌会数チェック
+    const ownedSnap = await db.collection("groups").where("createdBy", "==", uid).count().get();
+    if (ownedSnap.data().count > 10) throw new HttpsError("resource-exhausted", "歌会の作成上限に達しています");
+
+    // 招待コード生成
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let inviteCode = "";
+    for (let i = 0; i < 6; i++) inviteCode += chars[Math.floor(Math.random() * chars.length)];
+
+    const groupRef = db.collection("groups").doc();
+    const batch = db.batch();
+    batch.set(groupRef, {
+      name: groupName.trim(), inviteCode, memberCount: 1,
+      createdBy: uid, createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    batch.set(db.doc(`groups/${groupRef.id}/members/${uid}`), {
+      displayName: displayName.trim(), userCode,
+      joinedAt: admin.firestore.FieldValue.serverTimestamp(), role: "owner",
+    });
+    batch.update(db.doc(`users/${uid}`), {
+      joinedGroups: admin.firestore.FieldValue.arrayUnion(groupRef.id),
+    });
+    await batch.commit();
+
+    return { groupId: groupRef.id, inviteCode };
+  }
+);
+
 // ===== 通知トリガー =====
 
 /**

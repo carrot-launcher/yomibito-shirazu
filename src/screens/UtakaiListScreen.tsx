@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { arrayUnion, collection, doc, getDoc, getDocs, increment, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
 import { FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '../components/CustomAlert';
@@ -8,13 +9,6 @@ import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { GroupDoc } from '../types';
 import { fs } from '../utils/scale';
-
-function generateInviteCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  return code;
-}
 
 export default function UtakaiListScreen({ navigation }: any) {
   const { user, userCode } = useAuth();
@@ -125,6 +119,7 @@ export default function UtakaiListScreen({ navigation }: any) {
       if (user.uid in banned) { alert('エラー', 'この歌会には参加できません'); setShowJoin(false); setJoinCode(''); return; }
       const memberSnap = await getDoc(doc(db, 'groups', groupDoc.id, 'members', user.uid));
       if (memberSnap.exists()) { alert('', 'すでに参加しています'); setShowJoin(false); return; }
+      if ((groupDoc.data().memberCount || 0) >= 500) { alert('エラー', 'この歌会は定員に達しています'); setShowJoin(false); setJoinCode(''); return; }
       setMemberDisplayName('');
       setPendingAction({ type: 'join', groupId: groupDoc.id, groupName: groupDoc.data().name });
       setShowJoin(false);
@@ -138,11 +133,9 @@ export default function UtakaiListScreen({ navigation }: any) {
     const displayName = memberDisplayName.trim();
     try {
       if (pendingAction.type === 'create') {
-        const inviteCode = generateInviteCode();
-        const groupRef = doc(collection(db, 'groups'));
-        await setDoc(groupRef, { name: pendingAction.groupName, inviteCode, memberCount: 1, createdBy: user.uid, createdAt: serverTimestamp() });
-        await setDoc(doc(db, 'groups', groupRef.id, 'members', user.uid), { displayName, userCode, joinedAt: serverTimestamp(), role: 'owner' });
-        await updateDoc(doc(db, 'users', user.uid), { joinedGroups: arrayUnion(groupRef.id) });
+        const fns = getFunctions(undefined, 'asia-northeast1');
+        const createGroupFn = httpsCallable(fns, 'createGroup');
+        await createGroupFn({ groupName: pendingAction.groupName, displayName });
       } else {
         const groupId = pendingAction.groupId;
         await setDoc(doc(db, 'groups', groupId, 'members', user.uid), { displayName, userCode, joinedAt: serverTimestamp(), role: 'member' });
@@ -153,7 +146,12 @@ export default function UtakaiListScreen({ navigation }: any) {
       setNewName('');
       setJoinCode('');
       setPendingAction(null);
-    } catch (e: any) { alert('エラー', e.message); }
+    } catch (e: any) {
+      const msg = e?.code === 'functions/resource-exhausted'
+        ? e.message
+        : e?.message || 'エラーが発生しました';
+      alert('エラー', msg);
+    }
   };
 
   return (
