@@ -31,6 +31,11 @@ import { useAuth } from '../hooks/useAuth';
 import { CommentDoc, PostDoc, REACTION_EMOJI } from '../types';
 import { compressNewlines, formatTankaBody } from '../utils/formatTanka';
 
+function rubyToHtml(escaped: string): string {
+  return escaped.replace(/\{([^|{}]+)\|([^|{}]+)\}/g,
+    '<ruby>$1<rp>(</rp><rt>$2</rt><rp>)</rp></ruby>');
+}
+
 function buildDetailHtml(body: string, comments: { body: string; time: string; id: string }[]): string {
   const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const commentsJson = JSON.stringify(comments.map(c => ({ ...c, body: escapeHtml(c.body) })));
@@ -60,13 +65,14 @@ function buildDetailHtml(body: string, comments: { body: string; time: string; i
     -webkit-writing-mode: vertical-rl;
     writing-mode: vertical-rl;
     font-size: 22px;
-    line-height: 1.9;
+    line-height: 2.0;
     letter-spacing: 0.12em;
     color: #2C2418;
     padding: 8px 12px;
     white-space: pre-wrap;
     flex-shrink: 0;
   }
+  .tanka-section rt { font-size: 0.45em; letter-spacing: 0; }
   .divider {
     width: 1px;
     background: #E8E0D0;
@@ -114,7 +120,7 @@ function buildDetailHtml(body: string, comments: { body: string; time: string; i
 </head>
 <body>
 <div class="container" id="container">
-  <div class="tanka-section" onclick="window.ReactNativeWebView.postMessage(JSON.stringify({action:'screenshot'}))">${escapeHtml(body)}</div>
+  <div class="tanka-section" onclick="window.ReactNativeWebView.postMessage(JSON.stringify({action:'screenshot'}))">${rubyToHtml(escapeHtml(body))}</div>
   <div class="divider"></div>
   <div class="comments-section" id="comments"></div>
 </div>

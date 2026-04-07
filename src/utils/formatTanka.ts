@@ -28,3 +28,14 @@ export function formatTankaBody(
 export function compressNewlines(text: string): string {
   return text.replace(/\n{3,}/g, '\n\n');
 }
+
+/** Convert {漢字|ふりがな} syntax to <ruby> HTML tags. Input must already be HTML-escaped. */
+export function rubyToHtml(escaped: string): string {
+  return escaped.replace(/\{([^|{}]+)\|([^|{}]+)\}/g,
+    '<ruby>$1<rp>(</rp><rt>$2</rt><rp>)</rp></ruby>');
+}
+
+/** Strip {漢字|ふりがな} syntax, keeping only the base text. */
+export function stripRuby(text: string): string {
+  return text.replace(/\{([^|{}]+)\|[^|{}]+\}/g, '$1');
+}

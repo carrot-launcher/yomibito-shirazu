@@ -58,13 +58,14 @@ function buildHtml(cards: TankaCard[], mode: string): string {
   .tanka-body {
     writing-mode: vertical-rl;
     font-size: ${tankaFontSize}px;
-    line-height: 1.8;
+    line-height: 2.0;
     letter-spacing: 0.1em;
     color: #2C2418;
     flex: 1;
     display: flex;
     align-items: flex-start;
   }
+  rt { font-size: 0.45em; letter-spacing: 0; }
   .tanka-meta {
     display: flex;
     flex-direction: column;
@@ -190,7 +191,7 @@ if (cards.length === 0) {
     // Timeline: always single line (replace line breaks with full-width space)
     var displayBody = card.body.replace(/[\\n\\r]+/g, '\\u3000');
     el.innerHTML =
-      '<div class="tanka-body">' + escapeHtml(displayBody) + '</div>' +
+      '<div class="tanka-body">' + rubyToHtml(escapeHtml(displayBody)) + '</div>' +
       '<div class="tanka-meta">' + metaHtml + '</div>';
     container.appendChild(el);
   });
@@ -202,6 +203,11 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+function rubyToHtml(escaped) {
+  return escaped.replace(/\\{([^|{}]+)\\|([^|{}]+)\\}/g,
+    '<ruby>$1<rp>(</rp><rt>$2</rt><rp>)</rp></ruby>');
 }
 
 function getTimeAgo(date) {

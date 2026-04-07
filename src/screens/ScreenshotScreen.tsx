@@ -5,6 +5,7 @@ import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { WebView } from 'react-native-webview';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
+import { stripRuby } from '../utils/formatTanka';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_WIDTH = SCREEN_WIDTH - 48;
@@ -157,7 +158,7 @@ export default function ScreenshotScreen({ route }: any) {
     }
   };
 
-  const html = buildScreenshotHtml(body);
+  const html = buildScreenshotHtml(stripRuby(body));
 
   return (
     <GradientBackground style={styles.container}>

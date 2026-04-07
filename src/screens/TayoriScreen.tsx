@@ -7,6 +7,7 @@ import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { NotificationDoc } from '../types';
+import { stripRuby } from '../utils/formatTanka';
 
 interface TayoriItem extends NotificationDoc {
   id: string;
@@ -121,14 +122,14 @@ export default function TayoriScreen({ navigation }: any) {
       case 'new_post':
         icon = 'pen';
         title = `${item.groupName}に新しい歌`;
-        body = item.tankaBody?.replace(/[\n\r]+/g, '\u3000');
+        body = stripRuby(item.tankaBody || '').replace(/[\n\r]+/g, '\u3000') || undefined;
         break;
       case 'reaction':
         icon = 'flower-tulip';
         title = item.reactionCount && item.reactionCount > 1
           ? `あなたの歌に${item.emoji || '🌸'}が${item.reactionCount}件`
           : `あなたの歌に${item.emoji || '🌸'}`;
-        body = item.tankaBody?.replace(/[\n\r]+/g, '\u3000');
+        body = stripRuby(item.tankaBody || '').replace(/[\n\r]+/g, '\u3000') || undefined;
         break;
       case 'comment':
         icon = 'comment-text-outline';
