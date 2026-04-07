@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Dimensions, StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { TankaCard } from '../types';
 
@@ -8,6 +8,11 @@ interface Props {
   onTap: (postId: string, groupId: string, batchId?: string) => void;
   mode: 'timeline' | 'myPosts' | 'bookmarks';
 }
+
+const screenWidth = Dimensions.get('window').width;
+const scale = screenWidth / 390;
+const tankaFontSize = Math.round(20 * (scale < 1 ? scale : 1 + (scale - 1) * 0.7));
+const metaFontSize = Math.round(11 * Math.max(screenWidth / 390, 1));
 
 function buildHtml(cards: TankaCard[], mode: string): string {
   const cardsJson = JSON.stringify(cards.map(c => ({
@@ -36,23 +41,23 @@ function buildHtml(cards: TankaCard[], mode: string): string {
     height: 100%;
     min-width: 100%;
     padding: 8px 12px;
-    gap: 2px;
+    gap: 0;
   }
   .tanka-card {
     display: flex;
     flex-direction: column;
     align-items: center;
     min-width: 64px;
-    padding: 8px 8px 8px;
-    border-right: 1px solid rgba(0,0,0,0.06);
+    padding: 8px 18px;
     cursor: pointer;
     transition: background 0.2s;
+    border-right: 1px solid rgba(0,0,0,0.06);
   }
   .tanka-card:first-child { border-right: none; }
   .tanka-card:active { background: rgba(0,0,0,0.04); }
   .tanka-body {
     writing-mode: vertical-rl;
-    font-size: 20px;
+    font-size: ${tankaFontSize}px;
     line-height: 1.8;
     letter-spacing: 0.1em;
     color: #2C2418;
@@ -66,7 +71,7 @@ function buildHtml(cards: TankaCard[], mode: string): string {
     align-items: center;
     gap: 4px;
     margin-top: 12px;
-    font-size: 11px;
+    font-size: ${metaFontSize}px;
     color: #8B7E6A;
     width: 0;
     min-width: 100%;
@@ -79,13 +84,13 @@ function buildHtml(cards: TankaCard[], mode: string): string {
   }
   .reaction-item { white-space: nowrap; }
   .group-info {
-    font-size: 10px;
+    font-size: ${metaFontSize - 1}px;
     color: #A69880;
     text-align: center;
     word-break: break-all;
   }
-  .comment-count { font-size: 11px; color: #8B7E6A; }
-  .time-ago { font-size: 10px; color: #A69880; margin-top: 2px; }
+  .comment-count { font-size: ${metaFontSize}px; color: #8B7E6A; }
+  .time-ago { font-size: ${metaFontSize - 1}px; color: #A69880; margin-top: 2px; }
   .empty-state {
     display: flex;
     align-items: center;

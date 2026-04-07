@@ -7,6 +7,7 @@ import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { GroupDoc } from '../types';
+import { fs } from '../utils/scale';
 
 function generateInviteCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -235,7 +236,7 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 18, color: '#8B7E6A', marginBottom: 8 },
   emptySubtext: { fontSize: 13, color: '#A69880', textAlign: 'center', lineHeight: 20 },
   card: { backgroundColor: '#FFFDF8', borderRadius: 12, paddingHorizontal: 18, paddingVertical: 14, marginBottom: 10, borderWidth: 1, borderColor: '#E8E0D0', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cardName: { fontSize: 18, color: '#2C2418', fontFamily: 'NotoSerifJP_500Medium', flex: 1, marginRight: 12 },
+  cardName: { fontSize: fs(18), color: '#2C2418', fontFamily: 'NotoSerifJP_500Medium', flex: 1, marginRight: 12 },
   cardMembers: { fontSize: 13, color: '#A69880' },
   menuModal: { backgroundColor: '#FFFDF8', borderRadius: 16, padding: 8, width: '75%' },
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },

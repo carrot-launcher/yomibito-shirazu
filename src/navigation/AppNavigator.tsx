@@ -8,6 +8,7 @@ import { Text } from 'react-native';
 
 import { useAuth } from '../hooks/useAuth';
 import { useTayoriUnread } from '../hooks/useTayoriUnread';
+import { fs } from '../utils/scale';
 import ComposeScreen from '../screens/ComposeScreen';
 import GroupSettingsScreen from '../screens/GroupSettingsScreen';
 import KashuScreen from '../screens/KashuScreen';
@@ -24,7 +25,7 @@ const Tab = createBottomTabNavigator();
 const navigationRef = createNavigationContainerRef();
 
 const HeaderTitle = ({ children }: { children: string }) => (
-  <Text style={{ fontFamily: 'NotoSerifJP_400Regular', fontWeight: '300', fontSize: 22, letterSpacing: 2, color: '#2C2418', includeFontPadding: false, textAlignVertical: 'center' }}>
+  <Text style={{ fontFamily: 'NotoSerifJP_400Regular', fontWeight: '300', fontSize: fs(22), letterSpacing: 2, color: '#2C2418', includeFontPadding: false, textAlignVertical: 'center' }}>
     {children}
   </Text>
 );
@@ -42,7 +43,7 @@ function HomeTabs() {
     <Tab.Navigator
       screenOptions={{
         tabBarStyle: { backgroundColor: '#F5F0E8', borderTopColor: '#E8E0D0' },
-        tabBarLabelStyle: { fontFamily: 'NotoSerifJP_400Regular' },
+        tabBarLabelStyle: { fontFamily: 'NotoSerifJP_400Regular', fontSize: 12 },
         tabBarActiveTintColor: '#2C2418',
         tabBarInactiveTintColor: '#A69880',
         ...commonHeaderStyle,
