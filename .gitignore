@@ -15,3 +15,5 @@ GoogleService-Info.plist
 .env.local
 .env*.local
 .claude
+android/
+ios/
