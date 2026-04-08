@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -23,7 +24,6 @@ export default function SettingsScreen() {
   const [notifNewPost, setNotifNewPost] = useState(true);
   const [notifReaction, setNotifReaction] = useState(true);
   const [notifComment, setNotifComment] = useState(true);
-  const [notifJudgment, setNotifJudgment] = useState(true);
   const [notifOther, setNotifOther] = useState(true);
   const [convertHalfSpace, setConvertHalfSpace] = useState(true);
   const [convertLineBreak, setConvertLineBreak] = useState(true);
@@ -41,6 +41,7 @@ export default function SettingsScreen() {
       setShowDeleteAccount(false);
       try { await GoogleSignin.signOut(); } catch {}
       await signOut(auth);
+      try { await AsyncStorage.clear(); } catch {}
     } catch (e: any) {
       alert('エラー', e?.message || 'アカウント削除に失敗しました');
       setDeleting(false);
@@ -56,7 +57,6 @@ export default function SettingsScreen() {
         setNotifNewPost(data.notificationSettings?.newPost ?? true);
         setNotifReaction(data.notificationSettings?.reaction ?? true);
         setNotifComment(data.notificationSettings?.comment ?? true);
-        setNotifJudgment(data.notificationSettings?.judgment ?? true);
         setNotifOther(data.notificationSettings?.other ?? true);
         setConvertHalfSpace(data.tankaConvert?.halfSpace ?? true);
         setConvertLineBreak(data.tankaConvert?.lineBreak ?? true);
@@ -108,7 +108,7 @@ export default function SettingsScreen() {
       <View style={{ height: 24 }} />
 
       <Text style={[styles.sectionTitle, { color: colors.text }]}>短歌の変換</Text>
-      <Text style={[styles.hint, { color: colors.textTertiary }]}>初心者の分かち書きを補正します。</Text>
+      <Text style={[styles.hint, { color: colors.textTertiary }]}>初心者の分かち書きを補正します</Text>
 
       <View style={[styles.switchRow, { borderBottomColor: colors.border }]}>
         <Text style={[styles.switchLabel, { color: colors.text }]}>半角スペース → 全角</Text>
@@ -124,7 +124,7 @@ export default function SettingsScreen() {
       <View style={{ height: 24 }} />
 
       <Text style={[styles.sectionTitle, { color: colors.text }]}>たよりの設定</Text>
-      <Text style={[styles.hint, { color: colors.textTertiary }]}>音やバイブの設定は端末のOS設定から変更できます。</Text>
+      <Text style={[styles.hint, { color: colors.textTertiary }]}>音やバイブの設定は端末のOS設定から変更できます</Text>
 
       <View style={[styles.switchRow, { borderBottomColor: colors.border }]}>
         <Text style={[styles.switchLabel, { color: colors.text }]}>新しい歌</Text>
@@ -140,11 +140,6 @@ export default function SettingsScreen() {
         <Text style={[styles.switchLabel, { color: colors.text }]}>評</Text>
         <Switch value={notifComment} onValueChange={(v) => { setNotifComment(v); saveSetting('notificationSettings.comment', v); }}
           trackColor={colors.switchTrack} thumbColor={notifComment ? colors.switchThumb.on : colors.switchThumb.off} />
-      </View>
-      <View style={[styles.switchRow, { borderBottomColor: colors.border }]}>
-        <Text style={[styles.switchLabel, { color: colors.text }]}>裁き</Text>
-        <Switch value={notifJudgment} onValueChange={(v) => { setNotifJudgment(v); saveSetting('notificationSettings.judgment', v); }}
-          trackColor={colors.switchTrack} thumbColor={notifJudgment ? colors.switchThumb.on : colors.switchThumb.off} />
       </View>
       <View style={[styles.switchRow, { borderBottomColor: colors.border }]}>
         <Text style={[styles.switchLabel, { color: colors.text }]}>その他</Text>

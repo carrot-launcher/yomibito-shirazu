@@ -38,7 +38,7 @@ function buildScreenshotHtml(body: string): string {
     -webkit-writing-mode: vertical-rl;
     writing-mode: vertical-rl;
     font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho Pro", serif;
-    font-size: 14px;
+    font-size: 16px;
     line-height: 2.0;
     letter-spacing: 0.04em;
     color: #2C2418;

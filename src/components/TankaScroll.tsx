@@ -115,7 +115,7 @@ function buildHtml(cards: TankaCard[], mode: string, hasLoadMore: boolean, color
     height: 100%;
     width: 100%;
     color: ${colors.textTertiary};
-    font-size: 16px;
+    font-size: 17px;
     font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho Pro", serif;
   }
 </style>
@@ -221,9 +221,9 @@ function createCardEl(card, index) {
 
 if (cards.length === 0) {
   container.innerHTML = '<div class="empty-state">' +
-    (mode === 'timeline' ? 'まだ歌が詠まれていません' :
-     mode === 'myPosts' ? 'まだ歌を詠んでいません' :
-     '栞はまだありません') + '</div>';
+    (mode === 'timeline' ? '詠草がありません' :
+     mode === 'myPosts' ? '詠草がありません' :
+     '栞がありません') + '</div>';
   container.style.justifyContent = 'center';
 } else {
   var displayCards = cards;
@@ -320,6 +320,7 @@ export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation
   // Prepend new real-time arrivals (declare BEFORE append effect)
   useEffect(() => {
     if (!isTimeline || !newArrivals?.length || !arrivalGen) return;
+    if (renderedCountRef.current === 0) return; // 空のWebViewにはprependしない
     const serialized = serializeCards(newArrivals);
     const js = `window.prependCards(${JSON.stringify(serialized)}); true;`;
     webViewRef.current?.injectJavaScript(js);

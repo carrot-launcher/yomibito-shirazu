@@ -65,11 +65,21 @@ export function usePaginatedPosts(groupId: string) {
       });
       if (added.length > 0) {
         added.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-        setNewArrivals(added);
-        setArrivalGen(g => g + 1);
-        setCards(prev => [...added, ...prev]);
+        setCards(prev => {
+          if (prev.length === 0) {
+            setGeneration(g => g + 1);
+            return added;
+          }
+          // 重複排除
+          const existingIds = new Set(prev.map(c => c.postId));
+          const unique = added.filter(c => !existingIds.has(c.postId));
+          if (unique.length === 0) return prev;
+          setNewArrivals(unique);
+          setArrivalGen(g => g + 1);
+          return [...unique, ...prev];
+        });
       }
-    });
+    }, () => {});
   }, [groupId]);
 
   const loadMore = useCallback(async () => {

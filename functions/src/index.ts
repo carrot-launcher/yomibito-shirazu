@@ -556,6 +556,17 @@ export const dissolveGroup = onCall(
     // 2. 歌会本体を削除
     await db.doc(`groups/${groupId}`).delete();
 
+    // 2.5. グループのレートリミット削除
+    try {
+      const groupDailySnap = await db.collection(`rateLimits/group_${groupId}/daily`).get();
+      if (groupDailySnap.size > 0) {
+        const b = db.batch();
+        groupDailySnap.docs.forEach((d) => b.delete(d.ref));
+        b.delete(db.doc(`rateLimits/group_${groupId}`));
+        await b.commit();
+      }
+    } catch {}
+
     // 3. 投稿を削除（個別にtry/catchし、1件の失敗で全体が止まらないように）
     if (deletePosts) {
       const postsSnap = await db.collection("posts").where("groupId", "==", groupId).get();
@@ -806,7 +817,7 @@ async function createCautionNotification(
   if (!userData) return;
 
   const settings = userData.notificationSettings || {};
-  if (settings.judgment === false) return;
+  if (settings.other === false) return;
 
   // FCM送信
   const fcmToken = userData?.fcmToken;
@@ -820,7 +831,7 @@ async function createCautionNotification(
         },
         android: {
           notification: {
-            channelId: "judgments",
+            channelId: "other",
             visibility: "private" as const,
           },
         },
@@ -858,7 +869,7 @@ async function createBanNotification(
   if (!userData) return;
 
   const settings = userData.notificationSettings || {};
-  if (settings.judgment === false) return;
+  if (settings.other === false) return;
 
   // FCM送信
   const fcmToken = userData?.fcmToken;
@@ -872,7 +883,7 @@ async function createBanNotification(
         },
         android: {
           notification: {
-            channelId: "judgments",
+            channelId: "other",
             visibility: "private" as const,
           },
         },
@@ -951,6 +962,14 @@ export const deleteAccount = onCall(
           await memberDoc.ref.delete();
         }
         await groupDoc.ref.delete();
+        // グループのレートリミット削除
+        const groupDailySnap = await db.collection(`rateLimits/group_${groupId}/daily`).get();
+        if (groupDailySnap.size > 0) {
+          const b = db.batch();
+          groupDailySnap.docs.forEach((d) => b.delete(d.ref));
+          b.delete(db.doc(`rateLimits/group_${groupId}`));
+          await b.commit();
+        }
       } catch {
         // 個別の歌会解散失敗は続行
       }

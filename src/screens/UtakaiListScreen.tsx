@@ -71,7 +71,7 @@ export default function UtakaiListScreen({ navigation }: any) {
               }
               return [...prev, groupData];
             });
-          });
+          }, () => {});
           groupUnsubs.push(groupUnsub);
         } catch { removedIds.push(gid); }
       }
@@ -83,7 +83,7 @@ export default function UtakaiListScreen({ navigation }: any) {
           await updateDoc(doc(db, 'users', user.uid), { joinedGroups: arrayRemove(gid) });
         }
       }
-    });
+    }, () => {});
 
     return () => {
       unsub();
@@ -110,8 +110,10 @@ export default function UtakaiListScreen({ navigation }: any) {
   };
 
   // 歌会参加: まず招待コードを検証して、次に表示名を設定
+  const [joining, setJoining] = useState(false);
   const handleJoinStep1 = async () => {
-    if (!user || !joinCode.trim()) return;
+    if (!user || !joinCode.trim() || joining) return;
+    setJoining(true);
     try {
       const q = query(collection(db, 'groups'), where('inviteCode', '==', joinCode.trim().toUpperCase()));
       const snap = await getDocs(q);
@@ -127,11 +129,15 @@ export default function UtakaiListScreen({ navigation }: any) {
       setShowJoin(false);
       setShowSetName(true);
     } catch (e: any) { alert('エラー', e.message); }
+    finally { setJoining(false); }
   };
 
   // 表示名確定後に実際の作成/参加を実行
+  const [confirming, setConfirming] = useState(false);
+
   const handleConfirmName = async () => {
-    if (!user || !pendingAction || !memberDisplayName.trim()) return;
+    if (!user || !pendingAction || !memberDisplayName.trim() || confirming) return;
+    setConfirming(true);
     const displayName = memberDisplayName.trim();
     try {
       if (pendingAction.type === 'create') {
@@ -153,6 +159,8 @@ export default function UtakaiListScreen({ navigation }: any) {
         ? e.message
         : e?.message || 'エラーが発生しました';
       alert('エラー', msg);
+    } finally {
+      setConfirming(false);
     }
   };
 
@@ -220,7 +228,7 @@ export default function UtakaiListScreen({ navigation }: any) {
           <TextInput style={[styles.input, { borderColor: colors.border, color: colors.text }]} placeholder="あなたの名前" value={memberDisplayName} onChangeText={setMemberDisplayName} placeholderTextColor={colors.textTertiary} maxLength={16} autoFocus />
           <View style={styles.modalButtons}>
             <TouchableOpacity onPress={() => { setShowSetName(false); setPendingAction(null); }}><Text style={[styles.cancelText, { color: colors.textSecondary }]}>やめる</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.confirmBtn, { backgroundColor: colors.accent }, !memberDisplayName.trim() && { opacity: 0.4 }]} onPress={handleConfirmName} disabled={!memberDisplayName.trim()}>
+            <TouchableOpacity style={[styles.confirmBtn, { backgroundColor: colors.accent }, (!memberDisplayName.trim() || confirming) && { opacity: 0.4 }]} onPress={handleConfirmName} disabled={!memberDisplayName.trim() || confirming}>
               <Text style={[styles.confirmText, { color: colors.accentText }]}>{pendingAction?.type === 'create' ? '開く' : '参加'}</Text>
             </TouchableOpacity>
           </View>

@@ -26,7 +26,7 @@ function timeAgo(date: Date): string {
   return `${Math.floor(day / 30)}ヶ月前`;
 }
 
-type FilterType = 'all' | 'new_post' | 'reaction' | 'comment' | 'judgment' | 'other';
+type FilterType = 'all' | 'new_post' | 'reaction' | 'comment' | 'other';
 
 export default function TayoriScreen({ navigation }: any) {
   const { user } = useAuth();
@@ -161,7 +161,7 @@ export default function TayoriScreen({ navigation }: any) {
     emptyText: {
       fontSize: 17,
       color: colors.textTertiary,
-      fontFamily: 'NotoSerifJP_500Medium',
+      fontFamily: 'NotoSerifJP_400Regular',
     },
   }), [colors]);
 
@@ -232,10 +232,8 @@ export default function TayoriScreen({ navigation }: any) {
 
   const filteredItems = filter === 'all'
     ? visibleItems
-    : filter === 'judgment'
-    ? visibleItems.filter(i => i.type === 'caution' || i.type === 'ban')
     : filter === 'other'
-    ? visibleItems.filter(i => i.type === 'dissolve')
+    ? visibleItems.filter(i => i.type === 'caution' || i.type === 'ban' || i.type === 'dissolve')
     : visibleItems.filter(i => i.type === filter);
 
   const filters: { key: FilterType; label: string }[] = [
@@ -243,7 +241,6 @@ export default function TayoriScreen({ navigation }: any) {
     { key: 'new_post', label: '歌' },
     { key: 'reaction', label: '🌸' },
     { key: 'comment', label: '評' },
-    { key: 'judgment', label: '裁き' },
     { key: 'other', label: 'その他' },
   ];
 
@@ -262,7 +259,7 @@ export default function TayoriScreen({ navigation }: any) {
       </View>
       {filteredItems.length === 0 ? (
         <View style={styles.emptyWrap}>
-          <Text style={dynamicStyles.emptyText}>{visibleItems.length === 0 ? 'まだたよりはありません' : 'このたよりはありません'}</Text>
+          <Text style={dynamicStyles.emptyText}>{visibleItems.length === 0 ? 'たよりがありません' : 'たよりがありません'}</Text>
         </View>
       ) : (
         <FlatList

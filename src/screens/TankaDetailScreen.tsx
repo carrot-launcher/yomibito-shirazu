@@ -72,7 +72,7 @@ function buildDetailHtml(
   }
   .container {
     display: inline-flex;
-    flex-direction: row-reverse;
+    flex-direction: row;
     height: 100%;
     min-width: 100%;
     padding: 20px 16px;
@@ -103,7 +103,7 @@ function buildDetailHtml(
   }
   .comments-section {
     display: flex;
-    flex-direction: row-reverse;
+    flex-direction: row;
     gap: 4px;
     flex-shrink: 0;
   }
@@ -201,7 +201,6 @@ if (comments.length === 0) {
     commentsEl.appendChild(el);
   });
 }
-setTimeout(() => { document.body.scrollLeft = document.body.scrollWidth; }, 50);
 </script>
 </body>
 </html>`;
@@ -366,8 +365,10 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     }
   };
 
+  const [bookmarking, setBookmarking] = useState(false);
   const handleBookmark = async () => {
-    if (!user || !post) return;
+    if (!user || !post || bookmarking) return;
+    setBookmarking(true);
     const bmRef = doc(db, 'users', user.uid, 'bookmarks', postId);
     try {
       if (isBookmarked) { await deleteDoc(bmRef); }
@@ -379,6 +380,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
         });
       }
     } catch (e: any) { alert('エラー', e.message); }
+    finally { setBookmarking(false); }
   };
 
   const handleDelete = async () => {

@@ -39,7 +39,7 @@ export default function KashuScreen({ navigation }: any) {
       });
       baseCardsRef.current = baseCards;
       enrichPosts(baseCards);
-    });
+    }, () => {});
   }, [user, enrichPosts]);
 
   // 画面に戻ったときにリアクション・評を再取得
@@ -67,7 +67,7 @@ export default function KashuScreen({ navigation }: any) {
         return card;
       }));
       setBookmarks(cards);
-    });
+    }, () => {});
   }, [user]);
 
   const handleTap = (postId: string, groupId: string, batchId?: string) => navigation.navigate('TankaDetail', { postId, groupId, batchId, fromMyPosts: tab === 'myPosts' });
@@ -83,7 +83,7 @@ export default function KashuScreen({ navigation }: any) {
   return (
     <GradientBackground style={dynamicStyles.container}>
       <View style={dynamicStyles.segmentBar}>
-        <TouchableOpacity style={[styles.segment, tab === 'myPosts' && dynamicStyles.segmentActive]} onPress={() => setTab('myPosts')}><Text style={[dynamicStyles.segmentText, tab === 'myPosts' && dynamicStyles.segmentTextActive]}>自分の歌</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.segment, tab === 'myPosts' && dynamicStyles.segmentActive]} onPress={() => setTab('myPosts')}><Text style={[dynamicStyles.segmentText, tab === 'myPosts' && dynamicStyles.segmentTextActive]}>自分の詠草</Text></TouchableOpacity>
         <TouchableOpacity style={[styles.segment, tab === 'bookmarks' && dynamicStyles.segmentActive]} onPress={() => setTab('bookmarks')}><Text style={[dynamicStyles.segmentText, tab === 'bookmarks' && dynamicStyles.segmentTextActive]}>栞</Text></TouchableOpacity>
       </View>
       <TankaScroll cards={tab === 'myPosts' ? myPosts : bookmarks} onTap={handleTap} mode={tab} />
