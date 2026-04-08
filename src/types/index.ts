@@ -43,6 +43,8 @@ export interface PostDoc {
   hogo?: boolean;
   hogoReason?: string;
   hogoType?: 'caution' | 'ban';
+  revealedAuthorName?: string;
+  revealedAuthorCode?: string;
 }
 
 export interface ReactionDoc {
@@ -108,4 +110,6 @@ export interface TankaCard {
   bookmarkedAt?: Date;
   hogo?: boolean;
   hogoReason?: string;
+  revealedAuthorName?: string;
+  revealedAuthorCode?: string;
 }

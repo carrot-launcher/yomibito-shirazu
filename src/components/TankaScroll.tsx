@@ -107,6 +107,7 @@ function buildHtml(cards: TankaCard[], mode: string, hasLoadMore: boolean, color
     word-break: break-all;
   }
   .comment-count { font-size: ${metaFontSize}px; color: ${colors.textSecondary}; }
+  .revealed-author { font-size: ${metaFontSize}px; color: ${colors.text}; }
   .time-ago { font-size: ${metaFontSize - 1}px; color: ${colors.textTertiary}; margin-top: 2px; }
   .empty-state {
     display: flex;
@@ -172,7 +173,8 @@ function createCardEl(card, index) {
       .map(function(e) { return e[0] + e[1]; })
       .join(' ');
     var timeAgo = getTimeAgo(new Date(card.createdAt));
-    metaHtml = '<div class="reactions">' +
+    metaHtml = (card.revealedAuthorName ? '<div class="revealed-author">' + escapeHtml(card.revealedAuthorName) + '</div>' : '') +
+      '<div class="reactions">' +
       (reactions ? '<div class="reaction-item">' + reactions + '</div>' : '') +
       (card.commentCount > 0 ? '<div class="comment-count">評 ' + card.commentCount + '</div>' : '') +
       '</div>' +
@@ -202,7 +204,8 @@ function createCardEl(card, index) {
     var timeAgo = getTimeAgo(d);
     var bmGroupName = card.groupName || '';
     if (bmGroupName.length > 50) bmGroupName = bmGroupName.slice(0, 50) + '…';
-    metaHtml = '<div class="group-info">' + bmGroupName + '</div>' +
+    metaHtml = (card.revealedAuthorName ? '<div class="revealed-author">' + escapeHtml(card.revealedAuthorName) + '</div>' : '') +
+      '<div class="group-info">' + bmGroupName + '</div>' +
       '<div class="group-info">' + timeAgo + '</div>';
   }
 

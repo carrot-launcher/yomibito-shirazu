@@ -936,6 +936,42 @@ export const unbanMember = onCall(
 );
 
 /**
+ * revealAuthor — 解題（作者名の開示）
+ */
+export const revealAuthor = onCall(
+  { region: "asia-northeast1" },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
+    const { postId } = request.data;
+    if (!postId) throw new HttpsError("invalid-argument", "postId が必要です");
+
+    // 著者確認
+    const authorSnap = await db.doc(`posts/${postId}/private/author`).get();
+    if (!authorSnap.exists) throw new HttpsError("not-found", "投稿が見つかりません");
+    const authorId = authorSnap.data()?.authorId;
+    if (request.auth.uid !== authorId) throw new HttpsError("permission-denied", "自分の歌のみ解題できます");
+
+    // 投稿データ取得
+    const postSnap = await db.doc(`posts/${postId}`).get();
+    if (!postSnap.exists) throw new HttpsError("not-found", "投稿が見つかりません");
+    const postData = postSnap.data()!;
+    if (postData.revealedAuthorName) throw new HttpsError("already-exists", "既に解題されています");
+
+    // 表示名を取得
+    const memberSnap = await db.doc(`groups/${postData.groupId}/members/${authorId}`).get();
+    const displayName = memberSnap.data()?.displayName || "名無し";
+    const userCode = memberSnap.data()?.userCode || "---";
+
+    await db.doc(`posts/${postId}`).update({
+      revealedAuthorName: displayName,
+      revealedAuthorCode: userCode,
+    });
+
+    return { success: true };
+  }
+);
+
+/**
  * deleteAccount — ユーザーデータ全消去「消息を絶つ」
  */
 export const deleteAccount = onCall(

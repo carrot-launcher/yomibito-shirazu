@@ -12,7 +12,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_WIDTH = SCREEN_WIDTH - 48;
 const CARD_HEIGHT = CARD_WIDTH * (4 / 3);
 
-function buildScreenshotHtml(body: string): string {
+function buildScreenshotHtml(body: string, revealedAuthorName?: string): string {
   const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
   return `<!DOCTYPE html>
@@ -31,8 +31,15 @@ function buildScreenshotHtml(body: string): string {
     aspect-ratio: 3/4;
     background: #FBF7F0;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     padding: 10% 0;
+    position: relative;
+  }
+  .tanka-area {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    min-height: 0;
   }
   .tanka {
     -webkit-writing-mode: vertical-rl;
@@ -45,11 +52,24 @@ function buildScreenshotHtml(body: string): string {
     white-space: pre-wrap;
     height: 100%;
   }
+  .revealed-author {
+    -webkit-writing-mode: vertical-rl;
+    writing-mode: vertical-rl;
+    font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho Pro", serif;
+    font-size: 13px;
+    line-height: 2.0;
+    letter-spacing: 0.04em;
+    color: #2C2418;
+    position: absolute;
+    left: 25%;
+    bottom: 10%;
+  }
 </style>
 </head>
 <body>
 <div class="card" id="card">
-  <div class="tanka">${escapeHtml(body)}</div>
+  <div class="tanka-area"><div class="tanka">${escapeHtml(body)}</div></div>
+  ${revealedAuthorName ? '<div class="revealed-author">' + escapeHtml(revealedAuthorName) + '</div>' : ''}
 </div>
 <script>
 function capture() {
@@ -108,6 +128,23 @@ function capture() {
       });
     });
 
+    var authorEl = document.querySelector('.revealed-author');
+    if (authorEl) {
+      var authorText = authorEl.textContent;
+      var authorChars = authorText.split('');
+      var authorFontSize = 13;
+      var authorCharStep = authorFontSize + authorFontSize * 0.04;
+      ctx.font = authorFontSize + 'px "Noto Serif JP", "Yu Mincho", "Hiragino Mincho Pro", serif';
+      ctx.fillStyle = '#2C2418';
+      ctx.textBaseline = 'top';
+      var ax = w * 0.25;
+      var totalAuthorH = authorChars.length * authorCharStep;
+      var ay = h * 0.90 - totalAuthorH;
+      authorChars.forEach(function(ch, i) {
+        ctx.fillText(ch, ax, ay + i * authorCharStep);
+      });
+    }
+
     const dataUrl = canvas.toDataURL('image/png');
     window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'captured', data: dataUrl.split(',')[1] }));
   } catch(e) {
@@ -120,7 +157,7 @@ function capture() {
 }
 
 export default function ScreenshotScreen({ route }: any) {
-  const { body } = route.params;
+  const { body, revealedAuthorName } = route.params;
   const webViewRef = useRef<WebView>(null);
   const { alert } = useAlert();
   const { colors } = useTheme();
@@ -160,7 +197,7 @@ export default function ScreenshotScreen({ route }: any) {
     }
   };
 
-  const html = buildScreenshotHtml(stripRuby(body));
+  const html = buildScreenshotHtml(stripRuby(body), revealedAuthorName);
 
   return (
     <GradientBackground style={styles.container}>

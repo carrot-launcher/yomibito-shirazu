@@ -530,7 +530,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.action === 'screenshot') {
-        navigation.navigate('Screenshot', { body: displayBody });
+        navigation.navigate('Screenshot', { body: displayBody, revealedAuthorName: post?.revealedAuthorName });
       } else if (data.action === 'commentMenu') {
         openCommentMenu(data.commentId);
       }
@@ -613,6 +613,12 @@ export default function TankaDetailScreen({ route, navigation }: any) {
             </TouchableOpacity>
           )}
 
+          {post.revealedAuthorName && (
+            <Text style={styles.revealedAuthor}>
+              {post.revealedAuthorName}#{post.revealedAuthorCode}
+            </Text>
+          )}
+
           <Text style={styles.commentLabel}>評 {comments.length}</Text>
         </View>
 
@@ -659,6 +665,36 @@ export default function TankaDetailScreen({ route, navigation }: any) {
         <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setMenuVisible(false)}>
           <View style={styles.menuSheet}>
             <Text style={styles.menuTitle}>{isMenuForPost ? '歌' : '評'}</Text>
+
+            {/* 解題（投稿メニューのみ、未解題の場合） */}
+            {isMenuForPost && !post.revealedAuthorName && !menuCommentHogo && (
+              <TouchableOpacity style={styles.menuItem} onPress={() => {
+                setMenuVisible(false);
+                alert('解題', 'あなたがこの詠草の作者であれば、名前が公開されます。\nこの操作は取り消せません。', [
+                  { text: 'やめる', style: 'cancel' },
+                  {
+                    text: '解題する', style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        const fns = getFunctions(undefined, 'asia-northeast1');
+                        await httpsCallable(fns, 'revealAuthor')({ postId });
+                      } catch (e: any) {
+                        const msg = e?.code === 'functions/permission-denied'
+                          ? '自分の歌のみ解題できます'
+                          : e?.code === 'functions/already-exists'
+                          ? '既に解題されています'
+                          : e?.message || 'エラーが発生しました';
+                        alert('エラー', msg);
+                      }
+                    },
+                  },
+                ]);
+              }}>
+                <MaterialCommunityIcons name="account-eye-outline" size={20} color={colors.text} />
+                <Text style={styles.menuItemText}>解題</Text>
+                <Text style={styles.menuItemHint}>名乗り出る</Text>
+              </TouchableOpacity>
+            )}
 
             {/* 削除（全員に表示、CloudFunctionで認証） */}
             {!menuCommentHogo && (
@@ -782,6 +818,7 @@ function makeStyles(colors: ThemeColors) {
       paddingHorizontal: 8, paddingVertical: 6,
       borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
     },
+    revealedAuthor: { fontSize: 13, color: colors.textSecondary, fontFamily: 'NotoSerifJP_400Regular', lineHeight: 20 },
     commentLabel: { fontSize: 14, color: colors.textSecondary, marginLeft: 'auto', fontFamily: 'NotoSerifJP_400Regular' },
     commentInput: { flexDirection: 'row', gap: 8, alignItems: 'flex-end', marginTop: 10 },
     commentTextInput: {
