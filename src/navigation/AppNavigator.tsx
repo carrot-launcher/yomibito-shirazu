@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { getAnalytics, logEvent } from '@react-native-firebase/analytics';
 import * as Notifications from 'expo-notifications';
@@ -123,6 +123,7 @@ function HomeTabs() {
 
 export default function AppNavigator() {
   const { user, loading, onboardingDone } = useAuth();
+  const { colors, isDark } = useTheme();
   const commonHeaderStyle = useCommonHeaderStyle();
 
   useEffect(() => {
@@ -147,6 +148,7 @@ export default function AppNavigator() {
   return (
     <NavigationContainer
       ref={navigationRef}
+      theme={{ ...DefaultTheme, dark: isDark, colors: { ...DefaultTheme.colors, background: colors.bg, card: colors.gradientTop, text: colors.text, border: colors.border, notification: colors.destructive, primary: colors.accent } }}
       onStateChange={async () => {
         const route = navigationRef.getCurrentRoute();
         if (route) {
