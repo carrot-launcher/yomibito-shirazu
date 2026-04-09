@@ -12,7 +12,7 @@ export default {
     ios: {
       icon: "./assets/images/icon-ios.png",
       bundleIdentifier: "com.yomibito.shirazu",
-      googleServicesFile: "./GoogleService-Info.plist",
+      googleServicesFile: process.env.GOOGLE_SERVICES_INFO_PLIST ?? './GoogleService-Info.plist',
     },
     android: {
       adaptiveIcon: {
@@ -24,7 +24,7 @@ export default {
       predictiveBackGestureEnabled: false,
       package: "com.yomibito.shirazu",
       softwareKeyboardLayoutMode: "resize",
-      googleServicesFile: "./google-services.json",
+      googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
     },
     plugins: [
       [
