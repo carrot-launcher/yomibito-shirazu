@@ -63,6 +63,9 @@ export default {
       firebaseAppId: process.env.FIREBASE_APP_ID,
       firebaseMeasurementId: process.env.FIREBASE_MEASUREMENT_ID,
       googleWebClientId: process.env.GOOGLE_WEB_CLIENT_ID,
+      eas: {
+        "projectId": "5b336a72-97e2-4648-abfb-985fe57ebc2a",
+      },
     },
   },
 };
