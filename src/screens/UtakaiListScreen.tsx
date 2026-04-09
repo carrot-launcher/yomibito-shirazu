@@ -196,13 +196,12 @@ export default function UtakaiListScreen({ navigation }: any) {
     return (
       <ScaleDecorator>
         <TouchableOpacity
-          style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, isActive && { opacity: 0.8 }]}
+          style={[styles.card, { backgroundColor: colors.surface, borderLeftColor: unread ? colors.destructive : colors.border }, isActive && { opacity: 0.8 }]}
           onPress={() => navigation.navigate('Timeline', { groupId: item.id, groupName: item.name })}
           onLongPress={drag}
           delayLongPress={250}
           disabled={isActive}
         >
-          {unread && <View style={[styles.unreadDot, { backgroundColor: colors.destructive }]} />}
           <Text style={[styles.cardName, { color: unread ? colors.text : colors.textSecondary, fontWeight: unread ? '500' : '400' }]} numberOfLines={1}>{item.name}</Text>
           <Text style={[styles.cardMembers, { color: colors.textTertiary }]}>{item.memberCount}人</Text>
         </TouchableOpacity>
@@ -303,8 +302,21 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center' },
   emptyText: { fontSize: 17, fontFamily: 'NotoSerifJP_500Medium' },
   emptySubtext: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginTop: 8 },
-  card: { borderRadius: 12, paddingHorizontal: 18, paddingVertical: 14, marginBottom: 10, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  unreadDot: { width: 8, height: 8, borderRadius: 4, marginRight: 10 },
+  card: {
+    borderRadius: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
   cardName: { fontSize: fs(18), fontFamily: 'NotoSerifJP_500Medium', flex: 1, marginRight: 12 },
   cardMembers: { fontSize: 14 },
   menuModal: { borderRadius: 16, padding: 8, width: '75%' },
