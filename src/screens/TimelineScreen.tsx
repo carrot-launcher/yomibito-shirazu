@@ -72,7 +72,8 @@ export default function TimelineScreen({ route, navigation }: any) {
     };
     getDoc(memberRef).then(snap => {
       if (cancelled) return;
-      const prev = snap.data()?.lastReadAt?.toDate?.() || null;
+      // 未取得の場合は 1970年 を入れる（全カードが「未読」になる）
+      const prev = snap.data()?.lastReadAt?.toDate?.() || new Date(0);
       setUnreadSince(prev);
       markRead();
     }).catch(() => {

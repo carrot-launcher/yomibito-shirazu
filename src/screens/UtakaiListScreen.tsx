@@ -193,7 +193,7 @@ export default function UtakaiListScreen({ navigation }: any) {
         renderItem={({ item }) => {
           const unread = isUnread(item);
           return (
-          <TouchableOpacity style={[styles.card, { backgroundColor: unread ? colors.unread : colors.surface, borderColor: colors.border }]} onPress={() => navigation.navigate('Timeline', { groupId: item.id, groupName: item.name })}>
+          <TouchableOpacity style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => navigation.navigate('Timeline', { groupId: item.id, groupName: item.name })}>
             {unread && <View style={[styles.unreadDot, { backgroundColor: colors.destructive }]} />}
             <Text style={[styles.cardName, { color: unread ? colors.text : colors.textSecondary, fontWeight: unread ? '500' : '400' }]} numberOfLines={1}>{item.name}</Text>
             <Text style={[styles.cardMembers, { color: colors.textTertiary }]}>{item.memberCount}人</Text>

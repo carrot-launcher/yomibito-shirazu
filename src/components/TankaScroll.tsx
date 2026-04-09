@@ -316,6 +316,7 @@ export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation
   const { colors } = useTheme();
   const webViewRef = useRef<WebView>(null);
   const renderedCountRef = useRef(0);
+  const webViewReadyRef = useRef(false);
   const isTimeline = mode === 'timeline';
   const unreadSinceMs = unreadSince ? unreadSince.getTime() : null;
 
@@ -340,12 +341,20 @@ export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation
     renderedCountRef.current = cards.length;
   }, [generation]);
 
-  // 未読強調を適用（WebView再構築時 + unreadSince変更時 + 新着追加時 + loadMore時）
+  // WebView リロード時に ready フラグをリセット
+  useEffect(() => {
+    webViewReadyRef.current = false;
+  }, [generation]);
+
+  // 未読強調を適用（unreadSince変更時 + 新着追加時 + loadMore時）
+  // WebView が ready になっていない間は呼ばない（onLoadEnd で再実行される）
   useEffect(() => {
     if (!isTimeline) return;
-    const js = `window.applyUnread && window.applyUnread(${unreadSinceMs === null ? 'null' : unreadSinceMs}); true;`;
+    if (unreadSinceMs === null) return;
+    if (!webViewReadyRef.current) return;
+    const js = `window.applyUnread && window.applyUnread(${unreadSinceMs}); true;`;
     webViewRef.current?.injectJavaScript(js);
-  }, [unreadSinceMs, isTimeline, generation, arrivalGen, cards.length]);
+  }, [unreadSinceMs, isTimeline, arrivalGen, cards.length]);
 
   // Prepend new real-time arrivals (declare BEFORE append effect)
   useEffect(() => {
@@ -388,6 +397,13 @@ export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation
         source={{ html }}
         style={[styles.webview, { backgroundColor: colors.webViewBg }]}
         onMessage={handleMessage}
+        onLoadEnd={() => {
+          webViewReadyRef.current = true;
+          if (isTimeline && unreadSinceMs !== null) {
+            const js = `window.applyUnread && window.applyUnread(${unreadSinceMs}); true;`;
+            webViewRef.current?.injectJavaScript(js);
+          }
+        }}
         scrollEnabled={true}
         nestedScrollEnabled={true}
         showsHorizontalScrollIndicator={false}
