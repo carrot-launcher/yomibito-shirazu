@@ -108,7 +108,7 @@ export default function SettingsScreen() {
       <View style={{ height: 24 }} />
 
       <Text style={[styles.sectionTitle, { color: colors.text }]}>短歌の変換</Text>
-      <Text style={[styles.hint, { color: colors.textTertiary }]}>初心者の分かち書きを補正します</Text>
+      <Text style={[styles.hint, { color: colors.textTertiary }]}>一般的な短歌の慣習に補正します</Text>
 
       <View style={[styles.switchRow, { borderBottomColor: colors.border }]}>
         <Text style={[styles.switchLabel, { color: colors.text }]}>半角スペース → 全角</Text>
