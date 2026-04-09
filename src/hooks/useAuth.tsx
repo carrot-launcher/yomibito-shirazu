@@ -32,11 +32,11 @@ async function registerForPushNotifications(uid: string) {
       });
     }
 
-    const { status } = await Notifications.getPermissionsAsync();
-    let finalStatus = status;
-    if (status !== 'granted') {
-      const { status: newStatus } = await Notifications.requestPermissionsAsync();
-      finalStatus = newStatus;
+    const perm = await Notifications.getPermissionsAsync() as any;
+    let finalStatus = perm.status;
+    if (finalStatus !== 'granted') {
+      const newPerm = await Notifications.requestPermissionsAsync() as any;
+      finalStatus = newPerm.status;
     }
     if (finalStatus !== 'granted') return;
 
