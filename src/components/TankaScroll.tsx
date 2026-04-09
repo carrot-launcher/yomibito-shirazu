@@ -13,6 +13,7 @@ interface Props {
   generation?: number;
   newArrivals?: TankaCard[];
   arrivalGen?: number;
+  unreadSince?: Date | null;
 }
 
 const screenWidth = Dimensions.get('window').width;
@@ -66,6 +67,7 @@ function buildHtml(cards: TankaCard[], mode: string, hasLoadMore: boolean, color
   }
   .tanka-card:last-child { border-right: none; }
   .tanka-card:active { background: ${colors.cardPress}; }
+  .tanka-card.unread { background: ${colors.unread}; }
   .tanka-body {
     writing-mode: vertical-rl;
     font-size: ${tankaFontSize}px;
@@ -127,6 +129,7 @@ function buildHtml(cards: TankaCard[], mode: string, hasLoadMore: boolean, color
 var cards = ${cardsJson};
 var mode = "${mode}";
 var hasLoadMore = ${hasLoadMore};
+var unreadSinceMs = null;
 var container = document.getElementById("container");
 var cardCount = 0;
 var loadMoreRequested = false;
@@ -157,7 +160,10 @@ function getTimeAgo(date) {
 
 function createCardEl(card, index) {
   var el = document.createElement("div");
-  el.className = "tanka-card";
+  var t = new Date(card.createdAt).getTime();
+  el.setAttribute('data-created-at', String(t));
+  var isUnread = unreadSinceMs !== null && t > unreadSinceMs;
+  el.className = isUnread ? "tanka-card unread" : "tanka-card";
   var fade = Math.max(0.6, 1 - (index / 8) * 0.7);
   el.style.opacity = fade;
   el.onclick = function() {
@@ -271,6 +277,19 @@ window.appendCards = function(newCards) {
   loadMoreRequested = false;
 };
 
+window.applyUnread = function(ms) {
+  unreadSinceMs = ms;
+  var els = container.querySelectorAll('.tanka-card');
+  els.forEach(function(el) {
+    var t = parseInt(el.getAttribute('data-created-at') || '0', 10);
+    if (ms !== null && t > ms) {
+      el.classList.add('unread');
+    } else {
+      el.classList.remove('unread');
+    }
+  });
+};
+
 window.prependCards = function(newCards) {
   var scrollEl = document.body;
   var oldScrollLeft = scrollEl.scrollLeft;
@@ -293,11 +312,12 @@ window.prependCards = function(newCards) {
 </html>`;
 }
 
-export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation, newArrivals, arrivalGen }: Props) {
+export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation, newArrivals, arrivalGen, unreadSince }: Props) {
   const { colors } = useTheme();
   const webViewRef = useRef<WebView>(null);
   const renderedCountRef = useRef(0);
   const isTimeline = mode === 'timeline';
+  const unreadSinceMs = unreadSince ? unreadSince.getTime() : null;
 
   // For timeline: memoize HTML on generation change only (not on cards change)
   // For other modes: rebuild HTML on any cards change
@@ -319,6 +339,13 @@ export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation
   useEffect(() => {
     renderedCountRef.current = cards.length;
   }, [generation]);
+
+  // 未読強調を適用（WebView再構築時 + unreadSince変更時 + 新着追加時 + loadMore時）
+  useEffect(() => {
+    if (!isTimeline) return;
+    const js = `window.applyUnread && window.applyUnread(${unreadSinceMs === null ? 'null' : unreadSinceMs}); true;`;
+    webViewRef.current?.injectJavaScript(js);
+  }, [unreadSinceMs, isTimeline, generation, arrivalGen, cards.length]);
 
   // Prepend new real-time arrivals (declare BEFORE append effect)
   useEffect(() => {

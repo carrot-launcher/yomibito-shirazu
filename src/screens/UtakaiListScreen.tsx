@@ -16,6 +16,7 @@ export default function UtakaiListScreen({ navigation }: any) {
   const { alert } = useAlert();
   const { colors } = useTheme();
   const [groups, setGroups] = useState<(GroupDoc & { id: string })[]>([]);
+  const [lastReadMap, setLastReadMap] = useState<Record<string, Date | null>>({});
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [showSetName, setShowSetName] = useState(false);
@@ -73,6 +74,15 @@ export default function UtakaiListScreen({ navigation }: any) {
             });
           }, () => {});
           groupUnsubs.push(groupUnsub);
+
+          // メンバードキュメントを監視して lastReadAt を取得
+          const memberUnsub = onSnapshot(doc(db, 'groups', gid, 'members', user.uid), (mSnap) => {
+            // pending write 中（serverTimestamp が確定していない）の null は無視
+            if (mSnap.metadata.hasPendingWrites) return;
+            const lastRead = mSnap.data()?.lastReadAt?.toDate?.() || null;
+            setLastReadMap(prev => ({ ...prev, [gid]: lastRead }));
+          }, () => {});
+          groupUnsubs.push(memberUnsub);
         } catch { removedIds.push(gid); }
       }
 
@@ -164,17 +174,32 @@ export default function UtakaiListScreen({ navigation }: any) {
     }
   };
 
+  // 未読判定: lastPostAt > lastReadAt
+  // lastReadMap[gid] が undefined の場合（まだロード中）は既読扱いにしてチラつき防止
+  const isUnread = (g: GroupDoc & { id: string }) => {
+    const lastPost = g.lastPostAt?.toDate?.();
+    if (!lastPost) return false;
+    if (!(g.id in lastReadMap)) return false;
+    const lastRead = lastReadMap[g.id];
+    if (!lastRead) return true;
+    return lastPost > lastRead;
+  };
+
   return (
     <GradientBackground style={styles.container}>
       <FlatList data={groups} keyExtractor={item => item.id}
         contentContainerStyle={groups.length === 0 ? styles.emptyList : styles.list}
         ListEmptyComponent={<View style={styles.empty}><Text style={[styles.emptyText, { color: colors.textTertiary }]}>歌会がありません</Text><Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>右上の＋から歌会を開くか{'\n'}参加しましょう</Text></View>}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => navigation.navigate('Timeline', { groupId: item.id, groupName: item.name })}>
-            <Text style={[styles.cardName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
+        renderItem={({ item }) => {
+          const unread = isUnread(item);
+          return (
+          <TouchableOpacity style={[styles.card, { backgroundColor: unread ? colors.unread : colors.surface, borderColor: colors.border }]} onPress={() => navigation.navigate('Timeline', { groupId: item.id, groupName: item.name })}>
+            {unread && <View style={[styles.unreadDot, { backgroundColor: colors.destructive }]} />}
+            <Text style={[styles.cardName, { color: unread ? colors.text : colors.textSecondary, fontWeight: unread ? '500' : '400' }]} numberOfLines={1}>{item.name}</Text>
             <Text style={[styles.cardMembers, { color: colors.textTertiary }]}>{item.memberCount}人</Text>
           </TouchableOpacity>
-        )}
+          );
+        }}
       />
 
       {/* アクションメニュー */}
@@ -246,6 +271,7 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 17, fontFamily: 'NotoSerifJP_500Medium' },
   emptySubtext: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginTop: 8 },
   card: { borderRadius: 12, paddingHorizontal: 18, paddingVertical: 14, marginBottom: 10, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, marginRight: 10 },
   cardName: { fontSize: fs(18), fontFamily: 'NotoSerifJP_500Medium', flex: 1, marginRight: 12 },
   cardMembers: { fontSize: 14 },
   menuModal: { borderRadius: 16, padding: 8, width: '75%' },

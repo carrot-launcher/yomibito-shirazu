@@ -21,6 +21,7 @@ export interface GroupDoc {
   createdBy: string;
   bannedUsers?: Record<string, { displayName: string; userCode: string }>;
   createdAt: Timestamp;
+  lastPostAt?: Timestamp;
 }
 
 export interface MemberDoc {
@@ -29,6 +30,7 @@ export interface MemberDoc {
   joinedAt: Timestamp;
   role: 'owner' | 'member';
   cautionCount?: number;
+  lastReadAt?: Timestamp;
 }
 
 export interface PostDoc {

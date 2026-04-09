@@ -1,20 +1,23 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import TankaScroll from '../components/TankaScroll';
 import { db } from '../config/firebase';
+import { useAuth } from '../hooks/useAuth';
 import { usePaginatedPosts } from '../hooks/usePaginatedPosts';
 import { useTheme } from '../theme/ThemeContext';
 
 export default function TimelineScreen({ route, navigation }: any) {
   const { groupId, groupName } = route.params;
+  const { user } = useAuth();
   const { alert } = useAlert();
   const { colors } = useTheme();
   const { cards, loading, hasMore, refresh, loadMore, generation, newArrivals, arrivalGen } = usePaginatedPosts(groupId);
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadSince, setUnreadSince] = useState<Date | null>(null);
 
   useEffect(() => {
     const updateHeader = async () => {
@@ -55,6 +58,39 @@ export default function TimelineScreen({ route, navigation }: any) {
     setRefreshing(false);
   }, [refresh]);
 
+  // 未読管理:
+  // - 初回マウント時: getDocで「以前の」lastReadAt を取得 → unreadSince に保持
+  //   完了後にmarkReadを呼ぶ（getDocが新しい時刻を読まないように直列化）
+  // - blur時: 既読更新
+  // - リアルタイム新着到着時: 既読更新（タイムラインを見ている間に来た投稿も既読扱いに）
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    const memberRef = doc(db, 'groups', groupId, 'members', user.uid);
+    const markRead = () => {
+      updateDoc(memberRef, { lastReadAt: serverTimestamp() }).catch(() => {});
+    };
+    getDoc(memberRef).then(snap => {
+      if (cancelled) return;
+      const prev = snap.data()?.lastReadAt?.toDate?.() || null;
+      setUnreadSince(prev);
+      markRead();
+    }).catch(() => {
+      if (cancelled) return;
+      markRead();
+    });
+    const unsub = navigation.addListener('blur', markRead);
+    return () => { cancelled = true; unsub(); };
+  }, [navigation, user, groupId]);
+
+  // タイムライン表示中にリアルタイム新着が来たら、それも既読扱い
+  useEffect(() => {
+    if (!user || !arrivalGen) return;
+    updateDoc(doc(db, 'groups', groupId, 'members', user.uid), {
+      lastReadAt: serverTimestamp(),
+    }).catch(() => {});
+  }, [arrivalGen, user, groupId]);
+
   return (
     <GradientBackground>
       <ScrollView
@@ -70,6 +106,7 @@ export default function TimelineScreen({ route, navigation }: any) {
           generation={generation}
           newArrivals={newArrivals}
           arrivalGen={arrivalGen}
+          unreadSince={unreadSince}
         />
       </ScrollView>
     </GradientBackground>

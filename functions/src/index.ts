@@ -173,6 +173,15 @@ export const createPost = onCall(
       tx.set(userCounterRef, { postCount: (userPostCount + 1), commentCount: userCounter.data()?.commentCount || 0 }, { merge: true });
       tx.set(groupCounterRef, { postCount: (groupPostCount + 1) }, { merge: true });
 
+      // 歌会の最終投稿時刻を更新
+      tx.update(db.doc(`groups/${groupId}`), {
+        lastPostAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      // 投稿者本人の lastReadAt も同時に更新（自分の投稿で未読扱いにならないように）
+      tx.update(db.doc(`groups/${groupId}/members/${uid}`), {
+        lastReadAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
       return postRef.id;
     });
 
