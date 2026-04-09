@@ -1,5 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Text, TextInput, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts, NotoSerifJP_400Regular, NotoSerifJP_500Medium, NotoSerifJP_700Bold } from '@expo-google-fonts/noto-serif-jp';
 import { IBMPlexMono_600SemiBold } from '@expo-google-fonts/ibm-plex-mono';
@@ -43,13 +44,15 @@ export default function App() {
   }
 
   return (
-    <ThemeProvider>
-      <AlertProvider>
-        <AuthProvider>
-          <AppInner />
-        </AuthProvider>
-      </AlertProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <AlertProvider>
+          <AuthProvider>
+            <AppInner />
+          </AuthProvider>
+        </AlertProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 

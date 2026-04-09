@@ -2,7 +2,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { arrayUnion, collection, doc, getDoc, getDocs, increment, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
-import { FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
@@ -48,8 +49,11 @@ export default function UtakaiListScreen({ navigation }: any) {
       const groupIds: string[] = snap.data()?.joinedGroups || [];
       if (groupIds.length === 0) { setGroups([]); return; }
 
-      // joinedGroupsに含まれないグループをstateから除去
-      setGroups(prev => prev.filter(g => groupIds.includes(g.id)));
+      // joinedGroups の順序に合わせて並び替え + 含まれないものを除去
+      setGroups(prev => {
+        const map = new Map(prev.map(g => [g.id, g]));
+        return groupIds.map(id => map.get(id)).filter((g): g is GroupDoc & { id: string } => !!g);
+      });
 
       // 各グループをリアルタイム監視
       const removedIds: string[] = [];
@@ -70,6 +74,8 @@ export default function UtakaiListScreen({ navigation }: any) {
                 next[idx] = groupData;
                 return next;
               }
+              // 新規追加: joinedGroups の順序に従って正しい位置に挿入
+              // この時点で順序情報がないので末尾に追加（次回の親 onSnapshot で並び替えられる）
               return [...prev, groupData];
             });
           }, () => {});
@@ -185,22 +191,49 @@ export default function UtakaiListScreen({ navigation }: any) {
     return lastPost > lastRead;
   };
 
+  const renderGroupItem = ({ item, drag, isActive }: RenderItemParams<GroupDoc & { id: string }>) => {
+    const unread = isUnread(item);
+    return (
+      <ScaleDecorator>
+        <TouchableOpacity
+          style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, isActive && { opacity: 0.8 }]}
+          onPress={() => navigation.navigate('Timeline', { groupId: item.id, groupName: item.name })}
+          onLongPress={drag}
+          delayLongPress={250}
+          disabled={isActive}
+        >
+          {unread && <View style={[styles.unreadDot, { backgroundColor: colors.destructive }]} />}
+          <Text style={[styles.cardName, { color: unread ? colors.text : colors.textSecondary, fontWeight: unread ? '500' : '400' }]} numberOfLines={1}>{item.name}</Text>
+          <Text style={[styles.cardMembers, { color: colors.textTertiary }]}>{item.memberCount}人</Text>
+        </TouchableOpacity>
+      </ScaleDecorator>
+    );
+  };
+
+  const handleDragEnd = ({ data }: { data: (GroupDoc & { id: string })[] }) => {
+    setGroups(data);
+    if (!user) return;
+    updateDoc(doc(db, 'users', user.uid), {
+      joinedGroups: data.map(g => g.id),
+    }).catch(() => {});
+  };
+
   return (
     <GradientBackground style={styles.container}>
-      <FlatList data={groups} keyExtractor={item => item.id}
-        contentContainerStyle={groups.length === 0 ? styles.emptyList : styles.list}
-        ListEmptyComponent={<View style={styles.empty}><Text style={[styles.emptyText, { color: colors.textTertiary }]}>歌会がありません</Text><Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>右上の＋から歌会を開くか{'\n'}参加しましょう</Text></View>}
-        renderItem={({ item }) => {
-          const unread = isUnread(item);
-          return (
-          <TouchableOpacity style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => navigation.navigate('Timeline', { groupId: item.id, groupName: item.name })}>
-            {unread && <View style={[styles.unreadDot, { backgroundColor: colors.destructive }]} />}
-            <Text style={[styles.cardName, { color: unread ? colors.text : colors.textSecondary, fontWeight: unread ? '500' : '400' }]} numberOfLines={1}>{item.name}</Text>
-            <Text style={[styles.cardMembers, { color: colors.textTertiary }]}>{item.memberCount}人</Text>
-          </TouchableOpacity>
-          );
-        }}
-      />
+      {groups.length === 0 ? (
+        <View style={[styles.emptyList, styles.empty]}>
+          <Text style={[styles.emptyText, { color: colors.textTertiary }]}>歌会がありません</Text>
+          <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>右上の＋から歌会を開くか{'\n'}参加しましょう</Text>
+        </View>
+      ) : (
+        <DraggableFlatList
+          data={groups}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.list}
+          renderItem={renderGroupItem}
+          onDragEnd={handleDragEnd}
+        />
+      )}
 
       {/* アクションメニュー */}
       <Modal visible={showMenu} transparent animationType="fade">
