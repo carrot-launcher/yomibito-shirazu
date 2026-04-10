@@ -1,12 +1,11 @@
-import { File, Paths } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import React, { useEffect, useRef, useState } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { captureRef } from 'react-native-view-shot';
 import { WebView } from 'react-native-webview';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { useTheme } from '../theme/ThemeContext';
-import { stripRuby } from '../utils/formatTanka';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_WIDTH = SCREEN_WIDTH - 48;
@@ -14,6 +13,8 @@ const CARD_HEIGHT = CARD_WIDTH * (4 / 3);
 
 function buildScreenshotHtml(body: string, revealedAuthorName?: string): string {
   const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const rubyBody = escapeHtml(body).replace(/\{([^|{}]+)\|([^|{}]+)\}/g,
+    '<ruby>$1<rp>(</rp><rt>$2</rt><rp>)</rp></ruby>');
 
   return `<!DOCTYPE html>
 <html>
@@ -52,6 +53,7 @@ function buildScreenshotHtml(body: string, revealedAuthorName?: string): string 
     white-space: pre-wrap;
     height: 100%;
   }
+  .tanka rt { font-size: 0.45em; letter-spacing: 0; }
   .revealed-author {
     -webkit-writing-mode: vertical-rl;
     writing-mode: vertical-rl;
@@ -68,97 +70,16 @@ function buildScreenshotHtml(body: string, revealedAuthorName?: string): string 
 </head>
 <body>
 <div class="card" id="card">
-  <div class="tanka-area"><div class="tanka">${escapeHtml(body)}</div></div>
+  <div class="tanka-area"><div class="tanka">${rubyBody}</div></div>
   ${revealedAuthorName ? '<div class="revealed-author">' + escapeHtml(revealedAuthorName) + '</div>' : ''}
 </div>
-<script>
-function capture() {
-  try {
-    const card = document.getElementById('card');
-    const scale = 3;
-    const w = card.offsetWidth;
-    const h = card.offsetHeight;
-    const canvas = document.createElement('canvas');
-    canvas.width = w * scale;
-    canvas.height = h * scale;
-    const ctx = canvas.getContext('2d');
-    ctx.scale(scale, scale);
-
-    ctx.fillStyle = '#FBF7F0';
-    ctx.fillRect(0, 0, w, h);
-
-    const tanka = document.querySelector('.tanka');
-    const text = tanka.textContent;
-    const style = getComputedStyle(tanka);
-    const fontSize = parseFloat(style.fontSize);
-    const charSpacing = fontSize * 0.04;
-    const colSpacing = fontSize * 2.0;
-    ctx.font = fontSize + 'px "Noto Serif JP", "Yu Mincho", "Hiragino Mincho Pro", serif';
-    ctx.fillStyle = '#2C2418';
-    ctx.textBaseline = 'top';
-
-    const maxHeight = h * 0.80;
-    const charStep = fontSize + charSpacing;
-    const charsPerCol = Math.floor(maxHeight / charStep);
-
-    // Split by line breaks first, then wrap each line into columns
-    const lines = text.split('\\n');
-    const columns = [];
-    lines.forEach(function(line) {
-      var lineChars = line.split('');
-      if (lineChars.length === 0) {
-        columns.push([]);
-      } else {
-        for (var i = 0; i < lineChars.length; i += charsPerCol) {
-          columns.push(lineChars.slice(i, i + charsPerCol));
-        }
-      }
-    });
-
-    const totalCols = columns.length;
-    const totalWidth = totalCols * colSpacing;
-    const startX = w / 2 + totalWidth / 2 - colSpacing + (colSpacing - fontSize) / 2;
-    const startY = h * 0.10;
-
-    columns.forEach(function(col, colIdx) {
-      col.forEach(function(ch, rowIdx) {
-        const x = startX - colIdx * colSpacing;
-        const y = startY + rowIdx * charStep;
-        ctx.fillText(ch, x, y);
-      });
-    });
-
-    var authorEl = document.querySelector('.revealed-author');
-    if (authorEl) {
-      var authorText = authorEl.textContent;
-      var authorChars = authorText.split('');
-      var authorFontSize = 13;
-      var authorCharStep = authorFontSize + authorFontSize * 0.04;
-      ctx.font = authorFontSize + 'px "Noto Serif JP", "Yu Mincho", "Hiragino Mincho Pro", serif';
-      ctx.fillStyle = '#2C2418';
-      ctx.textBaseline = 'top';
-      var ax = w * 0.25;
-      var totalAuthorH = authorChars.length * authorCharStep;
-      var ay = h * 0.90 - totalAuthorH;
-      authorChars.forEach(function(ch, i) {
-        ctx.fillText(ch, ax, ay + i * authorCharStep);
-      });
-    }
-
-    const dataUrl = canvas.toDataURL('image/png');
-    window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'captured', data: dataUrl.split(',')[1] }));
-  } catch(e) {
-    window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'error', message: e.message }));
-  }
-}
-</script>
 </body>
 </html>`;
 }
 
 export default function ScreenshotScreen({ route }: any) {
   const { body, revealedAuthorName } = route.params;
-  const webViewRef = useRef<WebView>(null);
+  const captureContainerRef = useRef<View>(null);
   const { alert } = useAlert();
   const { colors } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -169,45 +90,37 @@ export default function ScreenshotScreen({ route }: any) {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleCapture = () => {
-    webViewRef.current?.injectJavaScript('capture(); true;');
-  };
-
-  const handleMessage = async (event: any) => {
+  const handleCapture = async () => {
+    if (!captureContainerRef.current) return;
     try {
-      const msg = JSON.parse(event.nativeEvent.data);
-      if (msg.action === 'error') {
-        alert('エラー', msg.message);
+      const uri = await captureRef(captureContainerRef.current, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+        width: CARD_WIDTH * 3,
+        height: CARD_HEIGHT * 3,
+      });
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        alert('写真へのアクセス許可が必要です');
         return;
       }
-      if (msg.action === 'captured' && msg.data) {
-        const bytes = Uint8Array.from(atob(msg.data), c => c.charCodeAt(0));
-        const file = new File(Paths.cache, 'tanka_' + Date.now() + '.png');
-        file.write(bytes);
-        const { status } = await MediaLibrary.requestPermissionsAsync();
-        if (status !== 'granted') {
-          alert('写真へのアクセス許可が必要です');
-          return;
-        }
-        await MediaLibrary.saveToLibraryAsync(file.uri);
-        alert('保存しました', '画像をギャラリーに保存しました');
-      }
+      await MediaLibrary.saveToLibraryAsync(uri);
+      alert('保存しました', '画像をギャラリーに保存しました');
     } catch (e: any) {
-      alert('エラー', e.message);
+      alert('エラー', e?.message || '保存に失敗しました');
     }
   };
 
-  const html = buildScreenshotHtml(stripRuby(body), revealedAuthorName);
+  const html = buildScreenshotHtml(body, revealedAuthorName);
 
   return (
     <GradientBackground style={styles.container}>
-      <View style={styles.cardWrapper}>
+      <View ref={captureContainerRef} collapsable={false} style={styles.cardWrapper}>
         {mounted ? (
           <WebView
-            ref={webViewRef}
             source={{ html }}
             style={[styles.webview, { backgroundColor: colors.webViewBg }]}
-            onMessage={handleMessage}
             onLoadEnd={() => setReady(true)}
             scrollEnabled={false}
             javaScriptEnabled={true}
