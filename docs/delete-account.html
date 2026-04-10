@@ -12,39 +12,64 @@
     color: #2C2418;
     min-height: 100vh;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     padding: 24px;
   }
   .card {
     background: #FFFDF8;
     border-radius: 16px;
-    padding: 32px 28px;
-    max-width: 480px;
+    padding: 36px 32px;
+    max-width: 560px;
     width: 100%;
     box-shadow: 0 4px 20px rgba(44, 36, 24, 0.1);
+    margin: 24px 0;
   }
   h1 {
-    font-size: 24px;
+    font-size: 26px;
     font-weight: 500;
     text-align: center;
-    margin-bottom: 16px;
+    margin-bottom: 8px;
     letter-spacing: 4px;
+  }
+  .app-name {
+    text-align: center;
+    font-size: 14px;
+    color: #8B7E6A;
+    margin-bottom: 28px;
+  }
+  h2 {
+    font-size: 17px;
+    font-weight: 500;
+    color: #2C2418;
+    margin-top: 24px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #E8E0D0;
+  }
+  p {
+    font-size: 14px;
+    line-height: 1.8;
+    color: #5C5040;
+    margin-bottom: 12px;
   }
   .description {
     font-size: 14px;
     line-height: 1.8;
     color: #8B7E6A;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
   }
   .description strong {
     color: #C0392B;
   }
-  ul {
-    margin: 12px 0 12px 20px;
-    color: #8B7E6A;
+  ul, ol {
+    margin: 12px 0 16px 22px;
+    color: #5C5040;
     font-size: 14px;
-    line-height: 1.8;
+    line-height: 1.9;
+  }
+  ol li {
+    margin-bottom: 4px;
   }
   .button {
     display: block;
@@ -94,49 +119,99 @@
     font-size: 14px;
     color: #2C2418;
   }
+  .action-section {
+    background: #FAF7F0;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+    border: 1px solid #E8E0D0;
+  }
+  .footer {
+    text-align: center;
+    font-size: 12px;
+    color: #A69880;
+    margin-top: 24px;
+    line-height: 1.7;
+  }
+  .footer a {
+    color: #8B7E6A;
+  }
   .hidden { display: none; }
 </style>
 </head>
 <body>
 <div class="card">
   <h1>消息を絶つ</h1>
+  <div class="app-name">詠み人知らず — アカウント削除</div>
 
-  <div id="login-section">
-    <p class="description">
-      「詠み人知らず」のアカウントとすべての関連データを削除します。
-    </p>
-    <p class="description">
-      <strong>この操作は取り消せません。</strong>削除されるデータには以下が含まれます：
-    </p>
-    <ul>
-      <li>投稿した歌</li>
-      <li>書いた評</li>
-      <li>リアクション</li>
-      <li>栞</li>
-      <li>所有する歌会（解散されます）</li>
-      <li>アカウント情報</li>
-    </ul>
-    <p class="description">
-      続行するには、削除したいアカウントの Google でログインしてください。
-    </p>
-    <button id="signin-button" class="button button-google">Google でログイン</button>
-  </div>
+  <p>
+    このページでは、モバイルアプリ「<strong>詠み人知らず</strong>」のアカウントと、それに紐づくすべてのデータを削除できます。
+  </p>
 
-  <div id="confirm-section" class="hidden">
-    <div class="user-info">
-      <div id="user-email"></div>
+  <h2>削除されるデータ</h2>
+  <p>アカウントを削除すると、以下のデータがサーバーから完全に削除されます。</p>
+  <ul>
+    <li>あなたが投稿したすべての歌</li>
+    <li>あなたが書いたすべての評</li>
+    <li>あなたが付けたリアクション</li>
+    <li>あなたが付けた栞（ブックマーク）</li>
+    <li>あなたが受け取った通知（たより）</li>
+    <li>あなたが所有する歌会（解散され、メンバーから除外されます）</li>
+    <li>各歌会でのメンバーシップと表示名</li>
+    <li>歌人ID、認証情報、利用設定</li>
+  </ul>
+
+  <h2>データの保持について</h2>
+  <p>
+    削除を実行すると、上記のデータは<strong>即座にサーバーから削除され、復元することはできません</strong>。バックアップ等にも保持されません。
+  </p>
+  <p>
+    ただし、以下のデータはその性質上、削除後も残ります。
+  </p>
+  <ul>
+    <li><strong>他のユーザーが付けた栞</strong>（あなたの投稿が削除されると、参照不能なリンクとして残ります）</li>
+    <li><strong>過去に追放された歌会の追放履歴</strong>（歌会オーナーの管理上の記録のため）</li>
+  </ul>
+  <p>
+    匿名化された分析データ（Google Analytics for Firebase）は、個人を特定できない形で最大14ヶ月間保持されます。
+  </p>
+
+  <h2>削除手順</h2>
+  <ol>
+    <li>下の「Google でログイン」ボタンを押し、削除したいアカウントの Google アカウントでログインしてください。</li>
+    <li>ログイン後、確認画面が表示されます。</li>
+    <li>「アカウントを削除する」ボタンを押すと、即座に削除が実行されます。</li>
+  </ol>
+
+  <div class="action-section">
+    <div id="login-section">
+      <p class="description">
+        続行するには、削除したいアカウントの Google でログインしてください。
+      </p>
+      <button id="signin-button" class="button button-google">Google でログイン</button>
     </div>
-    <p class="description">
-      <strong>このアカウントとすべてのデータを完全に削除します。</strong>
-    </p>
-    <p class="description">
-      もう一度確認してください。この操作は元に戻せません。
-    </p>
-    <button id="delete-button" class="button button-delete">アカウントを削除する</button>
-    <button id="cancel-button" class="button button-cancel">やめる</button>
+
+    <div id="confirm-section" class="hidden">
+      <div class="user-info">
+        <div id="user-email"></div>
+      </div>
+      <p class="description">
+        <strong>このアカウントとすべてのデータを完全に削除します。</strong>
+      </p>
+      <p class="description">
+        もう一度確認してください。この操作は元に戻せません。
+      </p>
+      <button id="delete-button" class="button button-delete">アカウントを削除する</button>
+      <button id="cancel-button" class="button button-cancel">やめる</button>
+    </div>
+
+    <div id="status" class="status"></div>
   </div>
 
-  <div id="status" class="status"></div>
+  <div class="footer">
+    詠み人知らず<br>
+    お問い合わせ: <a href="mailto:tenderloin.games@gmail.com">tenderloin.games@gmail.com</a>
+  </div>
 </div>
 
 <script type="module">
