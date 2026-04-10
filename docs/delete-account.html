@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>アカウント削除 — 詠み人知らず</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: "Yu Mincho", "Hiragino Mincho Pro", serif;
+    background: linear-gradient(180deg, #F5EEE4 0%, #E2D6C3 100%);
+    color: #2C2418;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    background: #FFFDF8;
+    border-radius: 16px;
+    padding: 36px 32px;
+    max-width: 560px;
+    width: 100%;
+    box-shadow: 0 4px 20px rgba(44, 36, 24, 0.1);
+    margin: 24px 0;
+  }
+  h1 {
+    font-size: 26px;
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 8px;
+    letter-spacing: 4px;
+  }
+  .app-name {
+    text-align: center;
+    font-size: 14px;
+    color: #8B7E6A;
+    margin-bottom: 28px;
+  }
+  h2 {
+    font-size: 17px;
+    font-weight: 500;
+    color: #2C2418;
+    margin-top: 24px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #E8E0D0;
+  }
+  p {
+    font-size: 14px;
+    line-height: 1.8;
+    color: #5C5040;
+    margin-bottom: 12px;
+  }
+  .description {
+    font-size: 14px;
+    line-height: 1.8;
+    color: #8B7E6A;
+    margin-bottom: 20px;
+  }
+  .description strong {
+    color: #C0392B;
+  }
+  ul, ol {
+    margin: 12px 0 16px 22px;
+    color: #5C5040;
+    font-size: 14px;
+    line-height: 1.9;
+  }
+  ol li {
+    margin-bottom: 4px;
+  }
+  .button {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    border-radius: 10px;
+    border: none;
+    font-family: inherit;
+    font-size: 16px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    margin-top: 12px;
+  }
+  .button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .button-google {
+    background: #2C2418;
+    color: #F5F0E8;
+  }
+  .button-delete {
+    background: #C0392B;
+    color: #FFFFFF;
+  }
+  .button-cancel {
+    background: transparent;
+    color: #8B7E6A;
+    border: 1px solid #E8E0D0;
+  }
+  .status {
+    text-align: center;
+    margin-top: 16px;
+    font-size: 13px;
+    color: #8B7E6A;
+    min-height: 20px;
+  }
+  .error {
+    color: #C0392B;
+  }
+  .user-info {
+    text-align: center;
+    padding: 16px;
+    background: #F5F0E8;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    color: #2C2418;
+  }
+  .action-section {
+    background: #FAF7F0;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+    border: 1px solid #E8E0D0;
+  }
+  .footer {
+    text-align: center;
+    font-size: 12px;
+    color: #A69880;
+    margin-top: 24px;
+    line-height: 1.7;
+  }
+  .footer a {
+    color: #8B7E6A;
+  }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>消息を絶つ</h1>
+  <div class="app-name">詠み人知らず — アカウント削除</div>
+
+  <p>
+    このページでは、モバイルアプリ「<strong>詠み人知らず</strong>」のアカウントと、それに紐づくすべてのデータを削除できます。
+  </p>
+
+  <h2>削除されるデータ</h2>
+  <p>アカウントを削除すると、以下のデータがサーバーから完全に削除されます。</p>
+  <ul>
+    <li>あなたが投稿したすべての歌</li>
+    <li>あなたが書いたすべての評</li>
+    <li>あなたが付けたリアクション</li>
+    <li>あなたが付けた栞（ブックマーク）</li>
+    <li>あなたが受け取った通知（たより）</li>
+    <li>あなたが所有する歌会（解散され、メンバーから除外されます）</li>
+    <li>各歌会でのメンバーシップと表示名</li>
+    <li>歌人ID、認証情報、利用設定</li>
+  </ul>
+
+  <h2>データの保持について</h2>
+  <p>
+    削除を実行すると、上記のデータは<strong>即座にサーバーから削除され、復元することはできません</strong>。バックアップ等にも保持されません。
+  </p>
+  <p>
+    ただし、以下のデータはその性質上、削除後も残ります。
+  </p>
+  <ul>
+    <li><strong>他のユーザーが付けた栞</strong>（あなたの投稿が削除されると、参照不能なリンクとして残ります）</li>
+    <li><strong>過去に追放された歌会の追放履歴</strong>（歌会オーナーの管理上の記録のため）</li>
+  </ul>
+  <p>
+    匿名化された分析データ（Google Analytics for Firebase）は、個人を特定できない形で最大14ヶ月間保持されます。
+  </p>
+
+  <h2>削除手順</h2>
+  <ol>
+    <li>下の「Google でログイン」ボタンを押し、削除したいアカウントの Google アカウントでログインしてください。</li>
+    <li>ログイン後、確認画面が表示されます。</li>
+    <li>「アカウントを削除する」ボタンを押すと、即座に削除が実行されます。</li>
+  </ol>
+
+  <div class="action-section">
+    <div id="login-section">
+      <p class="description">
+        続行するには、削除したいアカウントの Google でログインしてください。
+      </p>
+      <button id="signin-button" class="button button-google">Google でログイン</button>
+    </div>
+
+    <div id="confirm-section" class="hidden">
+      <div class="user-info">
+        <div id="user-email"></div>
+      </div>
+      <p class="description">
+        <strong>このアカウントとすべてのデータを完全に削除します。</strong>
+      </p>
+      <p class="description">
+        もう一度確認してください。この操作は元に戻せません。
+      </p>
+      <button id="delete-button" class="button button-delete">アカウントを削除する</button>
+      <button id="cancel-button" class="button button-cancel">やめる</button>
+    </div>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <div class="footer">
+    詠み人知らず<br>
+    お問い合わせ: <a href="mailto:tenderloin.games@gmail.com">tenderloin.games@gmail.com</a>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js';
+import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.11.0/firebase-functions.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDgkHl-ypOEwZjMjdp0Ny5qxn1CApB8SA8",
+  authDomain: "yomibito-shirazu-9e7fe.firebaseapp.com",
+  projectId: "yomibito-shirazu-9e7fe",
+  storageBucket: "yomibito-shirazu-9e7fe.firebasestorage.app",
+  messagingSenderId: "295815869327",
+  appId: "1:295815869327:web:882f1219cdc081ea6851fa",
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const functions = getFunctions(app, 'asia-northeast1');
+
+const loginSection = document.getElementById('login-section');
+const confirmSection = document.getElementById('confirm-section');
+const userEmail = document.getElementById('user-email');
+const status = document.getElementById('status');
+const signinBtn = document.getElementById('signin-button');
+const deleteBtn = document.getElementById('delete-button');
+const cancelBtn = document.getElementById('cancel-button');
+
+function setStatus(msg, isError = false) {
+  status.textContent = msg;
+  status.className = isError ? 'status error' : 'status';
+}
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    loginSection.classList.add('hidden');
+    confirmSection.classList.remove('hidden');
+    userEmail.textContent = user.email || user.uid;
+  } else {
+    loginSection.classList.remove('hidden');
+    confirmSection.classList.add('hidden');
+    userEmail.textContent = '';
+  }
+});
+
+signinBtn.addEventListener('click', async () => {
+  setStatus('');
+  signinBtn.disabled = true;
+  try {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+  } catch (e) {
+    setStatus('ログインに失敗しました: ' + (e.message || e.code), true);
+  } finally {
+    signinBtn.disabled = false;
+  }
+});
+
+cancelBtn.addEventListener('click', async () => {
+  setStatus('');
+  try {
+    await signOut(auth);
+  } catch {}
+});
+
+deleteBtn.addEventListener('click', async () => {
+  if (!confirm('本当にアカウントとすべてのデータを削除しますか？\nこの操作は取り消せません。')) return;
+  setStatus('削除中...');
+  deleteBtn.disabled = true;
+  cancelBtn.disabled = true;
+  try {
+    const deleteAccountFn = httpsCallable(functions, 'deleteAccount');
+    await deleteAccountFn({});
+    setStatus('アカウントを削除しました。');
+    deleteBtn.classList.add('hidden');
+    cancelBtn.classList.add('hidden');
+  } catch (e) {
+    setStatus('削除に失敗しました: ' + (e.message || e.code), true);
+    deleteBtn.disabled = false;
+    cancelBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
