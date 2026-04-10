@@ -70,9 +70,10 @@ function buildDetailHtml(
     overflow-x: auto;
     overflow-y: hidden;
   }
+  body { visibility: hidden; }
   .container {
     display: inline-flex;
-    flex-direction: row;
+    flex-direction: row-reverse;
     height: 100%;
     min-width: 100%;
     padding: 20px 16px;
@@ -103,7 +104,7 @@ function buildDetailHtml(
   }
   .comments-section {
     display: flex;
-    flex-direction: row;
+    flex-direction: row-reverse;
     gap: 4px;
     flex-shrink: 0;
   }
@@ -201,6 +202,12 @@ if (comments.length === 0) {
     commentsEl.appendChild(el);
   });
 }
+
+// 初期スクロール: コンテンツ生成完了後、右端にスクロール → 表示
+requestAnimationFrame(function() {
+  document.body.scrollLeft = document.body.scrollWidth;
+  document.body.style.visibility = 'visible';
+});
 </script>
 </body>
 </html>`;

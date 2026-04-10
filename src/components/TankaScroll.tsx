@@ -45,9 +45,10 @@ function buildHtml(cards: TankaCard[], mode: string, hasLoadMore: boolean, color
     overflow-x: auto;
     overflow-y: hidden;
   }
+  body { visibility: hidden; }
   .container {
     display: inline-flex;
-    flex-direction: row;
+    flex-direction: row-reverse;
     align-items: stretch;
     height: 100%;
     min-width: 100%;
@@ -65,7 +66,7 @@ function buildHtml(cards: TankaCard[], mode: string, hasLoadMore: boolean, color
     transition: background 0.2s;
     border-right: 1px solid ${colors.border};
   }
-  .tanka-card:last-child { border-right: none; }
+  .tanka-card:first-child { border-right: none; }
   .tanka-card:active { background: ${colors.cardPress}; }
   .tanka-card.unread { background: ${colors.unread}; }
   .tanka-body {
@@ -258,22 +259,30 @@ if (cards.length === 0) {
   });
 }
 
-// Scroll edge detection for loading more
+// Scroll edge detection for loading more (左端 = 古い投稿側)
 if (hasLoadMore) {
   document.body.addEventListener('scroll', function() {
-    var scrollRight = document.body.scrollWidth - document.body.scrollLeft - document.body.clientWidth;
-    if (scrollRight < 300 && !loadMoreRequested) {
+    if (document.body.scrollLeft < 300 && !loadMoreRequested) {
       loadMoreRequested = true;
       window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'loadMore' }));
     }
   });
 }
 
+// 古い履歴を左端に追加（loadMore）
+// row-reverse + appendChild では既存カードが右にシフトするため scrollLeft 補正が必要
 window.appendCards = function(newCards) {
+  var oldScrollLeft = document.body.scrollLeft;
+  var oldScrollWidth = document.body.scrollWidth;
+
   newCards.forEach(function(card) {
     container.appendChild(createCardEl(card, cardCount));
     cardCount++;
   });
+
+  var delta = document.body.scrollWidth - oldScrollWidth;
+  document.body.scrollLeft = oldScrollLeft + delta;
+
   loadMoreRequested = false;
 };
 
@@ -290,10 +299,11 @@ window.applyUnread = function(ms) {
   });
 };
 
+// 新着を右端に追加（リアルタイム新着）
+// row-reverse + insertBefore では既存カードのピクセル位置が変わらない
+// ユーザーが右端にいた場合のみ追従して新着を見せる
 window.prependCards = function(newCards) {
-  var scrollEl = document.body;
-  var oldScrollLeft = scrollEl.scrollLeft;
-  var oldScrollWidth = scrollEl.scrollWidth;
+  var atRightEdge = (document.body.scrollLeft + document.body.clientWidth >= document.body.scrollWidth - 10);
 
   var fragment = document.createDocumentFragment();
   newCards.forEach(function(card) {
@@ -302,11 +312,17 @@ window.prependCards = function(newCards) {
   });
   container.insertBefore(fragment, container.firstChild);
 
-  if (oldScrollLeft > 0) {
-    var delta = scrollEl.scrollWidth - oldScrollWidth;
-    scrollEl.scrollLeft = oldScrollLeft + delta;
+  if (atRightEdge) {
+    requestAnimationFrame(function() {
+      document.body.scrollLeft = document.body.scrollWidth;
+    });
   }
 };
+
+// 初期スクロール: カード生成完了後、右端にスクロール（visibility は onLoadEnd 側で visible に）
+requestAnimationFrame(function() {
+  document.body.scrollLeft = document.body.scrollWidth;
+});
 </script>
 </body>
 </html>`;
@@ -399,10 +415,18 @@ export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation
         onMessage={handleMessage}
         onLoadEnd={() => {
           webViewReadyRef.current = true;
-          if (isTimeline && unreadSinceMs !== null) {
-            const js = `window.applyUnread && window.applyUnread(${unreadSinceMs}); true;`;
-            webViewRef.current?.injectJavaScript(js);
-          }
+          // タイムラインでもそれ以外でも、右端へのスクロールと visibility 設定を一括で行う
+          // unreadSinceMs があれば applyUnread も同時に実行
+          const applyUnreadJs = isTimeline && unreadSinceMs !== null
+            ? `window.applyUnread && window.applyUnread(${unreadSinceMs});`
+            : '';
+          const js = `
+            document.body.scrollLeft = document.body.scrollWidth;
+            ${applyUnreadJs}
+            document.body.style.visibility = 'visible';
+            true;
+          `;
+          webViewRef.current?.injectJavaScript(js);
         }}
         scrollEnabled={true}
         nestedScrollEnabled={true}
