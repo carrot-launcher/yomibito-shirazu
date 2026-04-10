@@ -8,10 +8,18 @@ import GradientBackground from '../components/GradientBackground';
 import { useTheme } from '../theme/ThemeContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const CARD_WIDTH = SCREEN_WIDTH - 48;
-const CARD_HEIGHT = CARD_WIDTH * (4 / 3);
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+// 縦方向の予算: 画面高さ - ヘッダー(56) - ボタン領域(約100) - 余白(24)
+const MAX_CARD_HEIGHT = SCREEN_HEIGHT - 56 - 100 - 24;
+const MAX_CARD_WIDTH_FROM_HEIGHT = MAX_CARD_HEIGHT * (9 / 16);
+const CARD_WIDTH = Math.min(SCREEN_WIDTH - 32, MAX_CARD_WIDTH_FROM_HEIGHT);
+const CARD_HEIGHT = CARD_WIDTH * (16 / 9);
+// カード幅に応じてフォントサイズを動的に決定
+// 基準: CARD_WIDTH=320 のとき font-size=15
+const TANKA_FONT_SIZE = Math.round(15 * (CARD_WIDTH / 320));
+const AUTHOR_FONT_SIZE = Math.round(12 * (CARD_WIDTH / 320));
 
-function buildScreenshotHtml(body: string, revealedAuthorName?: string): string {
+function buildScreenshotHtml(body: string, revealedAuthorName: string | undefined, tankaFontSize: number, authorFontSize: number): string {
   const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const rubyBody = escapeHtml(body).replace(/\{([^|{}]+)\|([^|{}]+)\}/g,
     '<ruby>$1<rp>(</rp><rt>$2</rt><rp>)</rp></ruby>');
@@ -29,7 +37,7 @@ function buildScreenshotHtml(body: string, revealedAuthorName?: string): string 
   }
   .card {
     width: 100%;
-    aspect-ratio: 3/4;
+    aspect-ratio: 9/16;
     background: #FBF7F0;
     display: flex;
     flex-direction: column;
@@ -46,7 +54,7 @@ function buildScreenshotHtml(body: string, revealedAuthorName?: string): string 
     -webkit-writing-mode: vertical-rl;
     writing-mode: vertical-rl;
     font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho Pro", serif;
-    font-size: 16px;
+    font-size: ${tankaFontSize}px;
     line-height: 2.0;
     letter-spacing: 0.04em;
     color: #2C2418;
@@ -58,7 +66,7 @@ function buildScreenshotHtml(body: string, revealedAuthorName?: string): string 
     -webkit-writing-mode: vertical-rl;
     writing-mode: vertical-rl;
     font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho Pro", serif;
-    font-size: 13px;
+    font-size: ${authorFontSize}px;
     line-height: 2.0;
     letter-spacing: 0.04em;
     color: #2C2418;
@@ -112,7 +120,7 @@ export default function ScreenshotScreen({ route }: any) {
     }
   };
 
-  const html = buildScreenshotHtml(body, revealedAuthorName);
+  const html = buildScreenshotHtml(body, revealedAuthorName, TANKA_FONT_SIZE, AUTHOR_FONT_SIZE);
 
   return (
     <GradientBackground style={styles.container}>
