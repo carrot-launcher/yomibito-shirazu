@@ -28,6 +28,9 @@ export function usePaginatedPosts(groupId: string) {
   const [generation, setGeneration] = useState(0);
   const [newArrivals, setNewArrivals] = useState<TankaCard[]>([]);
   const [arrivalGen, setArrivalGen] = useState(0);
+  const [changedCards, setChangedCards] = useState<TankaCard[]>([]);
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const [updateGen, setUpdateGen] = useState(0);
   const lastDocRef = useRef<QueryDocumentSnapshot | null>(null);
   const unsubRef = useRef<Unsubscribe | null>(null);
   const knownIdsRef = useRef<Set<string>>(new Set());
@@ -56,15 +59,24 @@ export function usePaginatedPosts(groupId: string) {
     setGeneration(g => g + 1);
     setLoading(false);
 
-    // その後 onSnapshot でリアルタイム新着を監視
+    // その後 onSnapshot でリアルタイム新着・変更・削除を監視
     unsubRef.current = onSnapshot(q, (rtSnap) => {
       const added: TankaCard[] = [];
+      const modified: TankaCard[] = [];
+      const removed: string[] = [];
       rtSnap.docChanges().forEach(change => {
         if (change.type === 'added' && !knownIdsRef.current.has(change.doc.id)) {
           knownIdsRef.current.add(change.doc.id);
           added.push(docToCard(change.doc));
+        } else if (change.type === 'modified') {
+          modified.push(docToCard(change.doc));
+        } else if (change.type === 'removed') {
+          knownIdsRef.current.delete(change.doc.id);
+          removed.push(change.doc.id);
         }
       });
+
+      // 新着の処理
       if (added.length > 0) {
         added.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
         setCards(prev => {
@@ -80,6 +92,24 @@ export function usePaginatedPosts(groupId: string) {
           setArrivalGen(g => g + 1);
           return [...unique, ...prev];
         });
+      }
+
+      // 変更の処理
+      if (modified.length > 0) {
+        setCards(prev => {
+          const map = new Map(modified.map(c => [c.postId, c]));
+          return prev.map(c => map.get(c.postId) || c);
+        });
+        setChangedCards(modified);
+        setUpdateGen(g => g + 1);
+      }
+
+      // 削除の処理
+      if (removed.length > 0) {
+        const removedSet = new Set(removed);
+        setCards(prev => prev.filter(c => !removedSet.has(c.postId)));
+        setRemovedIds(removed);
+        setUpdateGen(g => g + 1);
       }
     }, () => {});
   }, [groupId]);
@@ -110,5 +140,5 @@ export function usePaginatedPosts(groupId: string) {
     return () => { unsubRef.current?.(); };
   }, [groupId]);
 
-  return { cards, loading, hasMore, refresh, loadMore, generation, newArrivals, arrivalGen };
+  return { cards, loading, hasMore, refresh, loadMore, generation, newArrivals, arrivalGen, changedCards, removedIds, updateGen };
 }

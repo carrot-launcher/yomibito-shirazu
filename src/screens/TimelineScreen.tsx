@@ -15,7 +15,7 @@ export default function TimelineScreen({ route, navigation }: any) {
   const { user } = useAuth();
   const { alert } = useAlert();
   const { colors } = useTheme();
-  const { cards, loading, hasMore, refresh, loadMore, generation, newArrivals, arrivalGen } = usePaginatedPosts(groupId);
+  const { cards, loading, hasMore, refresh, loadMore, generation, newArrivals, arrivalGen, changedCards, removedIds, updateGen } = usePaginatedPosts(groupId);
   const [refreshing, setRefreshing] = useState(false);
   const [unreadSince, setUnreadSince] = useState<Date | null>(null);
 
@@ -48,7 +48,9 @@ export default function TimelineScreen({ route, navigation }: any) {
         ]);
       }
     });
-    const unsub = navigation.addListener('focus', () => { updateHeader(); refresh(); });
+    // focus 時は refresh しない（スクロール位置維持のため）
+    // onSnapshot がリアルタイム更新を担うので、戻ってきても新着・変更・削除は反映される
+    const unsub = navigation.addListener('focus', () => { updateHeader(); });
     return unsub;
   }, [groupId, groupName, refresh, navigation, alert, colors]);
 
@@ -108,6 +110,9 @@ export default function TimelineScreen({ route, navigation }: any) {
           newArrivals={newArrivals}
           arrivalGen={arrivalGen}
           unreadSince={unreadSince}
+          changedCards={changedCards}
+          removedIds={removedIds}
+          updateGen={updateGen}
         />
       </ScrollView>
     </GradientBackground>

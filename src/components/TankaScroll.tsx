@@ -14,6 +14,9 @@ interface Props {
   newArrivals?: TankaCard[];
   arrivalGen?: number;
   unreadSince?: Date | null;
+  changedCards?: TankaCard[];
+  removedIds?: string[];
+  updateGen?: number;
 }
 
 const screenWidth = Dimensions.get('window').width;
@@ -163,6 +166,7 @@ function createCardEl(card, index) {
   var el = document.createElement("div");
   var t = new Date(card.createdAt).getTime();
   el.setAttribute('data-created-at', String(t));
+  el.setAttribute('data-post-id', card.postId);
   var isUnread = unreadSinceMs !== null && t > unreadSinceMs;
   el.className = isUnread ? "tanka-card unread" : "tanka-card";
   var fade = Math.max(0.6, 1 - (index / 8) * 0.7);
@@ -299,6 +303,31 @@ window.applyUnread = function(ms) {
   });
 };
 
+// 既存カードの内容を置換（modified イベント用）
+window.updateCards = function(updatedCards) {
+  updatedCards.forEach(function(card) {
+    var oldEl = container.querySelector('[data-post-id="' + card.postId + '"]');
+    if (!oldEl) return;
+    var index = 0;
+    var children = container.children;
+    for (var i = 0; i < children.length; i++) {
+      if (children[i] === oldEl) { index = i; break; }
+    }
+    var newEl = createCardEl(card, index);
+    // 既存の opacity を保持
+    newEl.style.opacity = oldEl.style.opacity;
+    container.replaceChild(newEl, oldEl);
+  });
+};
+
+// カード削除（removed イベント用）
+window.removeCards = function(postIds) {
+  postIds.forEach(function(postId) {
+    var el = container.querySelector('[data-post-id="' + postId + '"]');
+    if (el) el.remove();
+  });
+};
+
 // 新着を右端に追加（リアルタイム新着）
 // row-reverse + insertBefore では既存カードのピクセル位置が変わらない
 // ユーザーが右端にいた場合のみ追従して新着を見せる
@@ -328,7 +357,7 @@ requestAnimationFrame(function() {
 </html>`;
 }
 
-export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation, newArrivals, arrivalGen, unreadSince }: Props) {
+export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation, newArrivals, arrivalGen, unreadSince, changedCards, removedIds, updateGen }: Props) {
   const { colors } = useTheme();
   const webViewRef = useRef<WebView>(null);
   const renderedCountRef = useRef(0);
@@ -371,6 +400,21 @@ export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation
     const js = `window.applyUnread && window.applyUnread(${unreadSinceMs}); true;`;
     webViewRef.current?.injectJavaScript(js);
   }, [unreadSinceMs, isTimeline, arrivalGen, cards.length]);
+
+  // 変更されたカードを WebView に反映（modified / removed イベント）
+  useEffect(() => {
+    if (!isTimeline || !updateGen) return;
+    if (!webViewReadyRef.current) return;
+    if (changedCards && changedCards.length > 0) {
+      const serialized = serializeCards(changedCards);
+      const js = `window.updateCards && window.updateCards(${JSON.stringify(serialized)}); true;`;
+      webViewRef.current?.injectJavaScript(js);
+    }
+    if (removedIds && removedIds.length > 0) {
+      const js = `window.removeCards && window.removeCards(${JSON.stringify(removedIds)}); true;`;
+      webViewRef.current?.injectJavaScript(js);
+    }
+  }, [updateGen, isTimeline, changedCards, removedIds]);
 
   // Prepend new real-time arrivals (declare BEFORE append effect)
   useEffect(() => {
