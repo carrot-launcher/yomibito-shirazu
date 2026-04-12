@@ -131,7 +131,7 @@ export default function AppNavigator() {
       const data = response.notification.request.content.data;
       if (!navigationRef.isReady()) return;
       if (data?.postId && data?.groupId) {
-        (navigationRef as any).navigate('TayoriTab', {
+        (navigationRef as any).navigate('UtakaiTab', {
           screen: 'TankaDetail',
           params: { postId: data.postId, groupId: data.groupId },
         });
