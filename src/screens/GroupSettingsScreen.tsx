@@ -8,7 +8,7 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
-  Text, TextInput, TouchableOpacity,
+  Switch, Text, TextInput, TouchableOpacity,
   View,
 } from 'react-native';
 import { useAlert } from '../components/CustomAlert';
@@ -37,6 +37,9 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
   displayNameRef.current = displayName;
   editingNameRef.current = editingName;
 
+  // ミュート設定
+  const [muted, setMuted] = useState(false);
+
   // 追放リスト
   const [bannedUsers, setBannedUsers] = useState<Record<string, { displayName: string; userCode: string }>>({});
 
@@ -64,6 +67,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
         setDisplayName(data.displayName || '');
         originalDisplayName.current = data.displayName || '';
         setIsOwner(data.role === 'owner');
+        setMuted(!!data.muted);
       }
       const membersSnap = await getDocs(collection(db, 'groups', groupId, 'members'));
       setMembers(membersSnap.docs.map(d => ({ id: d.id, ...d.data() } as MemberDoc & { id: string })));
@@ -212,6 +216,25 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
         <Text style={[styles.hint, { color: colors.textSecondary }]}>この歌会でのみ使われる名前です。他の歌会には影響しません。</Text>
         <TextInput style={[styles.input, { borderColor: colors.border, color: colors.text }]} value={displayName} onChangeText={setDisplayName} onBlur={handleBlurDisplayName} placeholder="あなたの名前" placeholderTextColor={colors.textTertiary} maxLength={16} />
         {savedHint === 'displayName' && <Text style={[styles.savedHint, { color: colors.textTertiary }]}>保存しました</Text>}
+      </View>
+
+      {/* 通知 */}
+      <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>通知</Text>
+        <View style={styles.muteRow}>
+          <Text style={[styles.muteLabel, { color: colors.text }]}>この歌会の通知をミュート</Text>
+          <Switch
+            value={muted}
+            onValueChange={async (v) => {
+              setMuted(v);
+              if (user) {
+                await updateDoc(doc(db, 'groups', groupId, 'members', user.uid), { muted: v }).catch(() => {});
+              }
+            }}
+            trackColor={colors.switchTrack}
+            thumbColor={muted ? colors.switchThumb.on : colors.switchThumb.off}
+          />
+        </View>
       </View>
 
       {/* 歌人一覧 */}
@@ -383,6 +406,8 @@ const styles = StyleSheet.create({
   copyBtnText: { fontSize: 13 },
   input: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 12 },
   savedHint: { fontSize: 12, marginTop: 4 },
+  muteRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
+  muteLabel: { fontSize: 16, fontFamily: 'NotoSerifJP_400Regular' },
   memberRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 10, borderBottomWidth: 1,

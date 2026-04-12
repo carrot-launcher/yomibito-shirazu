@@ -31,6 +31,7 @@ export interface MemberDoc {
   role: 'owner' | 'member';
   cautionCount?: number;
   lastReadAt?: Timestamp;
+  muted?: boolean;
 }
 
 export interface PostDoc {

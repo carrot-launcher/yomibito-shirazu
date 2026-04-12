@@ -307,7 +307,7 @@ export const onNewPost = onDocumentCreated(
       .get();
     await Promise.all(
       membersSnap.docs
-        .filter((m) => m.id !== authorId)
+        .filter((m) => m.id !== authorId && !m.data()?.muted)
         .map((m) =>
           createNotification(m.id, "new_post", {
             postId,
@@ -343,6 +343,10 @@ export const onNewReaction = onDocumentCreated(
 
     const groupSnap = await db.doc(`groups/${post.groupId}`).get();
     const groupName = groupSnap.exists ? groupSnap.data()!.name || "" : "";
+
+    // ミュートチェック
+    const memberSnap = await db.doc(`groups/${post.groupId}/members/${authorId}`).get();
+    if (memberSnap.data()?.muted) return;
 
     await createNotification(authorId, "reaction", {
       postId,
@@ -383,6 +387,10 @@ export const onNewComment = onDocumentCreated(
 
     const groupSnap = await db.doc(`groups/${post.groupId}`).get();
     const groupName = groupSnap.exists ? groupSnap.data()!.name || "" : "";
+
+    // ミュートチェック
+    const memberSnap = await db.doc(`groups/${post.groupId}/members/${postAuthorId}`).get();
+    if (memberSnap.data()?.muted) return;
 
     await createNotification(postAuthorId, "comment", {
       postId,
@@ -516,6 +524,7 @@ export const dissolveGroup = onCall(
     const groupName = groupSnap.data()?.name || "";
     for (const memberDoc of membersSnap.docs) {
       if (memberDoc.id === request.auth.uid) continue;
+      if (memberDoc.data()?.muted) continue;
       try {
         const userSnap = await db.doc(`users/${memberDoc.id}`).get();
         const userData = userSnap.data();
@@ -821,6 +830,10 @@ async function createCautionNotification(
   targetUserId: string,
   data: { postId: string; groupId: string; groupName: string; tankaBody: string; cautionCount: number }
 ) {
+  // ミュートチェック
+  const memberSnap = await db.doc(`groups/${data.groupId}/members/${targetUserId}`).get();
+  if (memberSnap.data()?.muted) return;
+
   const userSnap = await db.doc(`users/${targetUserId}`).get();
   const userData = userSnap.data();
   if (!userData) return;
@@ -873,6 +886,10 @@ async function createBanNotification(
   targetUserId: string,
   data: { postId: string; groupId: string; groupName: string; bannedUserName: string }
 ) {
+  // ミュートチェック
+  const memberSnap = await db.doc(`groups/${data.groupId}/members/${targetUserId}`).get();
+  if (memberSnap.data()?.muted) return;
+
   const userSnap = await db.doc(`users/${targetUserId}`).get();
   const userData = userSnap.data();
   if (!userData) return;
