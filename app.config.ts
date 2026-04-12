@@ -50,6 +50,16 @@ export default {
       "@react-native-google-signin/google-signin",
       "expo-sharing",
       "expo-web-browser",
+      "@react-native-firebase/app",
+      "@react-native-firebase/crashlytics",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ],
     ],
     experiments: {
       reactCompiler: true,
