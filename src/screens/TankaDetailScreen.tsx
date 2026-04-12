@@ -537,7 +537,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.action === 'screenshot') {
-        navigation.navigate('Screenshot', { body: displayBody, revealedAuthorName: post?.revealedAuthorName });
+        navigation.navigate('Screenshot', { body: displayBody, revealedAuthorName: post?.revealedAuthorName || '詠み人知らず' });
       } else if (data.action === 'commentMenu') {
         openCommentMenu(data.commentId);
       }
