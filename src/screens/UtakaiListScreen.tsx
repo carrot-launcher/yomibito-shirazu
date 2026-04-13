@@ -18,7 +18,13 @@ import { fs } from '../utils/scale';
 export default function UtakaiListScreen({ navigation }: any) {
   const { user, userCode } = useAuth();
   const { alert } = useAlert();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  // 未読時の光る色（モード別）
+  const unreadGlow = isDark
+    ? { border: '#FFFFFF', shadow: '#FFFFFF', char: '#FFFFFF',
+        cardOpacity: 0.38, cardRadius: 8, textRadius: 12 }
+    : { border: '#000000', shadow: '#000000', char: '#000000',
+        cardOpacity: 0.25, cardRadius: 6, textRadius: 3 };
   const [groups, setGroups] = useState<(GroupDoc & { id: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastReadMap, setLastReadMap] = useState<Record<string, Date | null>>({});
@@ -281,8 +287,8 @@ export default function UtakaiListScreen({ navigation }: any) {
           activeOpacity={0.8}
           style={[
             styles.card,
-            { backgroundColor: colors.surface, borderLeftColor: unread ? '#E8D49B' : colors.border },
-            unread && styles.cardUnreadGlow,
+            { backgroundColor: colors.surface, borderLeftColor: unread ? unreadGlow.border : colors.border },
+            unread && [styles.cardUnreadGlow, { shadowColor: unreadGlow.shadow, shadowRadius: unreadGlow.cardRadius, shadowOpacity: unreadGlow.cardOpacity }],
             isActive && { opacity: 0.8 },
           ]}
           onPress={() => navigation.navigate('Timeline', { groupId: item.id, groupName: item.name })}
@@ -304,7 +310,7 @@ export default function UtakaiListScreen({ navigation }: any) {
                 style={[
                   styles.cardBgChar,
                   { color: colors.text },
-                  unread && styles.cardBgCharGlow,
+                  unread && [styles.cardBgCharGlow, { color: unreadGlow.char, textShadowColor: unreadGlow.shadow, textShadowRadius: unreadGlow.textRadius }],
                 ]}
                 allowFontScaling={false}
               >
