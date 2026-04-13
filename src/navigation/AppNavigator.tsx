@@ -106,8 +106,9 @@ function HomeTabs() {
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarStyle: { backgroundColor: colors.gradientBottom, borderTopColor: colors.border },
-        tabBarLabelStyle: { fontFamily: 'NotoSerifJP_400Regular', fontSize: 12 },
+        tabBarStyle: { backgroundColor: colors.gradientBottom, borderTopColor: colors.border, paddingTop: 6 },
+        tabBarLabelStyle: { fontFamily: 'NotoSerifJP_400Regular', fontSize: 11, marginTop: -2 },
+        tabBarIconStyle: { marginBottom: -2 },
         tabBarActiveTintColor: colors.text,
         tabBarInactiveTintColor: colors.textTertiary,
         headerShown: false,
