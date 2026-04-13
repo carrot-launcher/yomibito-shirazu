@@ -11,7 +11,7 @@ import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../theme/ThemeContext';
 import { GroupDoc } from '../types';
-import { pickFirstJapaneseChar } from '../utils/pickFirstJapaneseChar';
+import { pickFirstChar } from '../utils/pickFirstChar';
 import { relativeTimeJa } from '../utils/relativeTime';
 import { fs } from '../utils/scale';
 
@@ -268,7 +268,7 @@ export default function UtakaiListScreen({ navigation }: any) {
 
   const renderGroupItem = ({ item, drag, isActive }: RenderItemParams<GroupDoc & { id: string }>) => {
     const unread = isUnread(item);
-    const firstChar = pickFirstJapaneseChar(item.name || '');
+    const firstChar = pickFirstChar(item.name || '');
     const lastPost = item.lastPostAt?.toDate?.();
     const lastLabel = lastPost ? relativeTimeJa(lastPost) : '';
     const postCount = item.postCount ?? 0;
@@ -278,7 +278,7 @@ export default function UtakaiListScreen({ navigation }: any) {
           activeOpacity={0.8}
           style={[
             styles.card,
-            { backgroundColor: colors.surface, borderLeftColor: unread ? '#F2B84A' : colors.border },
+            { backgroundColor: colors.surface, borderLeftColor: unread ? '#F0BF5A' : colors.border },
             unread && styles.cardUnreadGlow,
             isActive && { opacity: 0.8 },
           ]}
@@ -303,7 +303,6 @@ export default function UtakaiListScreen({ navigation }: any) {
                   { color: colors.text },
                   unread && styles.cardBgCharGlow,
                 ]}
-                numberOfLines={1}
                 allowFontScaling={false}
               >
                 {firstChar}
@@ -563,11 +562,12 @@ const styles = StyleSheet.create({
   cardMetaSep: { fontSize: 12 },
   cardBgCharWrap: {
     position: 'absolute',
-    right: -20,
+    right: -10,
     top: -25,
     bottom: -10,
+    width: 180,
     justifyContent: 'center',
-    alignItems: 'flex-end',
+    alignItems: 'center',
   },
   cardBgChar: {
     fontSize: 180,
@@ -577,16 +577,16 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   cardUnreadGlow: {
-    shadowColor: '#F5C848',
+    shadowColor: '#F2CC60',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.55,
+    shadowOpacity: 0.48,
     shadowRadius: 8,
     elevation: 4,
   },
   cardBgCharGlow: {
-    color: '#F2B84A',
-    opacity: 0.75,
-    textShadowColor: '#F5C848',
+    color: '#F0BF5A',
+    opacity: 0.70,
+    textShadowColor: '#F2CC60',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 20,
   },
