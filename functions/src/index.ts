@@ -338,7 +338,6 @@ export const createGroup = onCall(
     batch.set(db.doc(`groups/${groupRef.id}/members/${uid}`), {
       displayName: displayName.trim(), userCode,
       joinedAt: admin.firestore.FieldValue.serverTimestamp(), role: "owner",
-      muted: isPublic,
     });
     batch.update(db.doc(`users/${uid}`), {
       joinedGroups: admin.firestore.FieldValue.arrayUnion(groupRef.id),
