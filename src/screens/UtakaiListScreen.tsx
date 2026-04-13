@@ -281,7 +281,7 @@ export default function UtakaiListScreen({ navigation }: any) {
           activeOpacity={0.8}
           style={[
             styles.card,
-            { backgroundColor: colors.surface, borderLeftColor: unread ? '#F0BF5A' : colors.border },
+            { backgroundColor: colors.surface, borderLeftColor: unread ? '#E8D49B' : colors.border },
             unread && styles.cardUnreadGlow,
             isActive && { opacity: 0.8 },
           ]}
@@ -325,14 +325,17 @@ export default function UtakaiListScreen({ navigation }: any) {
                 <Text style={[styles.publicBadgeText, { color: colors.textTertiary }]}>公開</Text>
               </View>
             )}
-            {lastLabel ? (
-              <Text style={[styles.cardLastActivity, { color: colors.textTertiary }]}>{lastLabel}</Text>
-            ) : null}
           </View>
           <View style={styles.cardRowBottom}>
             <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>{item.memberCount}人</Text>
             <Text style={[styles.cardMetaSep, { color: colors.textTertiary }]}>・</Text>
             <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>{postCount}首</Text>
+            {lastLabel ? (
+              <>
+                <Text style={[styles.cardMetaSep, { color: colors.textTertiary }]}>・</Text>
+                <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>{lastLabel}</Text>
+              </>
+            ) : null}
           </View>
         </TouchableOpacity>
       </ScaleDecorator>
@@ -582,18 +585,18 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   cardUnreadGlow: {
-    shadowColor: '#F2CC60',
+    shadowColor: '#EFD89E',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.48,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.55,
+    shadowRadius: 10,
+    elevation: 6,
   },
   cardBgCharGlow: {
-    color: '#F0BF5A',
-    opacity: 0.70,
-    textShadowColor: '#F2CC60',
+    color: '#E8D49B',
+    opacity: 0.85,
+    textShadowColor: '#EFD89E',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 20,
+    textShadowRadius: 22,
   },
   menuModal: { borderRadius: 16, padding: 8, width: '75%' },
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
