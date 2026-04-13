@@ -29,11 +29,8 @@ export default function WelcomeScreen() {
           <Text style={[styles.text, { color: colors.textSecondary }]}>
             あなたの詠草は{'\n'}誰が詠んだか知られることなく{'\n'}歌会の仲間に届きます
           </Text>
-          <Text style={[styles.text, { color: colors.textSecondary }]}>
-            寄せられた評もまた{'\n'}詠み人知らず
-          </Text>
           <Text style={[styles.hint, { color: colors.textTertiary }]}>
-            まずは歌会を開くか{'\n'}招待コードを受け取りましょう
+            まずは公開歌会を探すか{'\n'}招待コードを受け取りましょう
           </Text>
         </View>
 

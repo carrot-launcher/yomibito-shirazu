@@ -20,6 +20,7 @@ export default function UtakaiListScreen({ navigation }: any) {
   const { alert } = useAlert();
   const { colors } = useTheme();
   const [groups, setGroups] = useState<(GroupDoc & { id: string })[]>([]);
+  const [loading, setLoading] = useState(true);
   const [lastReadMap, setLastReadMap] = useState<Record<string, Date | null>>({});
   const [showCreate, setShowCreate] = useState(false);
   const [showChoosePublic, setShowChoosePublic] = useState(false);
@@ -58,7 +59,7 @@ export default function UtakaiListScreen({ navigation }: any) {
       groupUnsubs.length = 0;
 
       const groupIds: string[] = snap.data()?.joinedGroups || [];
-      if (groupIds.length === 0) { setGroups([]); return; }
+      if (groupIds.length === 0) { setGroups([]); setLoading(false); return; }
 
       // joinedGroups の順序に合わせて並び替え + 含まれないものを除去
       setGroups(prev => {
@@ -110,7 +111,9 @@ export default function UtakaiListScreen({ navigation }: any) {
           await updateDoc(doc(db, 'users', user.uid), { joinedGroups: arrayRemove(gid) });
         }
       }
-    }, () => {});
+
+      setLoading(false);
+    }, () => { setLoading(false); });
 
     return () => {
       unsub();
@@ -346,7 +349,9 @@ export default function UtakaiListScreen({ navigation }: any) {
 
   return (
     <GradientBackground style={styles.container}>
-      {groups.length === 0 ? (
+      {loading ? (
+        <View style={[styles.emptyList, styles.empty]} />
+      ) : groups.length === 0 ? (
         <View style={[styles.emptyList, styles.empty]}>
           <Text style={[styles.emptyText, { color: colors.textTertiary }]}>まだ歌会がありません</Text>
 
