@@ -633,6 +633,10 @@ export const deletePost = onCall(
     const authorId = authorSnap.data()?.authorId;
     if (request.auth.uid !== authorId) throw new HttpsError("permission-denied", "自分の投稿のみ削除できます");
 
+    // 歌会の postCount を減らすため groupId を先に取得
+    const postSnap = await db.doc(`posts/${postId}`).get();
+    const groupId = postSnap.data()?.groupId;
+
     const batch = db.batch();
     const reactionsSnap = await db.collection(`posts/${postId}/reactions`).get();
     reactionsSnap.docs.forEach((doc) => batch.delete(doc.ref));
@@ -644,6 +648,15 @@ export const deletePost = onCall(
     }
     batch.delete(db.doc(`posts/${postId}/private/author`));
     batch.delete(db.doc(`posts/${postId}`));
+    // 歌会の累計投稿数をデクリメント（歌会がまだ存在する場合のみ）
+    if (groupId) {
+      const groupSnap = await db.doc(`groups/${groupId}`).get();
+      if (groupSnap.exists) {
+        batch.update(db.doc(`groups/${groupId}`), {
+          postCount: admin.firestore.FieldValue.increment(-1),
+        });
+      }
+    }
     await batch.commit();
 
     const myPostsSnap = await db.collection(`users/${authorId}/myPosts`).where("postId", "==", postId).get();
@@ -1245,8 +1258,10 @@ export const deleteAccount = onCall(
     // 3. ユーザーの投稿を全削除
     const myPostsSnap = await db.collection(`users/${uid}/myPosts`).get();
     const deletedPostIds = new Set<string>();
+    const deletionsByGroup = new Map<string, number>(); // groupId -> 削除件数
     for (const myPost of myPostsSnap.docs) {
       const postId = myPost.data().postId;
+      const postGroupId = myPost.data().groupId;
       if (deletedPostIds.has(postId)) continue;
       deletedPostIds.add(postId);
       try {
@@ -1269,9 +1284,25 @@ export const deleteAccount = onCall(
         // 投稿本体削除
         await db.doc(`posts/${postId}/private/author`).delete().catch(() => {});
         await db.doc(`posts/${postId}`).delete();
+
+        if (postGroupId) {
+          deletionsByGroup.set(postGroupId, (deletionsByGroup.get(postGroupId) || 0) + 1);
+        }
       } catch {
         // 個別の投稿削除失敗は続行
       }
+    }
+
+    // 3b. 歌会ごとに postCount をまとめて減算（歌会がまだ存在するもののみ）
+    for (const [gid, count] of deletionsByGroup) {
+      try {
+        const gSnap = await db.doc(`groups/${gid}`).get();
+        if (gSnap.exists) {
+          await db.doc(`groups/${gid}`).update({
+            postCount: admin.firestore.FieldValue.increment(-count),
+          });
+        }
+      } catch { /* 歌会が既に消えているなど */ }
     }
 
     // 4. ユーザーの評を全削除（collectionGroupでauthor検索）
