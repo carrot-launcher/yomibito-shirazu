@@ -24,6 +24,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ===== 設定（管理者のみ Firebase Console から編集） =====
+    match /config/{docId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
     // ===== users =====
     match /users/{userId} {
       allow read: if isAuth();
@@ -52,7 +58,10 @@ service cloud.firestore {
       // 作成はCloud Function経由のみ
       allow create: if false;
       // オーナーは歌会名を変更可能、メンバーはmemberCountの更新
-      allow update: if isAuth();
+      // ただし isPublic / purpose / postCount / inviteCode / createdBy / createdAt は変更不可
+      allow update: if isAuth()
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['isPublic', 'purpose', 'postCount', 'inviteCode', 'createdBy', 'createdAt']);
 
       match /members/{memberId} {
         allow read: if isAuth();

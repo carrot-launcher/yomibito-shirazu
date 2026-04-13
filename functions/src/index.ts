@@ -173,9 +173,10 @@ export const createPost = onCall(
       tx.set(userCounterRef, { postCount: (userPostCount + 1), commentCount: userCounter.data()?.commentCount || 0 }, { merge: true });
       tx.set(groupCounterRef, { postCount: (groupPostCount + 1) }, { merge: true });
 
-      // 歌会の最終投稿時刻を更新
+      // 歌会の最終投稿時刻と累計投稿数を更新
       tx.update(db.doc(`groups/${groupId}`), {
         lastPostAt: admin.firestore.FieldValue.serverTimestamp(),
+        postCount: admin.firestore.FieldValue.increment(1),
       });
       // 投稿者本人の lastReadAt も同時に更新（自分の投稿で未読扱いにならないように）
       tx.update(db.doc(`groups/${groupId}/members/${uid}`), {
@@ -244,10 +245,53 @@ export const createGroup = onCall(
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
-    const { groupName, displayName } = request.data;
+    const { groupName, displayName, isPublic: isPublicInput, purpose } = request.data;
+    const isPublic = isPublicInput === true;
     if (!groupName?.trim() || !displayName?.trim()) throw new HttpsError("invalid-argument", "歌会名と表示名が必要です");
     if (groupName.trim().length > 16) throw new HttpsError("invalid-argument", "歌会名は16文字以内にしてください");
     if (displayName.trim().length > 16) throw new HttpsError("invalid-argument", "表示名は16文字以内にしてください");
+
+    // 公開歌会固有のチェック
+    let trimmedPurpose = "";
+    if (isPublic) {
+      // 設定読み込み（kill switch ＋ 経過日数しきい値）
+      const configSnap = await db.doc("config/publicGroups").get();
+      const configData = configSnap.exists ? configSnap.data() : {};
+      if (configData?.enabled === false) {
+        throw new HttpsError("failed-precondition", "公開歌会の作成は現在停止しています");
+      }
+
+      // 趣意書チェック
+      if (typeof purpose !== "string") throw new HttpsError("invalid-argument", "趣意書が必要です");
+      trimmedPurpose = purpose.trim();
+      if (trimmedPurpose.length < 25 || trimmedPurpose.length > 200) {
+        throw new HttpsError("invalid-argument", "趣意書は25〜200文字で入力してください");
+      }
+      // URL や HTML タグを含まない
+      if (/https?:\/\//i.test(trimmedPurpose) || /<[^>]+>/.test(trimmedPurpose)) {
+        throw new HttpsError("invalid-argument", "趣意書にURLやHTMLタグは使えません");
+      }
+
+      // アカウント作成からの経過日数要件（既定7日、config で上書き可能）
+      const minAgeDays = typeof configData?.minAccountAgeDays === "number"
+        ? configData.minAccountAgeDays
+        : 7;
+      if (minAgeDays > 0) {
+        const userRecord = await admin.auth().getUser(uid);
+        const creationTimeMs = new Date(userRecord.metadata.creationTime).getTime();
+        const minAgeMs = minAgeDays * 24 * 60 * 60 * 1000;
+        if (Date.now() - creationTimeMs < minAgeMs) {
+          throw new HttpsError("failed-precondition", `公開歌会の作成はアカウント作成から${minAgeDays}日後以降に可能になります`);
+        }
+      }
+
+      // 自分が作成した公開歌会は最大3つ
+      const publicOwnedSnap = await db.collection("groups")
+        .where("createdBy", "==", uid).where("isPublic", "==", true).count().get();
+      if (publicOwnedSnap.data().count >= 3) {
+        throw new HttpsError("resource-exhausted", "公開歌会は1人につき3つまで作成できます");
+      }
+    }
 
     // ユーザーコードを取得
     const userSnap = await db.doc(`users/${uid}`).get();
@@ -264,20 +308,102 @@ export const createGroup = onCall(
 
     const groupRef = db.collection("groups").doc();
     const batch = db.batch();
-    batch.set(groupRef, {
+    const groupData: Record<string, unknown> = {
       name: groupName.trim(), inviteCode, memberCount: 1,
       createdBy: uid, createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+      isPublic, postCount: 0,
+    };
+    if (isPublic) {
+      groupData.purpose = trimmedPurpose;
+    }
+    batch.set(groupRef, groupData);
     batch.set(db.doc(`groups/${groupRef.id}/members/${uid}`), {
       displayName: displayName.trim(), userCode,
       joinedAt: admin.firestore.FieldValue.serverTimestamp(), role: "owner",
+      muted: isPublic,
     });
     batch.update(db.doc(`users/${uid}`), {
       joinedGroups: admin.firestore.FieldValue.arrayUnion(groupRef.id),
     });
     await batch.commit();
 
-    return { groupId: groupRef.id, inviteCode };
+    return { groupId: groupRef.id, inviteCode, isPublic };
+  }
+);
+
+/**
+ * getPublicGroupPreview — 公開歌会のプレビュー情報と最新10首を取得
+ * 非メンバーでも呼べる。isPublic===true のグループのみ。
+ */
+export const getPublicGroupPreview = onCall(
+  { region: "asia-northeast1" },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
+    const uid = request.auth.uid;
+    const { groupId } = request.data;
+    if (!groupId || typeof groupId !== "string") throw new HttpsError("invalid-argument", "groupId が必要です");
+
+    // Kill switch
+    const cfgSnap = await db.doc("config/publicGroups").get();
+    if (cfgSnap.exists && cfgSnap.data()?.enabled === false) {
+      throw new HttpsError("failed-precondition", "公開歌会は現在停止しています");
+    }
+
+    // レート制限: 60回/日
+    const today = todayKey();
+    const counterRef = db.doc(`rateLimits/${uid}/daily/${today}`);
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(counterRef);
+      const count = snap.data()?.previewCount || 0;
+      if (count >= 60) throw new HttpsError("resource-exhausted", "本日のプレビュー上限に達しました");
+      tx.set(counterRef, { previewCount: count + 1 }, { merge: true });
+    });
+
+    // 歌会取得
+    const groupSnap = await db.doc(`groups/${groupId}`).get();
+    if (!groupSnap.exists) throw new HttpsError("not-found", "歌会が見つかりません");
+    const groupData = groupSnap.data()!;
+    if (groupData.isPublic !== true) throw new HttpsError("permission-denied", "この歌会は公開されていません");
+
+    // 最新10首
+    const postsSnap = await db.collection("posts")
+      .where("groupId", "==", groupId)
+      .orderBy("createdAt", "desc")
+      .limit(10)
+      .get();
+    const posts = postsSnap.docs.map((d) => {
+      const p = d.data();
+      return {
+        postId: d.id,
+        body: p.hogo ? "" : p.body,
+        hogo: p.hogo || false,
+        convertHalfSpace: p.convertHalfSpace ?? true,
+        convertLineBreak: p.convertLineBreak ?? true,
+        createdAt: p.createdAt?.toMillis?.() || null,
+        batchId: p.batchId || null,
+      };
+    });
+
+    // 自分のメンバーシップ / 追放状態
+    const [memberSnap] = await Promise.all([
+      db.doc(`groups/${groupId}/members/${uid}`).get(),
+    ]);
+    const alreadyMember = memberSnap.exists;
+    const banned = !!(groupData.bannedUsers && uid in groupData.bannedUsers);
+
+    return {
+      group: {
+        id: groupId,
+        name: groupData.name,
+        purpose: groupData.purpose || "",
+        memberCount: groupData.memberCount || 0,
+        postCount: groupData.postCount || 0,
+      },
+      posts,
+      alreadyMember,
+      banned,
+      full: (groupData.memberCount || 0) >= 500,
+    };
   }
 );
 

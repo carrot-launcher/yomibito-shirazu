@@ -25,6 +25,8 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
   const [editingName, setEditingName] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
+  const [isPublic, setIsPublic] = useState(false);
+  const [purpose, setPurpose] = useState('');
   const [isOwner, setIsOwner] = useState(false);
   const [members, setMembers] = useState<(MemberDoc & { id: string })[]>([]);
   const [savedHint, setSavedHint] = useState('');
@@ -59,6 +61,8 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
         setEditingName(data.name);
         originalGroupName.current = data.name;
         setInviteCode(data.inviteCode);
+        setIsPublic(data.isPublic === true);
+        setPurpose(typeof data.purpose === 'string' ? data.purpose : '');
         setBannedUsers(data.bannedUsers || []);
       }
       const memberSnap = await getDoc(doc(db, 'groups', groupId, 'members', user.uid));
@@ -190,6 +194,22 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
   return (
     <GradientBackground>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* 公開歌会の趣意 */}
+      {isPublic && (
+        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.purposeHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>趣意</Text>
+            <View style={[styles.publicBadge, { borderColor: colors.border }]}>
+              <Text style={[styles.publicBadgeText, { color: colors.textSecondary }]}>公開</Text>
+            </View>
+          </View>
+          {purpose ? (
+            <Text style={[styles.purposeBody, { color: colors.textSecondary }]}>{purpose}</Text>
+          ) : null}
+          <Text style={[styles.savedHint, { color: colors.textTertiary }]}>趣意書は作成後に変更できません</Text>
+        </View>
+      )}
+
       {/* 招待コード */}
       <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>招待コード</Text>
@@ -467,4 +487,8 @@ const styles = StyleSheet.create({
   dissolveConfirmBtnDisabled: { opacity: 0.3 },
   dissolveConfirmText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
   judgmentExplain: { fontSize: 13, lineHeight: 22 },
+  purposeHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  publicBadge: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 },
+  publicBadgeText: { fontSize: 10, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 1 },
+  purposeBody: { fontSize: 14, lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular', marginBottom: 8 },
 });

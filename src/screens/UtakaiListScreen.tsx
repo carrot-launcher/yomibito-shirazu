@@ -19,13 +19,16 @@ export default function UtakaiListScreen({ navigation }: any) {
   const [groups, setGroups] = useState<(GroupDoc & { id: string })[]>([]);
   const [lastReadMap, setLastReadMap] = useState<Record<string, Date | null>>({});
   const [showCreate, setShowCreate] = useState(false);
+  const [showChoosePublic, setShowChoosePublic] = useState(false);
+  const [showPurpose, setShowPurpose] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [showSetName, setShowSetName] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newPurpose, setNewPurpose] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [memberDisplayName, setMemberDisplayName] = useState('');
   const [showMenu, setShowMenu] = useState(false);
-  const [pendingAction, setPendingAction] = useState<null | { type: 'create'; groupName: string } | { type: 'join'; groupId: string; groupName: string }>(null);
+  const [pendingAction, setPendingAction] = useState<null | { type: 'create'; groupName: string; isPublic: boolean; purpose?: string } | { type: 'join'; groupId: string; groupName: string; isPublic: boolean }>(null);
 
   useEffect(() => {
     navigation.setOptions({
@@ -107,12 +110,70 @@ export default function UtakaiListScreen({ navigation }: any) {
     };
   }, [user]);
 
-  // 歌会作成: まず名前を聞いて、次に表示名を設定
-  const handleCreateStep1 = async () => {
+  // 歌会作成: 名前 → 公開/非公開選択 → (公開なら)趣意書 → 表示名
+  const handleCreateStep1 = () => {
     if (!user || !newName.trim()) return;
-    setMemberDisplayName('');
-    setPendingAction({ type: 'create', groupName: newName.trim() });
     setShowCreate(false);
+    setShowChoosePublic(true);
+  };
+
+  const handleChoosePublic = async (isPublic: boolean) => {
+    if (!user || !newName.trim()) return;
+    if (!isPublic) {
+      setShowChoosePublic(false);
+      setMemberDisplayName('');
+      setPendingAction({ type: 'create', groupName: newName.trim(), isPublic: false });
+      setShowSetName(true);
+      return;
+    }
+
+    // 公開を選んだら、趣意書入力の前に事前チェック
+    try {
+      // kill switch と経過日数要件を確認
+      const configSnap = await getDoc(doc(db, 'config', 'publicGroups'));
+      const cfg = configSnap.exists() ? configSnap.data() : {};
+      if (cfg?.enabled === false) {
+        alert('', '公開歌会の作成は現在停止しています');
+        return;
+      }
+      const minAgeDays = typeof cfg?.minAccountAgeDays === 'number' ? cfg.minAccountAgeDays : 7;
+      if (minAgeDays > 0 && user.metadata?.creationTime) {
+        const creationMs = new Date(user.metadata.creationTime).getTime();
+        const ageDays = (Date.now() - creationMs) / (24 * 60 * 60 * 1000);
+        if (ageDays < minAgeDays) {
+          alert('', `公開歌会の作成はアカウント作成から${minAgeDays}日後以降に可能になります`);
+          return;
+        }
+      }
+
+      // 既に自分が作成した公開歌会があるかチェック
+      const q = query(
+        collection(db, 'groups'),
+        where('createdBy', '==', user.uid),
+        where('isPublic', '==', true),
+      );
+      const snap = await getDocs(q);
+      if (snap.size >= 3) {
+        alert('', '公開歌会は1人につき3つまで作成できます');
+        return;
+      }
+    } catch { /* チェック失敗時はサーバー側の検証に任せる */ }
+
+    setShowChoosePublic(false);
+    setNewPurpose('');
+    setShowPurpose(true);
+  };
+
+  const handlePurposeNext = () => {
+    if (!user || !newName.trim()) return;
+    const p = newPurpose.trim();
+    if (p.length < 25 || p.length > 200) {
+      alert('エラー', '趣意書は25〜200文字で入力してください');
+      return;
+    }
+    setShowPurpose(false);
+    setMemberDisplayName('');
+    setPendingAction({ type: 'create', groupName: newName.trim(), isPublic: true, purpose: p });
     setShowSetName(true);
   };
 
@@ -141,7 +202,7 @@ export default function UtakaiListScreen({ navigation }: any) {
       if (memberSnap.exists()) { alert('', 'すでに参加しています'); setShowJoin(false); return; }
       if ((groupDoc.data().memberCount || 0) >= 500) { alert('エラー', 'この歌会は定員に達しています'); setShowJoin(false); setJoinCode(''); return; }
       setMemberDisplayName('');
-      setPendingAction({ type: 'join', groupId: groupDoc.id, groupName: groupDoc.data().name });
+      setPendingAction({ type: 'join', groupId: groupDoc.id, groupName: groupDoc.data().name, isPublic: groupDoc.data().isPublic === true });
       setShowJoin(false);
       setShowSetName(true);
     } catch (e: any) { alert('エラー', e.message); }
@@ -159,15 +220,21 @@ export default function UtakaiListScreen({ navigation }: any) {
       if (pendingAction.type === 'create') {
         const fns = getFunctions(undefined, 'asia-northeast1');
         const createGroupFn = httpsCallable(fns, 'createGroup');
-        await createGroupFn({ groupName: pendingAction.groupName, displayName });
+        await createGroupFn({
+          groupName: pendingAction.groupName,
+          displayName,
+          isPublic: pendingAction.isPublic,
+          purpose: pendingAction.purpose,
+        });
       } else {
         const groupId = pendingAction.groupId;
-        await setDoc(doc(db, 'groups', groupId, 'members', user.uid), { displayName, userCode, joinedAt: serverTimestamp(), role: 'member' });
+        await setDoc(doc(db, 'groups', groupId, 'members', user.uid), { displayName, userCode, joinedAt: serverTimestamp(), role: 'member', muted: pendingAction.isPublic });
         await updateDoc(doc(db, 'groups', groupId), { memberCount: increment(1) });
         await updateDoc(doc(db, 'users', user.uid), { joinedGroups: arrayUnion(groupId) });
       }
       setShowSetName(false);
       setNewName('');
+      setNewPurpose('');
       setJoinCode('');
       setPendingAction(null);
     } catch (e: any) {
@@ -203,6 +270,11 @@ export default function UtakaiListScreen({ navigation }: any) {
           disabled={isActive}
         >
           <Text style={[styles.cardName, { color: unread ? colors.text : colors.textSecondary, fontWeight: unread ? '500' : '400' }]} numberOfLines={1}>{item.name}</Text>
+          {item.isPublic && (
+            <View style={[styles.publicBadge, { borderColor: colors.border }]}>
+              <Text style={[styles.publicBadgeText, { color: colors.textTertiary }]}>公開</Text>
+            </View>
+          )}
           <Text style={[styles.cardMembers, { color: colors.textTertiary }]}>{item.memberCount}人</Text>
         </TouchableOpacity>
       </ScaleDecorator>
@@ -247,6 +319,11 @@ export default function UtakaiListScreen({ navigation }: any) {
               <MaterialCommunityIcons name="key-variant" size={22} color={colors.text} />
               <Text style={[styles.menuText, { color: colors.text }]}>招待コードで参加</Text>
             </TouchableOpacity>
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); navigation.navigate('UtakaiDiscovery'); }}>
+              <MaterialCommunityIcons name="compass-outline" size={22} color={colors.text} />
+              <Text style={[styles.menuText, { color: colors.text }]}>公開歌会を探す</Text>
+            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -259,6 +336,64 @@ export default function UtakaiListScreen({ navigation }: any) {
           <View style={styles.modalButtons}>
             <TouchableOpacity onPress={() => { setShowCreate(false); setNewName(''); }}><Text style={[styles.cancelText, { color: colors.textSecondary }]}>やめる</Text></TouchableOpacity>
             <TouchableOpacity style={[styles.confirmBtn, { backgroundColor: colors.accent }]} onPress={handleCreateStep1}><Text style={[styles.confirmText, { color: colors.accentText }]}>次へ</Text></TouchableOpacity>
+          </View>
+        </View></View>
+      </Modal>
+
+      {/* 公開/非公開選択モーダル */}
+      <Modal visible={showChoosePublic} transparent animationType="fade">
+        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}><View style={[styles.modal, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>歌会の種類</Text>
+          <Text style={[styles.modalHint, { color: colors.textSecondary }]}>あとから変更することはできません</Text>
+          <TouchableOpacity
+            style={[styles.choiceCard, { borderColor: colors.border, backgroundColor: colors.bg }]}
+            onPress={() => handleChoosePublic(false)}
+          >
+            <Text style={[styles.choiceTitle, { color: colors.text }]}>非公開</Text>
+            <Text style={[styles.choiceDesc, { color: colors.textSecondary }]}>招待コードを知っている人だけが参加できます</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.choiceCard, { borderColor: colors.border, backgroundColor: colors.bg }]}
+            onPress={() => handleChoosePublic(true)}
+          >
+            <Text style={[styles.choiceTitle, { color: colors.text }]}>公開</Text>
+            <Text style={[styles.choiceDesc, { color: colors.textSecondary }]}>誰でも発見して参加できます。趣意書を書いていただきます</Text>
+          </TouchableOpacity>
+          <View style={styles.modalButtons}>
+            <TouchableOpacity onPress={() => { setShowChoosePublic(false); setShowCreate(true); }}>
+              <Text style={[styles.cancelText, { color: colors.textSecondary }]}>戻る</Text>
+            </TouchableOpacity>
+          </View>
+        </View></View>
+      </Modal>
+
+      {/* 趣意書入力モーダル */}
+      <Modal visible={showPurpose} transparent animationType="fade">
+        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}><View style={[styles.modal, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>趣意書</Text>
+          <Text style={[styles.modalHint, { color: colors.textSecondary }]}>この歌会でどのような歌を詠みたいかを25〜200文字で。{'\n'}発見画面や歌会のヘッダーなどで、参加前の人にも公開されます。</Text>
+          <TextInput
+            style={[styles.input, styles.purposeInput, { borderColor: colors.border, color: colors.text }]}
+            placeholder="趣意書"
+            value={newPurpose}
+            onChangeText={setNewPurpose}
+            placeholderTextColor={colors.textTertiary}
+            maxLength={200}
+            multiline
+            textAlignVertical="top"
+          />
+          <Text style={[styles.counterText, { color: colors.textTertiary }]}>{newPurpose.trim().length} / 200</Text>
+          <View style={styles.modalButtons}>
+            <TouchableOpacity onPress={() => { setShowPurpose(false); setShowChoosePublic(true); }}>
+              <Text style={[styles.cancelText, { color: colors.textSecondary }]}>戻る</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.confirmBtn, { backgroundColor: colors.accent }, (newPurpose.trim().length < 25) && { opacity: 0.4 }]}
+              onPress={handlePurposeNext}
+              disabled={newPurpose.trim().length < 25}
+            >
+              <Text style={[styles.confirmText, { color: colors.accentText }]}>次へ</Text>
+            </TouchableOpacity>
           </View>
         </View></View>
       </Modal>
@@ -333,4 +468,11 @@ const styles = StyleSheet.create({
   cancelText: { fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular' },
   confirmBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
   confirmText: { fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_500Medium' },
+  choiceCard: { borderWidth: 1, borderRadius: 10, padding: 14, marginBottom: 10 },
+  choiceTitle: { fontSize: 16, fontFamily: 'NotoSerifJP_500Medium', marginBottom: 4 },
+  choiceDesc: { fontSize: 13, lineHeight: 19, fontFamily: 'NotoSerifJP_400Regular' },
+  purposeInput: { minHeight: 110, textAlignVertical: 'top' },
+  counterText: { fontSize: 12, textAlign: 'right', marginTop: -10, marginBottom: 10 },
+  publicBadge: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1, marginRight: 8 },
+  publicBadgeText: { fontSize: 10, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 1 },
 });

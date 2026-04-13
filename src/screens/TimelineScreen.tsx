@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import TankaScroll from '../components/TankaScroll';
@@ -18,13 +18,21 @@ export default function TimelineScreen({ route, navigation }: any) {
   const { cards, loading, hasMore, refresh, loadMore, generation, newArrivals, arrivalGen, changedCards, removedIds, updateGen } = usePaginatedPosts(groupId);
   const [refreshing, setRefreshing] = useState(false);
   const [unreadSince, setUnreadSince] = useState<Date | null>(null);
+  const [isPublic, setIsPublic] = useState(false);
+  const [purpose, setPurpose] = useState('');
+  const [purposeExpanded, setPurposeExpanded] = useState(false);
 
   useEffect(() => {
     const updateHeader = async () => {
       let name = groupName;
       try {
         const snap = await getDoc(doc(db, 'groups', groupId));
-        if (snap.exists()) name = snap.data().name || groupName;
+        if (snap.exists()) {
+          const gd = snap.data();
+          name = gd.name || groupName;
+          setIsPublic(gd.isPublic === true);
+          setPurpose(typeof gd.purpose === 'string' ? gd.purpose : '');
+        }
       } catch {}
       navigation.setOptions({
         title: name,
@@ -101,6 +109,25 @@ export default function TimelineScreen({ route, navigation }: any) {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textTertiary} colors={[colors.textTertiary]} />}
       >
+        {isPublic && (
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setPurposeExpanded(v => !v)}
+            style={[styles.purposeStrip, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}
+          >
+            <View style={[styles.publicBadge, { borderColor: colors.border }]}>
+              <Text style={[styles.publicBadgeText, { color: colors.textSecondary }]}>公開</Text>
+            </View>
+            {purpose ? (
+              <Text
+                style={[styles.purposeText, { color: colors.textSecondary }]}
+                numberOfLines={purposeExpanded ? undefined : 1}
+              >
+                {purpose}
+              </Text>
+            ) : null}
+          </TouchableOpacity>
+        )}
         <TankaScroll
           cards={cards}
           onTap={(postId, gId) => navigation.navigate('TankaDetail', { postId, groupId: gId })}
@@ -122,4 +149,15 @@ export default function TimelineScreen({ route, navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
   content: { flex: 1 },
+  purposeStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  publicBadge: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
+  publicBadgeText: { fontSize: 10, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 2 },
+  purposeText: { flex: 1, fontSize: 12, lineHeight: 18, fontFamily: 'NotoSerifJP_400Regular' },
 });

@@ -22,6 +22,10 @@ export interface GroupDoc {
   bannedUsers?: Record<string, { displayName: string; userCode: string }>;
   createdAt: Timestamp;
   lastPostAt?: Timestamp;
+  // 公開歌会（作成時に固定、変更不可）
+  isPublic?: boolean;
+  purpose?: string;       // 趣意書（公開歌会のみ、25〜200字）
+  postCount?: number;     // 累計投稿数（発見画面のソート・表示用）
 }
 
 export interface MemberDoc {
