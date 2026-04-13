@@ -26,6 +26,9 @@ export interface GroupDoc {
   isPublic?: boolean;
   purpose?: string;       // 趣意書（公開歌会のみ、25〜200字）
   postCount?: number;     // 累計投稿数（発見画面のソート・表示用）
+  // オーナー情報の非正規化キャッシュ（発見画面などで再取得を避けるため）
+  ownerDisplayName?: string;
+  ownerUserCode?: string;
 }
 
 export interface MemberDoc {

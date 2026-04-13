@@ -18,6 +18,8 @@ type PublicGroup = {
   postCount?: number;
   lastPostAt?: Timestamp;
   createdAt?: Timestamp;
+  ownerDisplayName?: string;
+  ownerUserCode?: string;
 };
 
 const TABS: { key: TabKey; label: string }[] = [
@@ -144,6 +146,15 @@ export default function UtakaiDiscoveryScreen({ navigation }: any) {
           <MaterialCommunityIcons name="feather" size={14} color={colors.textTertiary} />
           <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>{item.postCount ?? 0}首</Text>
         </View>
+        {item.ownerDisplayName ? (
+          <View style={styles.cardOwnerRow}>
+            <Text style={[styles.cardOwnerLabel, { color: colors.textTertiary }]}>主宰</Text>
+            <Text style={[styles.cardOwnerName, { color: colors.textTertiary }]} numberOfLines={1}>
+              {item.ownerDisplayName}
+              {item.ownerUserCode ? ` #${item.ownerUserCode}` : ''}
+            </Text>
+          </View>
+        ) : null}
       </TouchableOpacity>
     );
   };
@@ -220,6 +231,9 @@ const styles = StyleSheet.create({
   cardFooter: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   cardMeta: { fontSize: 12, fontFamily: 'NotoSerifJP_400Regular' },
   cardMetaSep: { fontSize: 12 },
+  cardOwnerRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  cardOwnerLabel: { fontSize: 11, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 2 },
+  cardOwnerName: { flex: 1, fontSize: 12, fontFamily: 'NotoSerifJP_400Regular' },
   emptyBox: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
   emptyText: { fontSize: 14, textAlign: 'center', lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular' },
 });

@@ -19,6 +19,7 @@ type PreviewPost = {
 
 type PreviewData = {
   group: { id: string; name: string; purpose: string; memberCount: number; postCount: number };
+  owner: { displayName: string; userCode: string } | null;
   posts: PreviewPost[];
   alreadyMember: boolean;
   banned: boolean;
@@ -147,6 +148,15 @@ export default function UtakaiPreviewScreen({ navigation, route }: any) {
               <Text style={[styles.statsText, { color: colors.textTertiary }]}>{data.group.postCount}首</Text>
             </View>
 
+            {/* オーナー */}
+            {data.owner ? (
+              <View style={styles.ownerRow}>
+                <Text style={[styles.ownerLabel, { color: colors.textTertiary }]}>主宰</Text>
+                <Text style={[styles.ownerName, { color: colors.textSecondary }]}>{data.owner.displayName}</Text>
+                <Text style={[styles.ownerCode, { color: colors.textTertiary }]}>#{data.owner.userCode}</Text>
+              </View>
+            ) : null}
+
             {/* 最近の歌 */}
             <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>最近の歌</Text>
             {data.posts.length === 0 ? (
@@ -219,8 +229,12 @@ const styles = StyleSheet.create({
   purposeBox: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 16, marginBottom: 12 },
   purposeLabel: { fontSize: 11, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 2, marginBottom: 6 },
   purposeText: { fontSize: fs(15), lineHeight: 24, fontFamily: 'NotoSerifJP_400Regular' },
-  statsRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 20, paddingHorizontal: 4 },
+  statsRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6, paddingHorizontal: 4 },
   statsText: { fontSize: 12, fontFamily: 'NotoSerifJP_400Regular' },
+  ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 20, paddingHorizontal: 4 },
+  ownerLabel: { fontSize: 11, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 2 },
+  ownerName: { fontSize: 13, fontFamily: 'NotoSerifJP_500Medium' },
+  ownerCode: { fontSize: 11, fontFamily: 'IBMPlexMono_600SemiBold' },
   sectionTitle: { fontSize: 13, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 2, marginBottom: 10, marginTop: 4 },
   poemCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, padding: 14, marginBottom: 8 },
   poemBody: { fontSize: fs(15), lineHeight: 24, fontFamily: 'NotoSerifJP_400Regular' },

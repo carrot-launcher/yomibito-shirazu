@@ -101,6 +101,10 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
     if (!user || !v || v === originalDisplayName.current) return;
     try {
       await updateDoc(doc(db, 'groups', groupId, 'members', user.uid), { displayName: v });
+      // オーナーなら GroupDoc の非正規化キャッシュも同期
+      if (isOwner) {
+        updateDoc(doc(db, 'groups', groupId), { ownerDisplayName: v }).catch(() => {});
+      }
       setMembers(prev => prev.map(m => m.id === user.uid ? { ...m, displayName: v } : m));
       originalDisplayName.current = v;
       showSaved('displayName');
@@ -147,6 +151,9 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
       const gn = editingNameRef.current.trim();
       if (user && dn && dn !== originalDisplayName.current) {
         updateDoc(doc(db, 'groups', groupId, 'members', user.uid), { displayName: dn }).catch(() => {});
+        if (isOwner) {
+          updateDoc(doc(db, 'groups', groupId), { ownerDisplayName: dn }).catch(() => {});
+        }
       }
       if (isOwner && gn && gn !== originalGroupName.current) {
         updateDoc(doc(db, 'groups', groupId), { name: gn }).catch(() => {});

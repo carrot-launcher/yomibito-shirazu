@@ -330,6 +330,8 @@ export const createGroup = onCall(
       name: groupName.trim(), inviteCode, memberCount: 1,
       createdBy: uid, createdAt: admin.firestore.FieldValue.serverTimestamp(),
       isPublic, postCount: 0,
+      ownerDisplayName: displayName.trim(),
+      ownerUserCode: userCode,
     };
     if (isPublic) {
       groupData.purpose = trimmedPurpose;
@@ -402,11 +404,21 @@ export const getPublicGroupPreview = onCall(
     });
 
     // 自分のメンバーシップ / 追放状態
-    const [memberSnap] = await Promise.all([
-      db.doc(`groups/${groupId}/members/${uid}`).get(),
-    ]);
+    const memberSnap = await db.doc(`groups/${groupId}/members/${uid}`).get();
     const alreadyMember = memberSnap.exists;
     const banned = !!(groupData.bannedUsers && uid in groupData.bannedUsers);
+
+    // オーナー情報は GroupDoc の非正規化フィールドから。古いドキュメントにはフィールドが
+    // 無い可能性があるので、その場合のみ members コレクションから拾う。
+    let ownerDisplayName: string = groupData.ownerDisplayName || "";
+    let ownerUserCode: string = groupData.ownerUserCode || "";
+    if ((!ownerDisplayName || !ownerUserCode) && groupData.createdBy) {
+      const ownerSnap = await db.doc(`groups/${groupId}/members/${groupData.createdBy}`).get();
+      if (ownerSnap.exists) {
+        ownerDisplayName = ownerSnap.data()?.displayName || ownerDisplayName;
+        ownerUserCode = ownerSnap.data()?.userCode || ownerUserCode;
+      }
+    }
 
     return {
       group: {
@@ -416,6 +428,7 @@ export const getPublicGroupPreview = onCall(
         memberCount: groupData.memberCount || 0,
         postCount: groupData.postCount || 0,
       },
+      owner: ownerDisplayName ? { displayName: ownerDisplayName, userCode: ownerUserCode } : null,
       posts,
       alreadyMember,
       banned,
