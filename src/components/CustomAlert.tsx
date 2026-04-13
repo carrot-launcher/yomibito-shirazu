@@ -82,7 +82,7 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
       <Modal visible={state.visible} transparent animationType="fade">
         <View style={[styles.overlay, dynamicStyles.overlay]}>
           <View style={[styles.card, dynamicStyles.card]}>
-            <Text style={[styles.title, dynamicStyles.title]}>{state.title}</Text>
+            {state.title ? <Text style={[styles.title, dynamicStyles.title]}>{state.title}</Text> : null}
             {state.message ? <Text style={[styles.message, dynamicStyles.message]}>{state.message}</Text> : null}
             <View style={styles.buttonRow}>
               {cancelButton && (
@@ -119,12 +119,13 @@ const styles = StyleSheet.create({
     width: '82%', borderWidth: 1,
   },
   title: {
-    fontSize: 17, fontWeight: '500',
+    fontSize: 17, fontFamily: 'NotoSerifJP_500Medium',
     textAlign: 'center', marginBottom: 8, lineHeight: 24,
   },
   message: {
     fontSize: 14, textAlign: 'center',
     lineHeight: 22, marginBottom: 4,
+    fontFamily: 'NotoSerifJP_400Regular',
   },
   buttonRow: {
     flexDirection: 'row', justifyContent: 'center',
@@ -134,11 +135,11 @@ const styles = StyleSheet.create({
     flex: 1, paddingVertical: 12, alignItems: 'center',
     borderRadius: 10, borderWidth: 1,
   },
-  cancelText: { fontSize: 15 },
+  cancelText: { fontSize: 15, lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular' },
   actionBtn: {
     flex: 1, paddingVertical: 12, alignItems: 'center',
     borderRadius: 10,
   },
-  actionText: { fontSize: 15 },
+  actionText: { fontSize: 15, lineHeight: 22, fontFamily: 'NotoSerifJP_500Medium' },
   destructiveText: { color: '#FFFFFF' },
 });

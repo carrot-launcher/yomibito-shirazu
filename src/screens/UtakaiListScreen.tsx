@@ -172,8 +172,8 @@ export default function UtakaiListScreen({ navigation }: any) {
   const handlePurposeNext = () => {
     if (!user || !newName.trim()) return;
     const p = newPurpose.trim();
-    if (p.length < 25 || p.length > 200) {
-      alert('エラー', '趣意書は25〜200文字で入力してください');
+    if (p.length < 10 || p.length > 200) {
+      alert('エラー', '趣意書は10〜200文字で入力してください');
       return;
     }
     setShowPurpose(false);
@@ -357,7 +357,7 @@ export default function UtakaiListScreen({ navigation }: any) {
             onPress={() => handleChoosePublic(true)}
           >
             <Text style={[styles.choiceTitle, { color: colors.text }]}>公開</Text>
-            <Text style={[styles.choiceDesc, { color: colors.textSecondary }]}>誰でも発見して参加できます。趣意書を書いていただきます</Text>
+            <Text style={[styles.choiceDesc, { color: colors.textSecondary }]}>誰でも発見して参加できます。趣意書を書いていただきます。作成は1人につき3つまで</Text>
           </TouchableOpacity>
           <View style={styles.modalButtons}>
             <TouchableOpacity onPress={() => { setShowChoosePublic(false); setShowCreate(true); }}>
@@ -371,7 +371,7 @@ export default function UtakaiListScreen({ navigation }: any) {
       <Modal visible={showPurpose} transparent animationType="fade">
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}><View style={[styles.modal, { backgroundColor: colors.surface }]}>
           <Text style={[styles.modalTitle, { color: colors.text }]}>趣意書</Text>
-          <Text style={[styles.modalHint, { color: colors.textSecondary }]}>この歌会でどのような歌を詠みたいかを25〜200文字で。{'\n'}発見画面や歌会のヘッダーなどで、参加前の人にも公開されます。</Text>
+          <Text style={[styles.modalHint, { color: colors.textSecondary }]}>この歌会でどのような歌を詠んでほしいかを10〜200文字で。{'\n'}発見画面や歌会のヘッダーなどで、参加前の人にも公開されます。</Text>
           <TextInput
             style={[styles.input, styles.purposeInput, { borderColor: colors.border, color: colors.text }]}
             placeholder="趣意書"
@@ -388,9 +388,9 @@ export default function UtakaiListScreen({ navigation }: any) {
               <Text style={[styles.cancelText, { color: colors.textSecondary }]}>戻る</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.confirmBtn, { backgroundColor: colors.accent }, (newPurpose.trim().length < 25) && { opacity: 0.4 }]}
+              style={[styles.confirmBtn, { backgroundColor: colors.accent }, (newPurpose.trim().length < 10) && { opacity: 0.4 }]}
               onPress={handlePurposeNext}
-              disabled={newPurpose.trim().length < 25}
+              disabled={newPurpose.trim().length < 10}
             >
               <Text style={[styles.confirmText, { color: colors.accentText }]}>次へ</Text>
             </TouchableOpacity>

@@ -27,6 +27,8 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
   const [inviteCode, setInviteCode] = useState('');
   const [isPublic, setIsPublic] = useState(false);
   const [purpose, setPurpose] = useState('');
+  const [editingPurpose, setEditingPurpose] = useState('');
+  const originalPurpose = useRef('');
   const [isOwner, setIsOwner] = useState(false);
   const [members, setMembers] = useState<(MemberDoc & { id: string })[]>([]);
   const [savedHint, setSavedHint] = useState('');
@@ -36,8 +38,10 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
   const originalGroupName = useRef('');
   const displayNameRef = useRef('');
   const editingNameRef = useRef('');
+  const editingPurposeRef = useRef('');
   displayNameRef.current = displayName;
   editingNameRef.current = editingName;
+  editingPurposeRef.current = editingPurpose;
 
   // ミュート設定
   const [muted, setMuted] = useState(false);
@@ -62,7 +66,10 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
         originalGroupName.current = data.name;
         setInviteCode(data.inviteCode);
         setIsPublic(data.isPublic === true);
-        setPurpose(typeof data.purpose === 'string' ? data.purpose : '');
+        const p = typeof data.purpose === 'string' ? data.purpose : '';
+        setPurpose(p);
+        setEditingPurpose(p);
+        originalPurpose.current = p;
         setBannedUsers(data.bannedUsers || []);
       }
       const memberSnap = await getDoc(doc(db, 'groups', groupId, 'members', user.uid));
@@ -100,6 +107,27 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
     } catch {}
   };
 
+  const handleBlurPurpose = async () => {
+    const v = editingPurpose.trim();
+    if (!v || v === originalPurpose.current) return;
+    if (v.length < 10 || v.length > 200) {
+      alert('', '趣意書は10〜200文字で入力してください');
+      setEditingPurpose(originalPurpose.current);
+      return;
+    }
+    try {
+      const fns = getFunctions(undefined, 'asia-northeast1');
+      const fn = httpsCallable(fns, 'updatePurpose');
+      await fn({ groupId, purpose: v });
+      setPurpose(v);
+      originalPurpose.current = v;
+      showSaved('purpose');
+    } catch (e: any) {
+      alert('エラー', e?.message || '更新できませんでした');
+      setEditingPurpose(originalPurpose.current);
+    }
+  };
+
   const handleBlurGroupName = async () => {
     const v = editingName.trim();
     if (!v || v === originalGroupName.current) return;
@@ -114,7 +142,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
 
   // Save unsaved changes on navigation away
   useEffect(() => {
-    return navigation.addListener('beforeRemove', () => {
+    return navigation.addListener('beforeRemove', (e: any) => {
       const dn = displayNameRef.current.trim();
       const gn = editingNameRef.current.trim();
       if (user && dn && dn !== originalDisplayName.current) {
@@ -123,8 +151,48 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
       if (isOwner && gn && gn !== originalGroupName.current) {
         updateDoc(doc(db, 'groups', groupId), { name: gn }).catch(() => {});
       }
+
+      // 趣意書: 未保存の変更があれば保存/破棄を確認
+      if (isOwner && isPublic) {
+        const pp = editingPurposeRef.current.trim();
+        if (pp !== originalPurpose.current) {
+          // 一旦戻る操作を止めて確認ダイアログ
+          e.preventDefault();
+          const invalid = pp.length < 10 || pp.length > 200 || /https?:\/\//i.test(pp) || /<[^>]+>/.test(pp);
+          alert(
+            '趣意書が未保存です',
+            invalid
+              ? '内容が不正なため保存できません。破棄して戻りますか？'
+              : '変更を保存しますか？公開歌会ではすぐに他のユーザーに表示されます。',
+            invalid
+              ? [
+                  { text: '編集に戻る', style: 'cancel' },
+                  { text: '破棄', style: 'destructive', onPress: () => {
+                    editingPurposeRef.current = originalPurpose.current;
+                    navigation.dispatch(e.data.action);
+                  }},
+                ]
+              : [
+                  { text: '編集に戻る', style: 'cancel' },
+                  { text: '破棄して戻る', style: 'destructive', onPress: () => {
+                    editingPurposeRef.current = originalPurpose.current;
+                    navigation.dispatch(e.data.action);
+                  }},
+                  { text: '保存して戻る', onPress: async () => {
+                    try {
+                      const fns = getFunctions(undefined, 'asia-northeast1');
+                      const fn = httpsCallable(fns, 'updatePurpose');
+                      await fn({ groupId, purpose: pp });
+                      originalPurpose.current = pp;
+                    } catch { /* 失敗してもそのまま戻る */ }
+                    navigation.dispatch(e.data.action);
+                  }},
+                ]
+          );
+        }
+      }
     });
-  }, [navigation, user, isOwner, groupId]);
+  }, [navigation, user, isOwner, groupId, isPublic, alert]);
 
   const handleKick = (member: MemberDoc & { id: string }) => {
     if (member.id === user?.uid) { alert('自分自身は追放できません'); return; }
@@ -203,10 +271,28 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
               <Text style={[styles.publicBadgeText, { color: colors.textSecondary }]}>公開</Text>
             </View>
           </View>
-          {purpose ? (
-            <Text style={[styles.purposeBody, { color: colors.textSecondary }]}>{purpose}</Text>
-          ) : null}
-          <Text style={[styles.savedHint, { color: colors.textTertiary }]}>趣意書は作成後に変更できません</Text>
+          {isOwner ? (
+            <>
+              <TextInput
+                style={[styles.input, styles.purposeEditInput, { borderColor: colors.border, color: colors.text }]}
+                value={editingPurpose}
+                onChangeText={setEditingPurpose}
+                onBlur={handleBlurPurpose}
+                placeholder="10〜200文字"
+                placeholderTextColor={colors.textTertiary}
+                maxLength={200}
+                multiline
+                textAlignVertical="top"
+              />
+              <Text style={[styles.savedHint, { color: colors.textTertiary }]}>
+                {savedHint === 'purpose' ? '保存しました' : `${editingPurpose.trim().length} / 200`}
+              </Text>
+            </>
+          ) : (
+            purpose ? (
+              <Text style={[styles.purposeBody, { color: colors.textSecondary }]}>{purpose}</Text>
+            ) : null
+          )}
         </View>
       )}
 
@@ -491,4 +577,5 @@ const styles = StyleSheet.create({
   publicBadge: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 },
   publicBadgeText: { fontSize: 10, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 1 },
   purposeBody: { fontSize: 14, lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular', marginBottom: 8 },
+  purposeEditInput: { minHeight: 100, textAlignVertical: 'top' },
 });

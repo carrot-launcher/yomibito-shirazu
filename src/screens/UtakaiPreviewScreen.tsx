@@ -77,11 +77,7 @@ export default function UtakaiPreviewScreen({ navigation, route }: any) {
       await updateDoc(doc(db, 'groups', groupId), { memberCount: increment(1) });
       await updateDoc(doc(db, 'users', user.uid), { joinedGroups: arrayUnion(groupId) });
       setShowNameModal(false);
-      navigation.replace('PublicGroupWelcome', {
-        groupId,
-        groupName: data.group.name,
-        purpose: data.group.purpose,
-      });
+      navigation.replace('Timeline', { groupId, groupName: data.group.name });
     } catch (e: any) {
       alert('エラー', e?.message || '参加できませんでした');
     } finally {
@@ -232,7 +228,7 @@ const styles = StyleSheet.create({
   poemEmpty: { fontSize: 13, fontFamily: 'NotoSerifJP_400Regular', textAlign: 'center' },
   footer: { padding: 12, borderTopWidth: StyleSheet.hairlineWidth },
   joinBtn: { paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
-  joinBtnText: { fontSize: 16, fontFamily: 'NotoSerifJP_500Medium' },
+  joinBtnText: { fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_500Medium' },
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   modal: { borderRadius: 16, padding: 20, width: '85%' },
   modalTitle: { fontSize: 18, fontWeight: '500', marginBottom: 6, fontFamily: 'NotoSerifJP_500Medium' },

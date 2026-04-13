@@ -24,7 +24,6 @@ import WelcomeScreen from '../screens/WelcomeScreen';
 import UtakaiListScreen from '../screens/UtakaiListScreen';
 import UtakaiDiscoveryScreen from '../screens/UtakaiDiscoveryScreen';
 import UtakaiPreviewScreen from '../screens/UtakaiPreviewScreen';
-import PublicGroupWelcomeScreen from '../screens/PublicGroupWelcomeScreen';
 
 const RootStack = createNativeStackNavigator();
 const UtakaiStack = createNativeStackNavigator();
@@ -65,7 +64,6 @@ function UtakaiStackScreen() {
       <UtakaiStack.Screen name="UtakaiList" component={UtakaiListScreen} options={{ title: '歌会' }} />
       <UtakaiStack.Screen name="UtakaiDiscovery" component={UtakaiDiscoveryScreen} options={{ title: '公開歌会を探す' }} />
       <UtakaiStack.Screen name="UtakaiPreview" component={UtakaiPreviewScreen} options={{ title: '' }} />
-      <UtakaiStack.Screen name="PublicGroupWelcome" component={PublicGroupWelcomeScreen} options={{ title: '' }} />
       <UtakaiStack.Screen name="Timeline" component={TimelineScreen}
         options={({ route }: any) => ({ title: route.params?.groupName || 'タイムライン' })} />
       {sharedScreens(UtakaiStack)}

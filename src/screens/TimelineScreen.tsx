@@ -10,6 +10,10 @@ import { useAuth } from '../hooks/useAuth';
 import { usePaginatedPosts } from '../hooks/usePaginatedPosts';
 import { useTheme } from '../theme/ThemeContext';
 
+// タイムライン上部に「公開」バッジ＋趣意書ストリップを表示するか
+// 要らなくなったら false に切り替え（実装はそのまま残す）
+const SHOW_PUBLIC_PURPOSE_STRIP = true;
+
 export default function TimelineScreen({ route, navigation }: any) {
   const { groupId, groupName } = route.params;
   const { user } = useAuth();
@@ -109,7 +113,7 @@ export default function TimelineScreen({ route, navigation }: any) {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textTertiary} colors={[colors.textTertiary]} />}
       >
-        {isPublic && (
+        {SHOW_PUBLIC_PURPOSE_STRIP && isPublic && (
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => setPurposeExpanded(v => !v)}
@@ -153,11 +157,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 5,
     gap: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  publicBadge: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  publicBadgeText: { fontSize: 10, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 2 },
-  purposeText: { flex: 1, fontSize: 12, lineHeight: 18, fontFamily: 'NotoSerifJP_400Regular' },
+  publicBadge: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 },
+  publicBadgeText: { fontSize: 9, lineHeight: 13, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 1 },
+  purposeText: { flex: 1, fontSize: 12, lineHeight: 17, fontFamily: 'NotoSerifJP_400Regular' },
 });

@@ -282,8 +282,8 @@ export const createGroup = onCall(
       // 趣意書チェック
       if (typeof purpose !== "string") throw new HttpsError("invalid-argument", "趣意書が必要です");
       trimmedPurpose = purpose.trim();
-      if (trimmedPurpose.length < 25 || trimmedPurpose.length > 200) {
-        throw new HttpsError("invalid-argument", "趣意書は25〜200文字で入力してください");
+      if (trimmedPurpose.length < 10 || trimmedPurpose.length > 200) {
+        throw new HttpsError("invalid-argument", "趣意書は10〜200文字で入力してください");
       }
       // URL や HTML タグを含まない
       if (/https?:\/\//i.test(trimmedPurpose) || /<[^>]+>/.test(trimmedPurpose)) {
@@ -422,6 +422,39 @@ export const getPublicGroupPreview = onCall(
       banned,
       full: (groupData.memberCount || 0) >= 500,
     };
+  }
+);
+
+/**
+ * updatePurpose — 公開歌会の趣意書をオーナーが更新
+ */
+export const updatePurpose = onCall(
+  { region: "asia-northeast1" },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
+    const uid = request.auth.uid;
+    const { groupId, purpose } = request.data;
+    if (!groupId || typeof groupId !== "string") throw new HttpsError("invalid-argument", "groupId が必要です");
+    if (typeof purpose !== "string") throw new HttpsError("invalid-argument", "趣意書が必要です");
+    const trimmed = purpose.trim();
+    if (trimmed.length < 10 || trimmed.length > 200) {
+      throw new HttpsError("invalid-argument", "趣意書は10〜200文字で入力してください");
+    }
+    if (/https?:\/\//i.test(trimmed) || /<[^>]+>/.test(trimmed)) {
+      throw new HttpsError("invalid-argument", "趣意書にURLやHTMLタグは使えません");
+    }
+
+    const memberSnap = await db.doc(`groups/${groupId}/members/${uid}`).get();
+    if (!memberSnap.exists || memberSnap.data()?.role !== "owner") {
+      throw new HttpsError("permission-denied", "この歌会のオーナーのみが趣意書を編集できます");
+    }
+    const groupSnap = await db.doc(`groups/${groupId}`).get();
+    if (!groupSnap.exists || groupSnap.data()?.isPublic !== true) {
+      throw new HttpsError("failed-precondition", "公開歌会のみ趣意書を設定できます");
+    }
+
+    await db.doc(`groups/${groupId}`).update({ purpose: trimmed });
+    return { ok: true };
   }
 );
 
