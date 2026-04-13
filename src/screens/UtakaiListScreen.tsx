@@ -1,7 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { pickFirstJapaneseChar } from '../utils/pickFirstJapaneseChar';
-import { relativeTimeJa } from '../utils/relativeTime';
 import { arrayUnion, collection, doc, getDoc, getDocs, increment, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
@@ -13,6 +11,8 @@ import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../theme/ThemeContext';
 import { GroupDoc } from '../types';
+import { pickFirstJapaneseChar } from '../utils/pickFirstJapaneseChar';
+import { relativeTimeJa } from '../utils/relativeTime';
 import { fs } from '../utils/scale';
 
 export default function UtakaiListScreen({ navigation }: any) {
@@ -291,13 +291,15 @@ export default function UtakaiListScreen({ navigation }: any) {
           />
           {/* 頭文字を版心のように薄く置く（D案） */}
           {firstChar ? (
-            <Text
-              style={[styles.cardBgChar, { color: colors.text }]}
-              numberOfLines={1}
-              allowFontScaling={false}
-            >
-              {firstChar}
-            </Text>
+            <View style={styles.cardBgCharWrap} pointerEvents="none">
+              <Text
+                style={[styles.cardBgChar, { color: colors.text }]}
+                numberOfLines={1}
+                allowFontScaling={false}
+              >
+                {firstChar}
+              </Text>
+            </View>
           ) : null}
 
           <View style={styles.cardRowTop}>
@@ -550,12 +552,17 @@ const styles = StyleSheet.create({
   cardLastActivity: { fontSize: 12, fontFamily: 'NotoSerifJP_400Regular', marginLeft: 'auto' },
   cardMeta: { fontSize: 12, fontFamily: 'NotoSerifJP_400Regular' },
   cardMetaSep: { fontSize: 12 },
-  cardBgChar: {
+  cardBgCharWrap: {
     position: 'absolute',
-    right: -8,
-    top: -16,
-    fontSize: 120,
-    lineHeight: 130,
+    right: -20,
+    top: -30,
+    bottom: -10,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+  },
+  cardBgChar: {
+    fontSize: 180,
+    lineHeight: 180,
     fontFamily: 'KouzanSousho',
     opacity: 0.08,
     includeFontPadding: false,
