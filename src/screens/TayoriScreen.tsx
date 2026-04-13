@@ -85,9 +85,11 @@ export default function TayoriScreen({ navigation }: any) {
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => visibleItems.length > 0 ? (
-        <TouchableOpacity onPress={handleDeleteAll} hitSlop={8} style={{ padding: 8 }}>
-          <MaterialCommunityIcons name="delete-outline" size={22} color={colors.textSecondary} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginRight: 4 }}>
+          <TouchableOpacity onPress={handleDeleteAll} hitSlop={8} style={{ padding: 8 }}>
+            <MaterialCommunityIcons name="delete-outline" size={24} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
       ) : null,
     });
   }, [navigation, visibleItems.length, handleDeleteAll, colors]);

@@ -37,12 +37,12 @@ export default function TimelineScreen({ route, navigation }: any) {
       navigation.setOptions({
         title: name,
         headerRight: () => (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginRight: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginRight: 4 }}>
             <TouchableOpacity onPress={() => navigation.navigate('GroupSettings', { groupId })} hitSlop={8} style={{ padding: 8 }}>
-              <MaterialCommunityIcons name="cog-outline" size={22} color={colors.text} />
+              <MaterialCommunityIcons name="cog-outline" size={24} color={colors.text} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => navigation.navigate('Compose', { preselectedGroupId: groupId })} hitSlop={8} style={{ padding: 8 }}>
-              <MaterialCommunityIcons name="pen" size={22} color={colors.text} />
+              <MaterialCommunityIcons name="pen" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
         ),

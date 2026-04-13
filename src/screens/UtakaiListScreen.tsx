@@ -33,9 +33,14 @@ export default function UtakaiListScreen({ navigation }: any) {
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity onPress={() => setShowMenu(true)} hitSlop={8} style={{ padding: 8 }}>
-          <MaterialCommunityIcons name="plus" size={24} color={colors.text} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginRight: 4 }}>
+          <TouchableOpacity onPress={() => navigation.navigate('UtakaiDiscovery')} hitSlop={8} style={{ padding: 8 }}>
+            <MaterialCommunityIcons name="compass-outline" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowMenu(true)} hitSlop={8} style={{ padding: 8 }}>
+            <MaterialCommunityIcons name="plus" size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
       ),
     });
   }, [navigation, colors]);
@@ -318,11 +323,6 @@ export default function UtakaiListScreen({ navigation }: any) {
             <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); setShowJoin(true); }}>
               <MaterialCommunityIcons name="key-variant" size={22} color={colors.text} />
               <Text style={[styles.menuText, { color: colors.text }]}>招待コードで参加</Text>
-            </TouchableOpacity>
-            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
-            <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); navigation.navigate('UtakaiDiscovery'); }}>
-              <MaterialCommunityIcons name="compass-outline" size={22} color={colors.text} />
-              <Text style={[styles.menuText, { color: colors.text }]}>公開歌会を探す</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
