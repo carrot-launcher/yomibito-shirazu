@@ -276,7 +276,12 @@ export default function UtakaiListScreen({ navigation }: any) {
       <ScaleDecorator>
         <TouchableOpacity
           activeOpacity={0.8}
-          style={[styles.card, { backgroundColor: colors.surface, borderLeftColor: unread ? colors.destructive : colors.border }, isActive && { opacity: 0.8 }]}
+          style={[
+            styles.card,
+            { backgroundColor: colors.surface, borderLeftColor: unread ? '#F2B84A' : colors.border },
+            unread && styles.cardUnreadGlow,
+            isActive && { opacity: 0.8 },
+          ]}
           onPress={() => navigation.navigate('Timeline', { groupId: item.id, groupName: item.name })}
           onLongPress={drag}
           delayLongPress={250}
@@ -293,7 +298,11 @@ export default function UtakaiListScreen({ navigation }: any) {
           {firstChar ? (
             <View style={styles.cardBgCharWrap} pointerEvents="none">
               <Text
-                style={[styles.cardBgChar, { color: colors.text }]}
+                style={[
+                  styles.cardBgChar,
+                  { color: colors.text },
+                  unread && styles.cardBgCharGlow,
+                ]}
                 numberOfLines={1}
                 allowFontScaling={false}
               >
@@ -555,7 +564,7 @@ const styles = StyleSheet.create({
   cardBgCharWrap: {
     position: 'absolute',
     right: -20,
-    top: -30,
+    top: -25,
     bottom: -10,
     justifyContent: 'center',
     alignItems: 'flex-end',
@@ -566,6 +575,20 @@ const styles = StyleSheet.create({
     fontFamily: 'KouzanSousho',
     opacity: 0.08,
     includeFontPadding: false,
+  },
+  cardUnreadGlow: {
+    shadowColor: '#F5C848',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.55,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  cardBgCharGlow: {
+    color: '#F2B84A',
+    opacity: 0.75,
+    textShadowColor: '#F5C848',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 20,
   },
   menuModal: { borderRadius: 16, padding: 8, width: '75%' },
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
