@@ -134,9 +134,18 @@ export const createPost = onCall(
     const memberSnap = await db.doc(`groups/${groupId}/members/${uid}`).get();
     if (!memberSnap.exists) throw new HttpsError("permission-denied", "この歌会のメンバーではありません");
 
-    // グループ名を取得（myPosts用）
+    // グループ名・公開状態を取得
     const groupSnap = await db.doc(`groups/${groupId}`).get();
-    const groupName = groupSnap.data()?.name || "";
+    const groupData = groupSnap.data();
+    const groupName = groupData?.name || "";
+
+    // 公開歌会の場合は kill switch を確認
+    if (groupData?.isPublic === true) {
+      const cfgSnap = await db.doc("config/publicGroups").get();
+      if (cfgSnap.exists && cfgSnap.data()?.enabled === false) {
+        throw new HttpsError("failed-precondition", "公開歌会への投稿は現在停止しています");
+      }
+    }
 
     const today = todayKey();
     const userCounterRef = db.doc(`rateLimits/${uid}/daily/${today}`);
@@ -209,6 +218,15 @@ export const createComment = onCall(
     const groupId = postSnap.data()?.groupId;
     const memberSnap = await db.doc(`groups/${groupId}/members/${uid}`).get();
     if (!memberSnap.exists) throw new HttpsError("permission-denied", "この歌会のメンバーではありません");
+
+    // 公開歌会の場合は kill switch を確認
+    const groupSnap = await db.doc(`groups/${groupId}`).get();
+    if (groupSnap.data()?.isPublic === true) {
+      const cfgSnap = await db.doc("config/publicGroups").get();
+      if (cfgSnap.exists && cfgSnap.data()?.enabled === false) {
+        throw new HttpsError("failed-precondition", "公開歌会への投稿は現在停止しています");
+      }
+    }
 
     const today = todayKey();
     const userCounterRef = db.doc(`rateLimits/${uid}/daily/${today}`);
