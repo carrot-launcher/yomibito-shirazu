@@ -298,8 +298,30 @@ export default function UtakaiListScreen({ navigation }: any) {
     <GradientBackground style={styles.container}>
       {groups.length === 0 ? (
         <View style={[styles.emptyList, styles.empty]}>
-          <Text style={[styles.emptyText, { color: colors.textTertiary }]}>歌会がありません</Text>
-          <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>右上の＋から歌会を開くか{'\n'}参加しましょう</Text>
+          <Text style={[styles.emptyText, { color: colors.textTertiary }]}>まだ歌会がありません</Text>
+
+          <TouchableOpacity
+            activeOpacity={0.75}
+            style={[styles.discoverCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => navigation.navigate('UtakaiDiscovery')}
+          >
+            <MaterialCommunityIcons name="compass-outline" size={36} color={colors.textSecondary} style={styles.discoverIcon} />
+            <Text style={[styles.discoverTitle, { color: colors.text }]}>公開歌会を探す</Text>
+            <Text style={[styles.discoverDesc, { color: colors.textSecondary }]}>
+              誰でも参加できる歌会から{'\n'}始めてみる
+            </Text>
+          </TouchableOpacity>
+
+          <Text style={[styles.emptyOr, { color: colors.textTertiary }]}>または、右上の＋から</Text>
+          <View style={styles.emptyActionsRow}>
+            <TouchableOpacity onPress={() => setShowCreate(true)}>
+              <Text style={[styles.emptyActionLink, { color: colors.textSecondary }]}>歌会を開く</Text>
+            </TouchableOpacity>
+            <Text style={[styles.emptyActionSep, { color: colors.textTertiary }]}>・</Text>
+            <TouchableOpacity onPress={() => setShowJoin(true)}>
+              <Text style={[styles.emptyActionLink, { color: colors.textSecondary }]}>招待コードで参加</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
         <DraggableFlatList
@@ -435,8 +457,29 @@ const styles = StyleSheet.create({
   list: { padding: 16, paddingBottom: 24 },
   emptyList: { flex: 1, justifyContent: 'center' as const },
   empty: { alignItems: 'center' },
-  emptyText: { fontSize: 17, fontFamily: 'NotoSerifJP_500Medium' },
+  emptyText: { fontSize: 17, fontFamily: 'NotoSerifJP_500Medium', marginBottom: 28 },
   emptySubtext: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginTop: 8 },
+  discoverCard: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 22,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    marginHorizontal: 32,
+    minWidth: 240,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  discoverIcon: { marginBottom: 10 },
+  discoverTitle: { fontSize: 17, lineHeight: 24, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 2, marginBottom: 8 },
+  discoverDesc: { fontSize: 13, lineHeight: 20, textAlign: 'center', fontFamily: 'NotoSerifJP_400Regular' },
+  emptyOr: { fontSize: 12, marginTop: 28, marginBottom: 10, fontFamily: 'NotoSerifJP_400Regular' },
+  emptyActionsRow: { flexDirection: 'row', alignItems: 'center' },
+  emptyActionLink: { fontSize: 14, lineHeight: 22, fontFamily: 'NotoSerifJP_500Medium', paddingHorizontal: 8, paddingVertical: 4 },
+  emptyActionSep: { fontSize: 13 },
   card: {
     borderRadius: 14,
     paddingHorizontal: 20,
