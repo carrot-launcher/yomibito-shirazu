@@ -1,4 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { pickFirstJapaneseChar } from '../utils/pickFirstJapaneseChar';
+import { relativeTimeJa } from '../utils/relativeTime';
 import { arrayUnion, collection, doc, getDoc, getDocs, increment, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
@@ -265,22 +268,59 @@ export default function UtakaiListScreen({ navigation }: any) {
 
   const renderGroupItem = ({ item, drag, isActive }: RenderItemParams<GroupDoc & { id: string }>) => {
     const unread = isUnread(item);
+    const firstChar = pickFirstJapaneseChar(item.name || '');
+    const lastPost = item.lastPostAt?.toDate?.();
+    const lastLabel = lastPost ? relativeTimeJa(lastPost) : '';
+    const postCount = item.postCount ?? 0;
     return (
       <ScaleDecorator>
         <TouchableOpacity
+          activeOpacity={0.8}
           style={[styles.card, { backgroundColor: colors.surface, borderLeftColor: unread ? colors.destructive : colors.border }, isActive && { opacity: 0.8 }]}
           onPress={() => navigation.navigate('Timeline', { groupId: item.id, groupName: item.name })}
           onLongPress={drag}
           delayLongPress={250}
           disabled={isActive}
         >
-          <Text style={[styles.cardName, { color: unread ? colors.text : colors.textSecondary, fontWeight: unread ? '500' : '400' }]} numberOfLines={1}>{item.name}</Text>
-          {item.isPublic && (
-            <View style={[styles.publicBadge, { borderColor: colors.border }]}>
-              <Text style={[styles.publicBadgeText, { color: colors.textTertiary }]}>公開</Text>
-            </View>
-          )}
-          <Text style={[styles.cardMembers, { color: colors.textTertiary }]}>{item.memberCount}人</Text>
+          {/* 和紙風の極薄グラデーション（C案） */}
+          <LinearGradient
+            colors={[colors.surface, colors.bg]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          {/* 頭文字を版心のように薄く置く（D案） */}
+          {firstChar ? (
+            <Text
+              style={[styles.cardBgChar, { color: colors.text }]}
+              numberOfLines={1}
+              allowFontScaling={false}
+            >
+              {firstChar}
+            </Text>
+          ) : null}
+
+          <View style={styles.cardRowTop}>
+            <Text
+              style={[styles.cardName, { color: unread ? colors.text : colors.textSecondary, fontWeight: unread ? '500' : '400' }]}
+              numberOfLines={1}
+            >
+              {item.name}
+            </Text>
+            {item.isPublic && (
+              <View style={[styles.publicBadge, { borderColor: colors.border }]}>
+                <Text style={[styles.publicBadgeText, { color: colors.textTertiary }]}>公開</Text>
+              </View>
+            )}
+            {lastLabel ? (
+              <Text style={[styles.cardLastActivity, { color: colors.textTertiary }]}>{lastLabel}</Text>
+            ) : null}
+          </View>
+          <View style={styles.cardRowBottom}>
+            <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>{item.memberCount}人</Text>
+            <Text style={[styles.cardMetaSep, { color: colors.textTertiary }]}>・</Text>
+            <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>{postCount}首</Text>
+          </View>
         </TouchableOpacity>
       </ScaleDecorator>
     );
@@ -483,20 +523,43 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 14,
     paddingHorizontal: 20,
-    paddingVertical: 18,
+    paddingVertical: 16,
     marginBottom: 12,
     borderLeftWidth: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 2,
   },
-  cardName: { fontSize: fs(18), fontFamily: 'NotoSerifJP_500Medium', flex: 1, marginRight: 12 },
-  cardMembers: { fontSize: 14 },
+  cardRowTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cardRowBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 6,
+  },
+  cardName: { fontSize: fs(18), fontFamily: 'NotoSerifJP_500Medium', flexShrink: 1 },
+  cardLastActivity: { fontSize: 12, fontFamily: 'NotoSerifJP_400Regular', marginLeft: 'auto' },
+  cardMeta: { fontSize: 12, fontFamily: 'NotoSerifJP_400Regular' },
+  cardMetaSep: { fontSize: 12 },
+  cardBgChar: {
+    position: 'absolute',
+    right: -8,
+    top: -16,
+    fontSize: 120,
+    lineHeight: 130,
+    fontFamily: 'KouzanSousho',
+    opacity: 0.08,
+    includeFontPadding: false,
+  },
   menuModal: { borderRadius: 16, padding: 8, width: '75%' },
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
   menuText: { fontSize: 17, fontFamily: 'NotoSerifJP_500Medium' },

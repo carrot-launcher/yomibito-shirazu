@@ -47,6 +47,7 @@ export default function App() {
     NotoSerifJP_500Medium,
     NotoSerifJP_700Bold,
     IBMPlexMono_600SemiBold,
+    KouzanSousho: require('./assets/fonts/KouzanSousho.otf'),
   });
 
   if (!fontsLoaded) {
