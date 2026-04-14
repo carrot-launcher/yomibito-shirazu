@@ -48,9 +48,9 @@ export default function LoginScreen() {
       <View style={dynamicStyles.agreement}>
         <Text style={dynamicStyles.agreementText}>
           ログインすることで、
-          <Text style={dynamicStyles.agreementLink} onPress={() => WebBrowser.openBrowserAsync('https://carrot-launcher.github.io/yomibito-shirazu/terms-of-service.md')}>利用規約</Text>
+          <Text style={dynamicStyles.agreementLink} onPress={() => WebBrowser.openBrowserAsync('https://carrot-launcher.github.io/yomibito-shirazu/terms-of-service.html')}>利用規約</Text>
           と
-          <Text style={dynamicStyles.agreementLink} onPress={() => WebBrowser.openBrowserAsync('https://carrot-launcher.github.io/yomibito-shirazu/privacy-policy.md')}>プライバシーポリシー</Text>
+          <Text style={dynamicStyles.agreementLink} onPress={() => WebBrowser.openBrowserAsync('https://carrot-launcher.github.io/yomibito-shirazu/privacy-policy.html')}>プライバシーポリシー</Text>
           に同意したものとみなします。
         </Text>
       </View>

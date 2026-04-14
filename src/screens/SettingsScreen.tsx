@@ -154,14 +154,14 @@ export default function SettingsScreen() {
 
       <TouchableOpacity
         style={[styles.linkRow, { borderBottomColor: colors.border }]}
-        onPress={() => WebBrowser.openBrowserAsync('https://carrot-launcher.github.io/yomibito-shirazu/terms-of-service.md')}
+        onPress={() => WebBrowser.openBrowserAsync('https://carrot-launcher.github.io/yomibito-shirazu/terms-of-service.html')}
       >
         <Text style={[styles.linkText, { color: colors.text }]}>利用規約</Text>
         <Text style={[styles.linkArrow, { color: colors.textTertiary }]}>›</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={[styles.linkRow, { borderBottomColor: colors.border }]}
-        onPress={() => WebBrowser.openBrowserAsync('https://carrot-launcher.github.io/yomibito-shirazu/privacy-policy.md')}
+        onPress={() => WebBrowser.openBrowserAsync('https://carrot-launcher.github.io/yomibito-shirazu/privacy-policy.html')}
       >
         <Text style={[styles.linkText, { color: colors.text }]}>プライバシーポリシー</Text>
         <Text style={[styles.linkArrow, { color: colors.textTertiary }]}>›</Text>

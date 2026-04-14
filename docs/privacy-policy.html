@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>プライバシーポリシー — 詠み人知らず</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: "Yu Mincho", "Hiragino Mincho Pro", serif;
+    background: linear-gradient(180deg, #F5EEE4 0%, #E2D6C3 100%);
+    color: #2C2418;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    background: #FFFDF8;
+    border-radius: 16px;
+    padding: 36px 32px;
+    max-width: 720px;
+    width: 100%;
+    box-shadow: 0 4px 20px rgba(44, 36, 24, 0.1);
+    margin: 24px 0;
+  }
+  h1 {
+    font-size: 26px;
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 8px;
+    letter-spacing: 4px;
+  }
+  .updated {
+    text-align: center;
+    font-size: 13px;
+    color: #8B7E6A;
+    margin-bottom: 28px;
+  }
+  h2 {
+    font-size: 18px;
+    font-weight: 500;
+    color: #2C2418;
+    margin-top: 28px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #E8E0D0;
+    letter-spacing: 2px;
+  }
+  h3 {
+    font-size: 15px;
+    font-weight: 500;
+    color: #2C2418;
+    margin-top: 18px;
+    margin-bottom: 8px;
+  }
+  p {
+    font-size: 14px;
+    line-height: 1.9;
+    color: #5C5040;
+    margin-bottom: 12px;
+  }
+  ul {
+    margin: 8px 0 14px 0;
+    padding-left: 1.2em;
+    list-style: none;
+  }
+  ul li {
+    position: relative;
+    padding-left: 0.5em;
+    font-size: 14px;
+    line-height: 1.8;
+    color: #5C5040;
+    margin-bottom: 4px;
+  }
+  ul li::before {
+    content: '—';
+    position: absolute;
+    left: -0.9em;
+    color: #B0A590;
+  }
+  ul ul {
+    margin-top: 4px;
+    margin-bottom: 4px;
+  }
+  strong {
+    color: #2C2418;
+    font-weight: 500;
+  }
+  a {
+    color: #5A4628;
+    text-decoration: none;
+    border-bottom: 1px solid #D0C2A6;
+  }
+  a:hover {
+    color: #2C2418;
+    border-bottom-color: #8B7E6A;
+  }
+  .footer {
+    text-align: center;
+    font-size: 11px;
+    color: #A89C86;
+    margin-top: 36px;
+    padding-top: 20px;
+    border-top: 1px solid #E8E0D0;
+    letter-spacing: 1px;
+  }
+  .contact {
+    background: #F5EFDF;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-top: 8px;
+  }
+  .contact a { font-family: "Consolas", "Menlo", monospace; font-size: 14px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>プライバシーポリシー</h1>
+    <p class="updated">最終更新日: 2026年4月15日</p>
+
+    <p>「詠み人知らず」（以下「本アプリ」）は、ユーザーのプライバシーを尊重し、個人情報の保護に努めます。本ポリシーでは、本アプリが収集・利用する情報について説明します。</p>
+
+    <h2>収集する情報</h2>
+
+    <h3>アカウント情報</h3>
+    <p>本アプリはGoogleアカウントによるログインを使用します。ログイン時に以下の情報がFirebase Authenticationに保持されます。</p>
+    <ul>
+      <li>Googleアカウントに紐づく一意の識別子（UID）</li>
+      <li>メールアドレス</li>
+    </ul>
+    <p>これらの情報はアカウント管理および認証のためにのみ使用され、他のユーザーには公開されません。メールアドレスはアプリのデータベースには保存しませんが、Firebase Authenticationサービスによって管理されます。アカウント削除時にはFirebase Authenticationの情報も完全に削除されます。</p>
+
+    <h3>ユーザーが作成するデータ</h3>
+    <ul>
+      <li>短歌の投稿内容</li>
+      <li>評（コメント）の内容</li>
+      <li>リアクション</li>
+      <li>歌会の名前、招待コード</li>
+      <li>公開歌会の場合は趣意書（参加していないログインユーザーにも公開されます）</li>
+      <li>歌会ごとの表示名（匿名のペンネーム）</li>
+      <li>歌人ID（6桁の数字コード）</li>
+      <li>栞（ブックマーク）</li>
+    </ul>
+
+    <h3>自動的に収集される情報</h3>
+    <ul>
+      <li><strong>プッシュ通知用のデバイストークン</strong>: 通知機能のために使用します。</li>
+      <li><strong>利用状況データ（Google Analytics for Firebase）</strong>: アクティブユーザー数、セッション数、画面遷移などの匿名の利用統計を収集します。広告IDおよびSSAIDの収集は無効化しており、個人を特定する情報は収集しません。</li>
+      <li><strong>クラッシュレポート（Firebase Crashlytics）</strong>: アプリの異常終了やエラーに関する情報（スタックトレース、デバイスの種類、OSバージョンなど）を自動的に収集します。これらの情報はアプリの品質改善のためにのみ使用します。</li>
+    </ul>
+
+    <h3>収集しない情報</h3>
+    <p>本アプリは以下の情報を収集しません。</p>
+    <ul>
+      <li>位置情報</li>
+      <li>連絡先</li>
+      <li>写真・動画</li>
+      <li>広告ID（AAID / IDFA）</li>
+      <li>財務情報</li>
+    </ul>
+
+    <h2>情報の利用目的</h2>
+    <p>収集した情報は以下の目的で利用します。</p>
+    <ul>
+      <li>アプリの機能提供（投稿、評、リアクション、通知など）</li>
+      <li>アプリの改善および利用状況の分析</li>
+      <li>クラッシュや不具合の検出と修正</li>
+      <li>プッシュ通知の送信</li>
+    </ul>
+    <p>広告の表示や広告のパーソナライズには一切使用しません。</p>
+
+    <h2>第三者への提供</h2>
+    <p>ユーザーの個人情報を第三者に販売・貸与することはありません。ただし、以下のサービスを利用しており、これらのサービスのプライバシーポリシーが適用されます。</p>
+    <ul>
+      <li><strong>Firebase（Google LLC）</strong>: データの保存、認証、通知送信に使用<br>
+        <a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener">Firebase プライバシーポリシー</a></li>
+      <li><strong>Google Analytics for Firebase</strong>: 匿名の利用統計の収集に使用（広告ID収集は無効化済み）<br>
+        <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google プライバシーポリシー</a></li>
+      <li><strong>Firebase Crashlytics</strong>: クラッシュレポートの収集に使用<br>
+        <a href="https://firebase.google.com/docs/crashlytics/troubleshoot?platform=android" target="_blank" rel="noopener">Firebase Crashlytics のデータ収集について</a></li>
+    </ul>
+
+    <h2>公開歌会における情報の公開範囲</h2>
+    <p>公開歌会に所属している場合、以下の情報は当該歌会に参加していないログインユーザーにも閲覧される可能性があります。</p>
+    <ul>
+      <li>歌会の名前</li>
+      <li>歌会の趣意書</li>
+      <li>歌会のメンバー数・累計投稿数</li>
+      <li>最新の歌（最新10首まで。ただし歌本体の内容のみ。詠んだ人の情報は含みません）</li>
+    </ul>
+    <p>投稿した歌会が非公開歌会である場合、その歌の内容がメンバー以外に公開されることはありません。</p>
+
+    <h2>データの保管</h2>
+    <p>ユーザーのデータはGoogle Firebaseのサーバーに保管されます。匿名化された分析データ（Google Analytics for Firebase）は最大14ヶ月間保持されます。</p>
+
+    <h2>データの削除</h2>
+    <p>ユーザーはアプリ内の設定画面にある「消息を絶つ」機能、または<a href="delete-account.html">専用のウェブページ</a>から、いつでも自分のアカウントと関連するすべてのデータを削除できます。削除されるデータには以下が含まれます。</p>
+    <ul>
+      <li>投稿した短歌</li>
+      <li>書いた評</li>
+      <li>リアクション</li>
+      <li>栞</li>
+      <li>通知履歴</li>
+      <li>所有する歌会（解散されます）</li>
+      <li>アカウント情報</li>
+    </ul>
+    <p>削除を実行すると、上記のデータは即座にサーバーから削除され、復元することはできません。</p>
+
+    <h2>お子様のプライバシー</h2>
+    <p>本アプリは13歳未満のお子様を対象としていません。13歳未満のお子様から意図的に個人情報を収集することはありません。</p>
+
+    <h2>本ポリシーの変更</h2>
+    <p>本ポリシーは予告なく変更されることがあります。変更後のポリシーは本ページに掲載された時点で効力を生じます。</p>
+
+    <h2>お問い合わせ</h2>
+    <p>本ポリシーに関するお問い合わせは、以下までご連絡ください。</p>
+    <div class="contact">
+      <a href="mailto:tenderloin.games@gmail.com">tenderloin.games@gmail.com</a>
+    </div>
+
+    <div class="footer">© 詠み人知らず — tenderloin.games</div>
+  </div>
+</body>
+</html>
