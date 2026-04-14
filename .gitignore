@@ -11,6 +11,10 @@ dist/
 *.orig.*
 google-services.json
 GoogleService-Info.plist
+# サービスアカウントキー（万が一リポジトリ内に置かれても弾く保険）
+*-admin.json
+*service-account*.json
+scripts/node_modules/
 .env
 .env.local
 .env*.local
