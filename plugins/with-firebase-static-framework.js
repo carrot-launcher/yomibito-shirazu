@@ -1,13 +1,11 @@
-// @react-native-firebase + useFrameworks:static の組み合わせで起きる
-// "non-modular header inside framework module" エラーを回避するため、Podfile を調整する plugin。
-//   1) 先頭に $RNFirebaseAsStaticFramework = true を追記
-//   2) post_install で全ての pods に CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES を設定
+// iOS の Podfile を調整する config plugin。
+// useFrameworks を使わない構成で Firebase の Swift pods をビルドするため、
+// GoogleUtilities 等の非モジュラー pod を modular headers で扱うよう設定する。
 const { withDangerousMod } = require('expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
 
-const STATIC_MARKER = '$RNFirebaseAsStaticFramework';
-const POST_INSTALL_MARKER = 'RNFB_NON_MODULAR_FIX';
+const MODULAR_MARKER = 'use_modular_headers!';
 
 module.exports = function withFirebaseStaticFramework(config) {
   return withDangerousMod(config, [
@@ -16,27 +14,10 @@ module.exports = function withFirebaseStaticFramework(config) {
       const podfilePath = path.join(cfg.modRequest.platformProjectRoot, 'Podfile');
       let contents = fs.readFileSync(podfilePath, 'utf8');
 
-      if (!contents.includes(STATIC_MARKER)) {
-        contents = `${STATIC_MARKER} = true\n\n` + contents;
+      if (!contents.includes(MODULAR_MARKER)) {
+        contents = `${MODULAR_MARKER}\n\n` + contents;
+        fs.writeFileSync(podfilePath, contents);
       }
-
-      if (!contents.includes(POST_INSTALL_MARKER)) {
-        const hook = `
-  # ${POST_INSTALL_MARKER}: allow non-modular includes for every pod (fixes @react-native-firebase with use_frameworks!:static)
-  installer.pods_project.targets.each do |target|
-    target.build_configurations.each do |config|
-      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-    end
-  end
-`;
-        if (/post_install\s+do\s+\|installer\|/.test(contents)) {
-          contents = contents.replace(/post_install\s+do\s+\|installer\|/, (m) => m + hook);
-        } else {
-          contents += `\npost_install do |installer|${hook}end\n`;
-        }
-      }
-
-      fs.writeFileSync(podfilePath, contents);
       return cfg;
     },
   ]);
