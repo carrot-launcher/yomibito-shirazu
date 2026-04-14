@@ -26,8 +26,14 @@ export default {
         monochromeImage: "./assets/images/android-icon-monochrome.png",
       },
       blockedPermissions: [
+        // 写真・動画・音声の読み取りは不要（保存のみ）
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        // 写真の EXIF 位置情報は使わない
+        "android.permission.ACCESS_MEDIA_LOCATION",
+        // 広告IDは使わない（Firebase Analytics SDK が自動注入するので明示的に除去）
+        "com.google.android.gms.permission.AD_ID",
       ],
       predictiveBackGestureEnabled: false,
       package: "com.yomibito.shirazu",
