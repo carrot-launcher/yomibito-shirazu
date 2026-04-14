@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as WebBrowser from 'expo-web-browser';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -147,6 +148,32 @@ export default function SettingsScreen() {
           trackColor={colors.switchTrack} thumbColor={notifOther ? colors.switchThumb.on : colors.switchThumb.off} />
       </View>
 
+      <View style={{ height: 24 }} />
+
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>このアプリについて</Text>
+
+      <TouchableOpacity
+        style={[styles.linkRow, { borderBottomColor: colors.border }]}
+        onPress={() => WebBrowser.openBrowserAsync('https://carrot-launcher.github.io/yomibito-shirazu/terms-of-service.md')}
+      >
+        <Text style={[styles.linkText, { color: colors.text }]}>利用規約</Text>
+        <Text style={[styles.linkArrow, { color: colors.textTertiary }]}>›</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.linkRow, { borderBottomColor: colors.border }]}
+        onPress={() => WebBrowser.openBrowserAsync('https://carrot-launcher.github.io/yomibito-shirazu/privacy-policy.md')}
+      >
+        <Text style={[styles.linkText, { color: colors.text }]}>プライバシーポリシー</Text>
+        <Text style={[styles.linkArrow, { color: colors.textTertiary }]}>›</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.linkRow, { borderBottomColor: colors.border }]}
+        onPress={() => WebBrowser.openBrowserAsync('https://carrot-launcher.github.io/yomibito-shirazu/')}
+      >
+        <Text style={[styles.linkText, { color: colors.text }]}>お問い合わせ・サポート</Text>
+        <Text style={[styles.linkArrow, { color: colors.textTertiary }]}>›</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.logoutBtn} onPress={() => alert('ログアウト', 'ログアウトしますか？', [
         { text: 'やめる', style: 'cancel' },
         { text: 'ログアウト', style: 'destructive', onPress: async () => { try { await GoogleSignin.signOut(); } catch {} await signOut(auth); } },
@@ -221,6 +248,9 @@ const styles = StyleSheet.create({
   switchLabel: { fontSize: 16, fontFamily: 'NotoSerifJP_400Regular' },
   logoutBtn: { alignItems: 'center', marginTop: 24, paddingVertical: 12 },
   logoutText: { fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular' },
+  linkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
+  linkText: { fontSize: 15, lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular' },
+  linkArrow: { fontSize: 20, lineHeight: 20 },
   segmentBar: { flexDirection: 'row', borderRadius: 8, padding: 3, marginBottom: 4 },
   segment: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
   segmentText: { fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular' },
