@@ -108,9 +108,10 @@ export default function ScreenshotScreen({ route }: any) {
         width: CARD_WIDTH * 3,
         height: CARD_HEIGHT * 3,
       });
-      const { status } = await MediaLibrary.requestPermissionsAsync();
+      // 書き込み専用の権限だけをリクエスト（保存のみなのでフル権限は不要）
+      const { status } = await MediaLibrary.requestPermissionsAsync(true);
       if (status !== 'granted') {
-        alert('写真へのアクセス許可が必要です');
+        alert('写真への保存権限が必要です');
         return;
       }
       await MediaLibrary.saveToLibraryAsync(uri);

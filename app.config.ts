@@ -14,7 +14,8 @@ export default {
       bundleIdentifier: "com.yomibito.shirazu",
       googleServicesFile: process.env.GOOGLE_SERVICES_INFO_PLIST ?? './GoogleService-Info.plist',
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryAddUsageDescription": "詠んだ歌のスクリーンショット画像を端末の写真ライブラリに保存するために使用します。"
       },
     },
     android: {
@@ -24,6 +25,10 @@ export default {
         backgroundImage: "./assets/images/android-icon-background.png",
         monochromeImage: "./assets/images/android-icon-monochrome.png",
       },
+      blockedPermissions: [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+      ],
       predictiveBackGestureEnabled: false,
       package: "com.yomibito.shirazu",
       softwareKeyboardLayoutMode: "resize",
