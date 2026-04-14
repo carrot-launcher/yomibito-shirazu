@@ -61,14 +61,10 @@ export default {
       "@react-native-firebase/app",
       "@react-native-firebase/crashlytics",
       "./plugins/with-firebase-static-framework",
-      [
-        "expo-build-properties",
-        {
-          "ios": {
-            "useFrameworks": "static"
-          }
-        }
-      ],
+      // NOTE: useFrameworks: static を外している
+      //   @react-native-firebase v24 + Expo SDK 55 では static framework にすると
+      //   RNFBApp と React-Core のモジュール干渉で iOS ビルドが失敗する。
+      //   google-signin v16+ は use_frameworks を要求しないので外して OK。
     ],
     experiments: {
       reactCompiler: true,
