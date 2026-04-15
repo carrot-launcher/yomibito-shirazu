@@ -126,5 +126,14 @@ service cloud.firestore {
         }
       }
     }
+
+    // ===== 通報 =====
+    // 作成/更新/削除は Cloud Function 経由のみ。読み取りは本人（通報者）と歌会オーナーのみ。
+    match /reports/{reportId} {
+      allow read: if isAuth()
+                  && (resource.data.reporterId == request.auth.uid
+                      || isGroupOwner(resource.data.groupId));
+      allow create, update, delete: if false;
+    }
   }
 }

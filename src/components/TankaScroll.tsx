@@ -221,8 +221,11 @@ function createCardEl(card, index) {
   }
 
   if (card.hogo) {
+    var label = card.hogoType === 'pending'
+      ? '現在確認中です'
+      : '反故——' + escapeHtml(card.hogoReason || '仔細あり');
     el.innerHTML =
-      '<div class="tanka-body hogo">反故——' + escapeHtml(card.hogoReason || '仔細あり') + '</div>' +
+      '<div class="tanka-body hogo">' + label + '</div>' +
       '<div class="tanka-meta">' + metaHtml + '</div>';
   } else {
     var displayBody = card.body.replace(/[\\n\\r]+/g, '\\u3000');

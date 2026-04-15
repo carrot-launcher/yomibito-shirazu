@@ -13,6 +13,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { fs } from '../utils/scale';
 import ComposeScreen from '../screens/ComposeScreen';
 import GroupSettingsScreen from '../screens/GroupSettingsScreen';
+import ReportReviewScreen from '../screens/ReportReviewScreen';
 import KashuScreen from '../screens/KashuScreen';
 import LoginScreen from '../screens/LoginScreen';
 import ScreenshotScreen from '../screens/ScreenshotScreen';
@@ -53,6 +54,7 @@ function sharedScreens(Stack: ReturnType<typeof createNativeStackNavigator>) {
     <>
       <Stack.Screen name="TankaDetail" component={TankaDetailScreen} options={{ title: '' }} />
       <Stack.Screen name="GroupSettings" component={GroupSettingsScreen} options={{ title: '歌会設定' }} />
+      <Stack.Screen name="ReportReview" component={ReportReviewScreen} options={{ title: '通報の確認' }} />
     </>
   );
 }

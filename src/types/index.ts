@@ -51,6 +51,7 @@ export interface PostDoc {
   reactionSummary: Record<string, number>;
   commentCount: number;
   authorHandle?: string;  // HMAC-SHA256(salt, uid).slice(0,12) — ブロック機能のため
+  reportCount?: number;   // ユニーク reporter 数
   hogo?: boolean;
   hogoReason?: string;
   hogoType?: 'caution' | 'ban' | 'pending';
@@ -69,9 +70,24 @@ export interface CommentDoc {
   body: string;
   createdAt: Timestamp;
   authorHandle?: string;  // HMAC-SHA256(salt, uid).slice(0,12) — ブロック機能のため
+  reportCount?: number;   // ユニーク reporter 数
   hogo?: boolean;
   hogoReason?: string;
   hogoType?: 'caution' | 'ban' | 'pending';
+}
+
+export type ReportReason = 'inappropriate' | 'spam' | 'harassment' | 'other';
+
+export interface ReportDoc {
+  targetType: 'post' | 'comment';
+  targetId: string;       // postId または commentId
+  postId: string;         // 親 postId（コメントでも保持）
+  groupId: string;
+  reporterId: string;
+  reason: ReportReason;
+  detail?: string;        // reason='other' の場合のみ、500字まで
+  createdAt: Timestamp;
+  status: 'pending' | 'resolved';
 }
 
 export interface MyPostDoc {
@@ -93,8 +109,9 @@ export interface BookmarkDoc {
 }
 
 export interface NotificationDoc {
-  type: 'new_post' | 'reaction' | 'comment' | 'caution' | 'ban' | 'dissolve';
+  type: 'new_post' | 'reaction' | 'comment' | 'caution' | 'ban' | 'dissolve' | 'report';
   postId?: string;
+  commentId?: string;
   groupId?: string;
   groupName: string;
   tankaBody?: string;
@@ -122,6 +139,7 @@ export interface TankaCard {
   bookmarkedAt?: Date;
   hogo?: boolean;
   hogoReason?: string;
+  hogoType?: 'caution' | 'ban' | 'pending';
   revealedAuthorName?: string;
   revealedAuthorCode?: string;
 }

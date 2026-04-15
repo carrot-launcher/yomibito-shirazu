@@ -113,6 +113,10 @@ export default function TayoriScreen({ navigation }: any) {
   };
 
   const handleTap = (item: TayoriItem) => {
+    if (item.type === 'report' && item.groupId) {
+      navigation.navigate('ReportReview', { groupId: item.groupId });
+      return;
+    }
     if (!item.postId || !item.groupId) return;
     navigation.navigate('TankaDetail', { postId: item.postId, groupId: item.groupId });
   };
@@ -207,6 +211,11 @@ export default function TayoriScreen({ navigation }: any) {
         icon = 'account-group-outline';
         title = `${item.groupName}が解散しました`;
         break;
+      case 'report':
+        icon = 'flag-outline';
+        title = `${item.groupName}に通報`;
+        body = '確認してください';
+        break;
       default:
         icon = 'bell-outline';
         title = 'たより';
@@ -235,7 +244,7 @@ export default function TayoriScreen({ navigation }: any) {
   const filteredItems = filter === 'all'
     ? visibleItems
     : filter === 'other'
-    ? visibleItems.filter(i => i.type === 'caution' || i.type === 'ban' || i.type === 'dissolve')
+    ? visibleItems.filter(i => i.type === 'caution' || i.type === 'ban' || i.type === 'dissolve' || i.type === 'report')
     : visibleItems.filter(i => i.type === filter);
 
   const filters: { key: FilterType; label: string }[] = [

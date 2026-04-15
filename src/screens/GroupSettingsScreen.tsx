@@ -390,6 +390,22 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
         </View>
       )}
 
+      {/* 通報の確認（オーナーのみ） */}
+      {isOwner && (
+        <TouchableOpacity
+          style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+          onPress={() => navigation.navigate('ReportReview', { groupId })}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>通報の確認</Text>
+            <Text style={[styles.judgmentExplain, { color: colors.textSecondary, marginTop: 4 }]}>
+              仮非表示になった歌・評を確認して、解除または裁きに昇格します。
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textSecondary} />
+        </TouchableOpacity>
+      )}
+
       {/* 裁きについて（オーナーのみ） */}
       {isOwner && (
         <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>

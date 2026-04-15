@@ -915,8 +915,10 @@ export const judgeContent = onCall(
     if (!contentSnap.exists) throw new HttpsError("not-found", "対象が見つかりません");
     const contentData = contentSnap.data()!;
 
-    // 既に反故なら裁けない
-    if (contentData.hogo) throw new HttpsError("already-exists", "既に反故になっています");
+    // 既に反故なら裁けない（ただし pending からの昇格は許可）
+    if (contentData.hogo && contentData.hogoType !== "pending") {
+      throw new HttpsError("already-exists", "既に反故になっています");
+    }
 
     // 著者を特定
     const authorPath = isComment
@@ -959,6 +961,23 @@ export const judgeContent = onCall(
       hogoType: type, // 元の裁きタイプを記録
       body: "",
     });
+
+    // 関連 reports を resolved にマーク（pending からの昇格ケースも含む）
+    try {
+      const reportTargetId = isComment ? commentId! : postId;
+      const reportsSnap = await db
+        .collection("reports")
+        .where("targetId", "==", reportTargetId)
+        .where("status", "==", "pending")
+        .get();
+      if (!reportsSnap.empty) {
+        const batch = db.batch();
+        reportsSnap.docs.forEach((d) => batch.update(d.ref, { status: "resolved" }));
+        await batch.commit();
+      }
+    } catch (e) {
+      console.error("[judgeContent] resolve reports failed", e);
+    }
 
     // 元の本文を通知用に保存
     const originalBody = isComment ? contentData.body : contentData.body;
@@ -1406,5 +1425,272 @@ export const deleteAccount = onCall(
     await admin.auth().deleteUser(uid);
 
     return { success: true };
+  }
+);
+
+// ===== 通報（全ユーザー開放） =====
+
+const REPORT_REASONS = ["inappropriate", "spam", "harassment", "other"] as const;
+type ReportReason = (typeof REPORT_REASONS)[number];
+const REPORT_DAILY_LIMIT = 20;
+const AUTO_PENDING_THRESHOLD = 2;
+
+/**
+ * reportContent — 全ユーザーからの通報
+ *  - 同一投稿への重複通報禁止
+ *  - 1日 20 件まで
+ *  - reason enum 必須
+ *  - ユニーク reporter が閾値に達すると自動で hogo=true, hogoType='pending'
+ */
+export const reportContent = onCall(
+  { region: "asia-northeast1" },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
+    const uid = request.auth.uid;
+    const { groupId, postId, commentId, reason, detail } = request.data as {
+      groupId: string;
+      postId: string;
+      commentId?: string;
+      reason: string;
+      detail?: string;
+    };
+    if (!groupId || !postId) throw new HttpsError("invalid-argument", "groupId と postId が必要です");
+    if (!REPORT_REASONS.includes(reason as ReportReason)) {
+      throw new HttpsError("invalid-argument", "理由を選択してください");
+    }
+
+    // メンバーシップ確認はしない（閲覧者も通報できる）が、歌会の存在だけは確認
+    const groupSnap = await db.doc(`groups/${groupId}`).get();
+    if (!groupSnap.exists) throw new HttpsError("not-found", "歌会が見つかりません");
+
+    const targetType: "post" | "comment" = commentId ? "comment" : "post";
+    const targetId = commentId || postId;
+    const contentPath = commentId
+      ? `posts/${postId}/comments/${commentId}`
+      : `posts/${postId}`;
+    const contentSnap = await db.doc(contentPath).get();
+    if (!contentSnap.exists) throw new HttpsError("not-found", "対象が見つかりません");
+
+    // 自投稿は通報できない
+    const authorPath = commentId
+      ? `posts/${postId}/comments/${commentId}/private/author`
+      : `posts/${postId}/private/author`;
+    const authorSnap = await db.doc(authorPath).get();
+    if (authorSnap.exists && authorSnap.data()?.authorId === uid) {
+      throw new HttpsError("failed-precondition", "自分の投稿は通報できません");
+    }
+
+    // 重複通報チェック
+    const dupSnap = await db
+      .collection("reports")
+      .where("reporterId", "==", uid)
+      .where("targetId", "==", targetId)
+      .limit(1)
+      .get();
+    if (!dupSnap.empty) {
+      throw new HttpsError("already-exists", "この投稿は既に通報済みです");
+    }
+
+    // detail サニタイズ（other のときのみ）
+    let trimmedDetail: string | undefined;
+    if (reason === "other" && typeof detail === "string") {
+      trimmedDetail = detail
+        .trim()
+        .replace(/<[^>]+>/g, "")
+        .replace(/https?:\/\/\S+/gi, "")
+        .slice(0, 500);
+    }
+
+    const today = todayKey();
+    const reporterRateRef = db.doc(`rateLimits/${uid}/daily/${today}`);
+    const reportRef = db.collection("reports").doc();
+    const contentRef = db.doc(contentPath);
+
+    // トランザクション: レート制限確認 + reports 作成 + reportCount インクリメント + 閾値到達なら pending 化
+    const willBecomePending = await db.runTransaction(async (tx) => {
+      const rateSnap = await tx.get(reporterRateRef);
+      const reportCount = (rateSnap.data()?.reportCount as number) || 0;
+      if (reportCount >= REPORT_DAILY_LIMIT) {
+        throw new HttpsError("resource-exhausted", "本日の通報上限に達しました");
+      }
+
+      const contentNow = await tx.get(contentRef);
+      if (!contentNow.exists) throw new HttpsError("not-found", "対象が見つかりません");
+      const currentReportCount = (contentNow.data()?.reportCount as number) || 0;
+      const newReportCount = currentReportCount + 1;
+      const alreadyHogo = contentNow.data()?.hogo === true;
+      const shouldPending = !alreadyHogo && newReportCount >= AUTO_PENDING_THRESHOLD;
+
+      tx.set(reportRef, {
+        targetType,
+        targetId,
+        postId,
+        groupId,
+        reporterId: uid,
+        reason,
+        ...(trimmedDetail ? { detail: trimmedDetail } : {}),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        status: "pending",
+      });
+
+      // カウンタ更新（既存フィールドを壊さないように merge）
+      tx.set(
+        reporterRateRef,
+        {
+          reportCount: reportCount + 1,
+          postCount: rateSnap.data()?.postCount || 0,
+          commentCount: rateSnap.data()?.commentCount || 0,
+        },
+        { merge: true }
+      );
+
+      const contentUpdate: Record<string, unknown> = {
+        reportCount: newReportCount,
+      };
+      if (shouldPending) {
+        contentUpdate.hogo = true;
+        contentUpdate.hogoType = "pending";
+        contentUpdate.hogoReason = "確認中";
+      }
+      tx.update(contentRef, contentUpdate);
+
+      return shouldPending;
+    });
+
+    // 閾値到達時、歌会オーナーに通知（ベストエフォート）
+    if (willBecomePending) {
+      try {
+        const ownerId = groupSnap.data()?.createdBy as string | undefined;
+        if (ownerId) {
+          const originalBody =
+            (contentSnap.data()?.body as string | undefined) || "";
+          await createReportNotification(ownerId, {
+            postId,
+            commentId,
+            groupId,
+            groupName: (groupSnap.data()?.name as string) || "",
+            tankaBody: truncate(originalBody, 50),
+          });
+        }
+      } catch (e) {
+        // 通知失敗は通報成功を妨げない
+        console.error("[reportContent] notify owner failed", e);
+      }
+    }
+
+    return { success: true, pending: willBecomePending };
+  }
+);
+
+// 通報でオーナーに届ける通知
+async function createReportNotification(
+  ownerId: string,
+  data: {
+    postId: string;
+    commentId?: string;
+    groupId: string;
+    groupName: string;
+    tankaBody: string;
+  }
+) {
+  const userSnap = await db.doc(`users/${ownerId}`).get();
+  const userData = userSnap.data();
+  if (!userData) return;
+
+  const fcmToken = userData.fcmToken;
+  if (fcmToken) {
+    try {
+      await admin.messaging().send({
+        token: fcmToken,
+        notification: {
+          title: `${data.groupName}に通報が入りました`,
+          body: "確認してください",
+        },
+        android: {
+          notification: {
+            channelId: "other",
+            visibility: "private" as const,
+          },
+        },
+        data: {
+          postId: data.postId,
+          commentId: data.commentId || "",
+          groupId: data.groupId,
+          type: "report",
+        },
+      });
+    } catch (e: any) {
+      if (
+        e.code === "messaging/invalid-registration-token" ||
+        e.code === "messaging/registration-token-not-registered"
+      ) {
+        await db.doc(`users/${ownerId}`).update({ fcmToken: "" });
+      }
+    }
+  }
+
+  await db.collection(`users/${ownerId}/notifications`).add({
+    type: "report",
+    postId: data.postId,
+    ...(data.commentId ? { commentId: data.commentId } : {}),
+    groupId: data.groupId,
+    groupName: data.groupName,
+    tankaBody: data.tankaBody,
+    createdAt: admin.firestore.Timestamp.now(),
+  });
+}
+
+/**
+ * resolveReports — オーナーが仮非表示を解除する（裁きはしない）
+ *  - hogo/hogoType='pending' の投稿・評を通常状態に戻す
+ *  - 関連する reports の status を 'resolved' にする
+ */
+export const resolveReports = onCall(
+  { region: "asia-northeast1" },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
+    const { groupId, postId, commentId } = request.data as {
+      groupId: string;
+      postId: string;
+      commentId?: string;
+    };
+    if (!groupId || !postId) throw new HttpsError("invalid-argument", "groupId と postId が必要です");
+
+    // オーナーチェック
+    const callerSnap = await db.doc(`groups/${groupId}/members/${request.auth.uid}`).get();
+    if (!callerSnap.exists || callerSnap.data()?.role !== "owner") {
+      throw new HttpsError("permission-denied", "オーナーのみ解除できます");
+    }
+
+    const targetId = commentId || postId;
+    const contentPath = commentId
+      ? `posts/${postId}/comments/${commentId}`
+      : `posts/${postId}`;
+    const contentSnap = await db.doc(contentPath).get();
+    if (!contentSnap.exists) throw new HttpsError("not-found", "対象が見つかりません");
+
+    const data = contentSnap.data()!;
+    if (data.hogoType !== "pending") {
+      throw new HttpsError("failed-precondition", "仮非表示状態ではありません");
+    }
+
+    // 仮非表示を解除
+    await db.doc(contentPath).update({
+      hogo: admin.firestore.FieldValue.delete(),
+      hogoType: admin.firestore.FieldValue.delete(),
+      hogoReason: admin.firestore.FieldValue.delete(),
+    });
+
+    // 関連 reports を resolved にマーク
+    const reportsSnap = await db
+      .collection("reports")
+      .where("targetId", "==", targetId)
+      .where("status", "==", "pending")
+      .get();
+    const batch = db.batch();
+    reportsSnap.docs.forEach((d) => batch.update(d.ref, { status: "resolved" }));
+    await batch.commit();
+
+    return { success: true, resolvedCount: reportsSnap.size };
   }
 );

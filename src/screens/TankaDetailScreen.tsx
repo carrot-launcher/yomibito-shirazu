@@ -38,11 +38,17 @@ function rubyToHtml(escaped: string): string {
     '<ruby>$1<rp>(</rp><rt>$2</rt><rp>)</rp></ruby>');
 }
 
+function hogoLabel(type: string | undefined, reason: string | undefined): string {
+  if (type === 'pending') return '現在確認中です';
+  return '反故——' + (reason || '仔細あり');
+}
+
 function buildDetailHtml(
   body: string,
-  comments: { body: string; time: string; id: string; hogo?: boolean; hogoReason?: string }[],
+  comments: { body: string; time: string; id: string; hogo?: boolean; hogoReason?: string; hogoType?: string }[],
   isHogo: boolean,
   hogoReason: string | undefined,
+  hogoType: string | undefined,
   colors: ThemeColors,
 ): string {
   const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -50,11 +56,11 @@ function buildDetailHtml(
     ...c,
     body: c.hogo ? '' : escapeHtml(c.body),
     hogo: !!c.hogo,
-    hogoReason: c.hogoReason || '仔細あり',
+    hogoLabel: escapeHtml(hogoLabel(c.hogoType, c.hogoReason)),
   })));
 
   const tankaContent = isHogo
-    ? `<span class="hogo-text">反故——${escapeHtml(hogoReason || '仔細あり')}</span>`
+    ? `<span class="hogo-text">${escapeHtml(hogoLabel(hogoType, hogoReason))}</span>`
     : rubyToHtml(escapeHtml(body));
 
   return `<!DOCTYPE html>
@@ -162,7 +168,7 @@ if (comments.length === 0) {
     el.className = "comment-item" + (c.hogo ? " comment-hogo" : "");
 
     if (c.hogo) {
-      el.innerHTML = '反故——' + c.hogoReason +
+      el.innerHTML = (c.hogoLabel || ('反故——' + (c.hogoReason || '仔細あり'))) +
         '<div class="comment-time">' + c.time + '</div>';
       // 反故の評は長押しメニューを出さない
       commentsEl.appendChild(el);
@@ -244,6 +250,13 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   const [judging, setJudging] = useState(false);
   // 裁きの対象を記憶
   const [judgmentTarget, setJudgmentTarget] = useState<{ type: 'post' | 'comment'; commentId?: string }>({ type: 'post' });
+
+  // 通報モーダル
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'comment'; commentId?: string }>({ type: 'post' });
+  const [reportReason, setReportReason] = useState<'inappropriate' | 'spam' | 'harassment' | 'other' | null>(null);
+  const [reportDetail, setReportDetail] = useState('');
+  const [reporting, setReporting] = useState(false);
 
   // オーナーか確認
   useEffect(() => {
@@ -506,6 +519,45 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     }
   };
 
+  const openReportModal = (target: 'post' | 'comment', commentId?: string) => {
+    setMenuVisible(false);
+    setReportTarget({ type: target, commentId });
+    setReportReason(null);
+    setReportDetail('');
+    setTimeout(() => setReportModalVisible(true), 200);
+  };
+
+  const handleReport = async () => {
+    if (!user || !reportReason || reporting) return;
+    setReporting(true);
+    try {
+      const fns = getFunctions(undefined, 'asia-northeast1');
+      const reportContentFn = httpsCallable(fns, 'reportContent');
+      await reportContentFn({
+        groupId,
+        postId,
+        commentId: reportTarget.type === 'comment' ? reportTarget.commentId : null,
+        reason: reportReason,
+        detail: reportReason === 'other' ? reportDetail.trim() : undefined,
+      });
+      setReportModalVisible(false);
+      setReportReason(null);
+      setReportDetail('');
+      alert('通報を受け付けました', 'ご協力ありがとうございます。歌会の主宰が内容を確認します。');
+    } catch (e: any) {
+      const msg = e?.code === 'functions/already-exists'
+        ? 'この投稿は既に通報済みです'
+        : e?.code === 'functions/resource-exhausted'
+        ? '本日の通報上限に達しました'
+        : e?.code === 'functions/failed-precondition'
+        ? e.message || '通報できない内容です'
+        : e?.message || 'エラーが発生しました';
+      alert('通報できませんでした', msg);
+    } finally {
+      setReporting(false);
+    }
+  };
+
   const handleComment = async () => {
     if (!user || !commentText.trim() || submitting) return;
     if (commentText.length > 500) { alert('500文字以内にしてください'); return; }
@@ -581,9 +633,10 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     time: c.createdAt ? timeAgo(c.createdAt.toDate()) : '',
     hogo: !!c.hogo,
     hogoReason: c.hogoReason,
+    hogoType: c.hogoType,
   }));
 
-  const html = buildDetailHtml(displayBody, commentData, isHogo, post.hogoReason, colors);
+  const html = buildDetailHtml(displayBody, commentData, isHogo, post.hogoReason, post.hogoType, colors);
 
   // メニューで表示する項目を決定
   const isMenuForPost = menuTargetComment === null;
@@ -715,6 +768,20 @@ export default function TankaDetailScreen({ route, navigation }: any) {
               </TouchableOpacity>
             )}
 
+            {/* 通報（自投稿以外、反故・仮非表示以外） */}
+            {!menuCommentHogo && !(isMenuForPost && fromMyPosts) && (
+              <>
+                <View style={styles.menuDivider} />
+                <TouchableOpacity style={styles.menuItem} onPress={() => {
+                  openReportModal(isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined);
+                }}>
+                  <MaterialCommunityIcons name="flag-outline" size={20} color={colors.text} />
+                  <Text style={styles.menuItemText}>通報</Text>
+                  <Text style={styles.menuItemHint}>主宰が確認</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
             {/* 裁き（オーナーのみ） */}
             {isOwner && !menuCommentHogo && (
               <>
@@ -742,6 +809,71 @@ export default function TankaDetailScreen({ route, navigation }: any) {
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* 通報モーダル */}
+      <Modal visible={reportModalVisible} transparent animationType="fade" onRequestClose={() => { if (!reporting) setReportModalVisible(false); }}>
+        <View style={styles.judgmentOverlay}>
+          <View style={styles.judgmentModal}>
+            <Text style={styles.judgmentTitle}>通報</Text>
+            <Text style={styles.judgmentDesc}>
+              この{reportTarget.type === 'comment' ? '評' : '歌'}を歌会の主宰に通報します。理由を選んでください。即座に削除されるわけではなく、主宰が確認した上で対応します。
+            </Text>
+
+            {([
+              { key: 'inappropriate', label: '不適切な内容' },
+              { key: 'spam', label: 'スパム・広告' },
+              { key: 'harassment', label: '誹謗中傷・攻撃的' },
+              { key: 'other', label: 'その他' },
+            ] as const).map(opt => (
+              <TouchableOpacity
+                key={opt.key}
+                style={[styles.reportReasonBtn, reportReason === opt.key && styles.reportReasonBtnActive]}
+                onPress={() => setReportReason(opt.key)}
+                disabled={reporting}
+              >
+                <MaterialCommunityIcons
+                  name={reportReason === opt.key ? 'radiobox-marked' : 'radiobox-blank'}
+                  size={18}
+                  color={reportReason === opt.key ? colors.text : colors.disabled}
+                />
+                <Text style={styles.reportReasonText}>{opt.label}</Text>
+              </TouchableOpacity>
+            ))}
+
+            {reportReason === 'other' && (
+              <TextInput
+                style={styles.reportDetailInput}
+                value={reportDetail}
+                onChangeText={setReportDetail}
+                placeholder="詳細（任意、500字以内）"
+                placeholderTextColor={colors.disabled}
+                multiline
+                maxLength={500}
+              />
+            )}
+
+            <View style={styles.judgmentButtons}>
+              <TouchableOpacity
+                style={styles.judgmentCancelBtn}
+                onPress={() => { setReportModalVisible(false); setReportReason(null); setReportDetail(''); }}
+                disabled={reporting}
+              >
+                <Text style={styles.judgmentCancelText}>やめる</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.judgmentConfirmBtn,
+                  (!reportReason || reporting) && styles.judgmentConfirmBtnDisabled,
+                ]}
+                onPress={handleReport}
+                disabled={!reportReason || reporting}
+              >
+                <Text style={styles.judgmentConfirmText}>{reporting ? '送信中...' : '通報する'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       {/* 裁き確認モーダル */}
@@ -855,7 +987,7 @@ function makeStyles(colors: ThemeColors) {
     menuItemText: { fontSize: 16, color: colors.text, fontFamily: 'NotoSerifJP_400Regular' },
     menuItemTextDanger: { fontSize: 16, color: '#C53030', fontFamily: 'NotoSerifJP_400Regular' },
     menuItemTextCancel: { fontSize: 16, color: colors.textSecondary, fontFamily: 'NotoSerifJP_400Regular', textAlign: 'center', flex: 1 },
-    menuItemHint: { fontSize: 12, color: colors.textTertiary, marginLeft: 'auto' },
+    menuItemHint: { fontSize: 12, color: colors.textTertiary, marginLeft: 'auto', fontFamily: 'NotoSerifJP_400Regular' },
     menuDivider: { height: 1, backgroundColor: colors.border, marginVertical: 2 },
 
     // 裁き確認モーダル
@@ -864,13 +996,14 @@ function makeStyles(colors: ThemeColors) {
       backgroundColor: colors.surface, borderRadius: 16, padding: 24,
       width: '85%', borderWidth: 1, borderColor: colors.border,
     },
-    judgmentTitle: { fontSize: 20, color: colors.text, fontWeight: '600', marginBottom: 12, textAlign: 'center' },
-    judgmentDesc: { fontSize: 13, color: colors.textSecondary, lineHeight: 20, marginBottom: 16 },
+    judgmentTitle: { fontSize: 20, lineHeight: 28, color: colors.text, marginBottom: 12, textAlign: 'center', fontFamily: 'NotoSerifJP_500Medium' },
+    judgmentDesc: { fontSize: 13, color: colors.textSecondary, lineHeight: 20, marginBottom: 16, fontFamily: 'NotoSerifJP_400Regular' },
     judgmentLabel: { fontSize: 13, color: colors.text, marginBottom: 6, fontFamily: 'NotoSerifJP_400Regular' },
     judgmentInput: {
       borderWidth: 1, borderColor: colors.border, borderRadius: 8,
       padding: 12, fontSize: 15, color: colors.text, marginBottom: 20,
       minHeight: 48, textAlignVertical: 'top',
+      fontFamily: 'NotoSerifJP_400Regular',
     },
     judgmentButtons: { flexDirection: 'row', gap: 12 },
     judgmentCancelBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1, borderColor: colors.border },
@@ -879,5 +1012,25 @@ function makeStyles(colors: ThemeColors) {
     judgmentConfirmBtnBan: { backgroundColor: '#C53030' },
     judgmentConfirmBtnDisabled: { opacity: 0.4 },
     judgmentConfirmText: { color: '#FFFFFF', fontSize: 15, lineHeight: 20, fontWeight: '600', fontFamily: 'NotoSerifJP_500Medium' },
+    reportReasonBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      paddingVertical: 10, paddingHorizontal: 12,
+      borderRadius: 8, borderWidth: 1, borderColor: colors.border,
+      marginBottom: 8, backgroundColor: colors.surface,
+    },
+    reportReasonBtnActive: {
+      borderColor: colors.text,
+      backgroundColor: colors.activeHighlight,
+    },
+    reportReasonText: {
+      fontSize: 14, lineHeight: 18,
+      color: colors.text,
+      fontFamily: 'NotoSerifJP_400Regular',
+    },
+    reportDetailInput: {
+      borderWidth: 1, borderColor: colors.border, borderRadius: 8,
+      padding: 12, fontSize: 15, color: colors.text, marginBottom: 20,
+      minHeight: 48, textAlignVertical: 'top',
+    },
   });
 }

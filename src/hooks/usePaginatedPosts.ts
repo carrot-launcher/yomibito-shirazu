@@ -16,6 +16,7 @@ function docToCard(d: QueryDocumentSnapshot): TankaCard {
     commentCount: data.commentCount || 0,
     hogo: data.hogo,
     hogoReason: data.hogoReason,
+    hogoType: data.hogoType,
     revealedAuthorName: data.revealedAuthorName,
     revealedAuthorCode: data.revealedAuthorCode,
   };
