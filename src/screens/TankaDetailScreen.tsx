@@ -726,8 +726,8 @@ export default function TankaDetailScreen({ route, navigation }: any) {
             </TouchableOpacity>
           )}
 
-          {/* 三点リーダメニュー（著者またはオーナーに表示、反故でない場合） */}
-          {!isHogo && (
+          {/* 三点リーダメニュー（反故でも、自分の歌なら削除のために表示） */}
+          {(!isHogo || fromMyPosts) && (
             <TouchableOpacity style={styles.moreBtn} onPress={openPostMenu}>
               <MaterialCommunityIcons name="dots-horizontal" size={20} color={colors.text} />
             </TouchableOpacity>
