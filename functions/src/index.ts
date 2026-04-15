@@ -1640,6 +1640,84 @@ async function createReportNotification(
   });
 }
 
+// ===== ブロック機能 =====
+
+const BLOCK_LIMIT = 200;
+
+/**
+ * getMyAuthorHandle — 自分の authorHandle を返す
+ *   - 自投稿を除外するためのクライアント側フィルタに必要
+ */
+export const getMyAuthorHandle = onCall(
+  { region: "asia-northeast1", secrets: [AUTHOR_HANDLE_SALT] },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
+    return { handle: deriveAuthorHandle(request.auth.uid) };
+  }
+);
+
+/**
+ * blockAuthor — handle ベースで特定の詠み人をブロック
+ *   - users/{uid}.blockedHandles map に追加
+ *   - 自分自身のハンドルはブロック不可
+ *   - 上限 200
+ */
+export const blockAuthor = onCall(
+  { region: "asia-northeast1", secrets: [AUTHOR_HANDLE_SALT] },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
+    const uid = request.auth.uid;
+    const { handle, sampleBody } = request.data as { handle: string; sampleBody?: string };
+    if (!handle || typeof handle !== "string" || !/^[0-9a-f]{12}$/.test(handle)) {
+      throw new HttpsError("invalid-argument", "不正なハンドルです");
+    }
+    if (handle === deriveAuthorHandle(uid)) {
+      throw new HttpsError("failed-precondition", "自分自身はブロックできません");
+    }
+
+    const userRef = db.doc(`users/${uid}`);
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(userRef);
+      if (!snap.exists) throw new HttpsError("not-found", "ユーザーが見つかりません");
+      const current = (snap.data()?.blockedHandles as Record<string, unknown>) || {};
+      if (current[handle]) {
+        // 既にブロック済みなら何もしない
+        return;
+      }
+      if (Object.keys(current).length >= BLOCK_LIMIT) {
+        throw new HttpsError("resource-exhausted", `ブロックは最大${BLOCK_LIMIT}人までです`);
+      }
+      const entry: Record<string, unknown> = {
+        blockedAt: admin.firestore.Timestamp.now(),
+      };
+      if (typeof sampleBody === "string" && sampleBody.trim().length > 0) {
+        entry.sampleBody = sampleBody.trim().slice(0, 80);
+      }
+      tx.update(userRef, { [`blockedHandles.${handle}`]: entry });
+    });
+    return { success: true };
+  }
+);
+
+/**
+ * unblockAuthor — ブロック解除
+ */
+export const unblockAuthor = onCall(
+  { region: "asia-northeast1" },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
+    const uid = request.auth.uid;
+    const { handle } = request.data as { handle: string };
+    if (!handle || typeof handle !== "string") {
+      throw new HttpsError("invalid-argument", "handle が必要です");
+    }
+    await db.doc(`users/${uid}`).update({
+      [`blockedHandles.${handle}`]: admin.firestore.FieldValue.delete(),
+    });
+    return { success: true };
+  }
+);
+
 /**
  * resolveReports — オーナーが仮非表示を解除する（裁きはしない）
  *  - hogo/hogoType='pending' の投稿・評を通常状態に戻す

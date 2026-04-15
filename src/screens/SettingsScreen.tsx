@@ -19,8 +19,8 @@ import { useTheme } from '../theme/ThemeContext';
 
 type ThemeMode = 'system' | 'light' | 'dark';
 
-export default function SettingsScreen() {
-  const { user, userCode } = useAuth();
+export default function SettingsScreen({ navigation }: any) {
+  const { user, userCode, blockedHandles } = useAuth();
   const { colors, mode, setMode } = useTheme();
   const [notifNewPost, setNotifNewPost] = useState(true);
   const [notifReaction, setNotifReaction] = useState(true);
@@ -150,6 +150,24 @@ export default function SettingsScreen() {
 
       <View style={{ height: 24 }} />
 
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>ブロック</Text>
+      <TouchableOpacity
+        style={[styles.linkRow, { borderBottomColor: colors.border }]}
+        onPress={() => navigation.navigate('BlockedAuthors')}
+      >
+        <Text style={[styles.linkText, { color: colors.text }]}>ブロック中の歌人</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {Object.keys(blockedHandles).length > 0 && (
+            <Text style={[styles.linkCount, { color: colors.textSecondary }]}>
+              {Object.keys(blockedHandles).length} 人
+            </Text>
+          )}
+          <Text style={[styles.linkArrow, { color: colors.textTertiary }]}>›</Text>
+        </View>
+      </TouchableOpacity>
+
+      <View style={{ height: 24 }} />
+
       <Text style={[styles.sectionTitle, { color: colors.text }]}>このアプリについて</Text>
 
       <TouchableOpacity
@@ -250,6 +268,7 @@ const styles = StyleSheet.create({
   logoutText: { fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular' },
   linkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
   linkText: { fontSize: 15, lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular' },
+  linkCount: { fontSize: 13, lineHeight: 18, fontFamily: 'NotoSerifJP_400Regular' },
   linkArrow: { fontSize: 20, lineHeight: 20 },
   segmentBar: { flexDirection: 'row', borderRadius: 8, padding: 3, marginBottom: 4 },
   segment: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },

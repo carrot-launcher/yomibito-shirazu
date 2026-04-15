@@ -12,6 +12,7 @@ export interface UserDoc {
     comment: boolean;
   };
   createdAt: Timestamp;
+  blockedHandles?: Record<string, { blockedAt: Timestamp; sampleBody?: string }>;
 }
 
 export interface GroupDoc {
@@ -140,6 +141,7 @@ export interface TankaCard {
   hogo?: boolean;
   hogoReason?: string;
   hogoType?: 'caution' | 'ban' | 'pending';
+  authorHandle?: string;
   revealedAuthorName?: string;
   revealedAuthorCode?: string;
 }

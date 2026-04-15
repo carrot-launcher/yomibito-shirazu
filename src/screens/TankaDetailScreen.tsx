@@ -223,7 +223,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   const { postId, groupId, batchId } = route.params;
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { user } = useAuth();
+  const { user, myAuthorHandle, blockedHandles } = useAuth();
   const [post, setPost] = useState<PostDoc | null>(null);
   const [deleted, setDeleted] = useState(false);
   const [comments, setComments] = useState<(CommentDoc & { id: string })[]>([]);
@@ -519,6 +519,61 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     }
   };
 
+  const getTargetAuthorHandle = (target: 'post' | 'comment', commentId?: string): string | undefined => {
+    if (target === 'comment') {
+      const c = comments.find(x => x.id === commentId);
+      return (c as any)?.authorHandle;
+    }
+    return (post as any)?.authorHandle;
+  };
+
+  const isSelf = (target: 'post' | 'comment', commentId?: string) => {
+    const h = getTargetAuthorHandle(target, commentId);
+    return !!h && !!myAuthorHandle && h === myAuthorHandle;
+  };
+
+  const isBlocked = (target: 'post' | 'comment', commentId?: string) => {
+    const h = getTargetAuthorHandle(target, commentId);
+    return !!h && !!blockedHandles[h];
+  };
+
+  const handleBlockAuthor = (target: 'post' | 'comment', commentId?: string) => {
+    setMenuVisible(false);
+    const handle = getTargetAuthorHandle(target, commentId);
+    if (!handle) {
+      alert('ブロックできません', '歌人の識別情報が取得できませんでした。');
+      return;
+    }
+    const sampleBody = target === 'comment'
+      ? (comments.find(c => c.id === commentId)?.body || '')
+      : (post?.body || '');
+    alert(
+      'この歌人をブロック',
+      'この歌人の歌・評があなたには表示されなくなります。',
+      [
+        { text: 'やめる', style: 'cancel' },
+        {
+          text: 'ブロックする',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const fns = getFunctions(undefined, 'asia-northeast1');
+              await httpsCallable(fns, 'blockAuthor')({ handle, sampleBody: sampleBody.slice(0, 80) });
+              alert('ブロックしました', 'この歌人の歌・評は表示されなくなります。設定画面から解除できます。');
+            } catch (e: any) {
+              const msg = e?.code === 'functions/resource-exhausted'
+                ? 'ブロックできるのは200人までです'
+                : e?.code === 'functions/failed-precondition'
+                ? '自分自身はブロックできません'
+                : e?.message || 'エラーが発生しました';
+              alert('ブロックできませんでした', msg);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const openReportModal = (target: 'post' | 'comment', commentId?: string) => {
     setMenuVisible(false);
     setReportTarget({ type: target, commentId });
@@ -627,14 +682,19 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     convertLineBreak: post.convertLineBreak,
   });
 
-  const commentData = comments.map(c => ({
-    id: c.id,
-    body: c.body,
-    time: c.createdAt ? timeAgo(c.createdAt.toDate()) : '',
-    hogo: !!c.hogo,
-    hogoReason: c.hogoReason,
-    hogoType: c.hogoType,
-  }));
+  const commentData = comments
+    .filter(c => {
+      const h = (c as any).authorHandle as string | undefined;
+      return !h || !blockedHandles[h];
+    })
+    .map(c => ({
+      id: c.id,
+      body: c.body,
+      time: c.createdAt ? timeAgo(c.createdAt.toDate()) : '',
+      hogo: !!c.hogo,
+      hogoReason: c.hogoReason,
+      hogoType: c.hogoType,
+    }));
 
   const html = buildDetailHtml(displayBody, commentData, isHogo, post.hogoReason, post.hogoType, colors);
 
@@ -768,8 +828,8 @@ export default function TankaDetailScreen({ route, navigation }: any) {
               </TouchableOpacity>
             )}
 
-            {/* 通報（自投稿以外、反故・仮非表示以外） */}
-            {!menuCommentHogo && !(isMenuForPost && fromMyPosts) && (
+            {/* 通報・ブロック（自投稿以外、反故以外） */}
+            {!menuCommentHogo && !(isMenuForPost && fromMyPosts) && !isSelf(isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined) && (
               <>
                 <View style={styles.menuDivider} />
                 <TouchableOpacity style={styles.menuItem} onPress={() => {
@@ -779,6 +839,15 @@ export default function TankaDetailScreen({ route, navigation }: any) {
                   <Text style={styles.menuItemText}>通報</Text>
                   <Text style={styles.menuItemHint}>主宰が確認</Text>
                 </TouchableOpacity>
+                {!isBlocked(isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined) && (
+                  <TouchableOpacity style={styles.menuItem} onPress={() => {
+                    handleBlockAuthor(isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined);
+                  }}>
+                    <MaterialCommunityIcons name="account-cancel-outline" size={20} color={colors.text} />
+                    <Text style={styles.menuItemText}>この歌人をブロック</Text>
+                    <Text style={styles.menuItemHint}>以後非表示</Text>
+                  </TouchableOpacity>
+                )}
               </>
             )}
 

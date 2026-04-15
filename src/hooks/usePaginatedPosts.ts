@@ -17,6 +17,7 @@ function docToCard(d: QueryDocumentSnapshot): TankaCard {
     hogo: data.hogo,
     hogoReason: data.hogoReason,
     hogoType: data.hogoType,
+    authorHandle: (data as any).authorHandle,
     revealedAuthorName: data.revealedAuthorName,
     revealedAuthorCode: data.revealedAuthorCode,
   };

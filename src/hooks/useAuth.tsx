@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
@@ -56,10 +57,13 @@ interface AuthContextType {
   userCode: string;
   onboardingDone: boolean;
   setOnboardingDone: (done: boolean) => void;
+  myAuthorHandle: string;
+  blockedHandles: Record<string, { blockedAt: any; sampleBody?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null, loading: true, userCode: '', onboardingDone: true, setOnboardingDone: () => {},
+  myAuthorHandle: '', blockedHandles: {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -67,9 +71,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [userCode, setUserCode] = useState('');
   const [onboardingDone, setOnboardingDoneState] = useState(true);
+  const [myAuthorHandle, setMyAuthorHandle] = useState('');
+  const [blockedHandles, setBlockedHandles] = useState<Record<string, { blockedAt: any; sampleBody?: string }>>({});
 
   useEffect(() => {
+    let unsubUserDoc: (() => void) | null = null;
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // 切替時にユーザードキュメント購読を停止
+      unsubUserDoc?.();
+      unsubUserDoc = null;
+
       if (firebaseUser) {
         const userRef = doc(db, 'users', firebaseUser.uid);
         const userSnap = await getDoc(userRef);
@@ -95,8 +106,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           setOnboardingDoneState(data.onboardingDone ?? true);
         }
+
+        // blockedHandles をリアルタイム購読
+        unsubUserDoc = onSnapshot(userRef, (snap) => {
+          const data = snap.data();
+          setBlockedHandles((data?.blockedHandles as Record<string, { blockedAt: any; sampleBody?: string }>) || {});
+        });
+
+        // 自分の authorHandle を取得（キャッシュ）
+        try {
+          const fns = getFunctions(undefined, 'asia-northeast1');
+          const res = await httpsCallable(fns, 'getMyAuthorHandle')({});
+          const handle = (res.data as any)?.handle as string;
+          if (handle) setMyAuthorHandle(handle);
+        } catch {
+          // 取得失敗時は空のまま（フィルタが効かないだけで致命的ではない）
+        }
       } else {
         setUserCode('');
+        setMyAuthorHandle('');
+        setBlockedHandles({});
       }
       if (!firebaseUser) setOnboardingDoneState(true);
       setUser(firebaseUser);
@@ -107,7 +136,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         registerForPushNotifications(firebaseUser.uid);
       }
     });
-    return unsubscribe;
+    return () => {
+      unsubUserDoc?.();
+      unsubscribe();
+    };
   }, []);
 
   const setOnboardingDone = async (done: boolean) => {
@@ -118,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, userCode, onboardingDone, setOnboardingDone }}>
+    <AuthContext.Provider value={{ user, loading, userCode, onboardingDone, setOnboardingDone, myAuthorHandle, blockedHandles }}>
       {children}
     </AuthContext.Provider>
   );

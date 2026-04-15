@@ -18,6 +18,7 @@ import KashuScreen from '../screens/KashuScreen';
 import LoginScreen from '../screens/LoginScreen';
 import ScreenshotScreen from '../screens/ScreenshotScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import BlockedAuthorsScreen from '../screens/BlockedAuthorsScreen';
 import TankaDetailScreen from '../screens/TankaDetailScreen';
 import TayoriScreen from '../screens/TayoriScreen';
 import TimelineScreen from '../screens/TimelineScreen';
@@ -98,6 +99,7 @@ function SettingsStackScreen() {
   return (
     <SettingsStack.Navigator screenOptions={commonHeaderStyle}>
       <SettingsStack.Screen name="SettingsList" component={SettingsScreen} options={{ title: '設定' }} />
+      <SettingsStack.Screen name="BlockedAuthors" component={BlockedAuthorsScreen} options={{ title: 'ブロック中の歌人' }} />
     </SettingsStack.Navigator>
   );
 }

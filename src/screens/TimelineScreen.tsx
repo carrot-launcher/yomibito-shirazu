@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
@@ -16,10 +16,17 @@ const SHOW_PUBLIC_PURPOSE_STRIP = true;
 
 export default function TimelineScreen({ route, navigation }: any) {
   const { groupId, groupName } = route.params;
-  const { user } = useAuth();
+  const { user, blockedHandles } = useAuth();
   const { alert } = useAlert();
   const { colors } = useTheme();
   const { cards, loading, hasMore, refresh, loadMore, generation, newArrivals, arrivalGen, changedCards, removedIds, updateGen } = usePaginatedPosts(groupId);
+  const filterBlocked = useCallback(<T extends { authorHandle?: string }>(list: T[]) => {
+    if (!Object.keys(blockedHandles).length) return list;
+    return list.filter(c => !c.authorHandle || !blockedHandles[c.authorHandle]);
+  }, [blockedHandles]);
+  const visibleCards = useMemo(() => filterBlocked(cards), [cards, filterBlocked]);
+  const visibleNewArrivals = useMemo(() => filterBlocked(newArrivals), [newArrivals, filterBlocked]);
+  const visibleChangedCards = useMemo(() => filterBlocked(changedCards), [changedCards, filterBlocked]);
   const [refreshing, setRefreshing] = useState(false);
   const [unreadSince, setUnreadSince] = useState<Date | null>(null);
   const [isPublic, setIsPublic] = useState(false);
@@ -133,15 +140,15 @@ export default function TimelineScreen({ route, navigation }: any) {
           </TouchableOpacity>
         )}
         <TankaScroll
-          cards={cards}
+          cards={visibleCards}
           onTap={(postId, gId) => navigation.navigate('TankaDetail', { postId, groupId: gId })}
           mode="timeline"
           onLoadMore={hasMore && !loading ? loadMore : undefined}
           generation={generation}
-          newArrivals={newArrivals}
+          newArrivals={visibleNewArrivals}
           arrivalGen={arrivalGen}
           unreadSince={unreadSince}
-          changedCards={changedCards}
+          changedCards={visibleChangedCards}
           removedIds={removedIds}
           updateGen={updateGen}
         />
