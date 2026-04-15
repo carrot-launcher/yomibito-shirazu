@@ -1,6 +1,8 @@
 import * as admin from "firebase-admin";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { moderate, OPENAI_API_KEY } from "./moderation/openaiModeration";
+import { deriveAuthorHandle, AUTHOR_HANDLE_SALT } from "./moderation/authorHandle";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -121,7 +123,7 @@ function todayKey(): string {
  * createPost — 歌の投稿（レートリミット付き）
  */
 export const createPost = onCall(
-  { region: "asia-northeast1" },
+  { region: "asia-northeast1", secrets: [OPENAI_API_KEY, AUTHOR_HANDLE_SALT] },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
@@ -147,6 +149,13 @@ export const createPost = onCall(
       }
     }
 
+    // 事前モデレーション（Fail-open）
+    const mod = await moderate(trimmed);
+    if (!mod.ok) {
+      throw new HttpsError("failed-precondition", "この内容は投稿できません。表現をお確かめください。");
+    }
+
+    const authorHandle = deriveAuthorHandle(uid);
     const today = todayKey();
     const userCounterRef = db.doc(`rateLimits/${uid}/daily/${today}`);
     const groupCounterRef = db.doc(`rateLimits/group_${groupId}/daily/${today}`);
@@ -168,6 +177,7 @@ export const createPost = onCall(
         convertLineBreak: convertLineBreak ?? true,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         reactionSummary: {}, commentCount: 0,
+        authorHandle,
       });
       tx.set(db.doc(`posts/${postRef.id}/private/author`), { authorId: uid });
       tx.set(db.collection(`users/${uid}/myPosts`).doc(), {
@@ -203,7 +213,7 @@ export const createPost = onCall(
  * createComment — 評の投稿（レートリミット付き）
  */
 export const createComment = onCall(
-  { region: "asia-northeast1" },
+  { region: "asia-northeast1", secrets: [OPENAI_API_KEY, AUTHOR_HANDLE_SALT] },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
@@ -228,6 +238,13 @@ export const createComment = onCall(
       }
     }
 
+    // 事前モデレーション（Fail-open）
+    const mod = await moderate(trimmed);
+    if (!mod.ok) {
+      throw new HttpsError("failed-precondition", "この内容は投稿できません。表現をお確かめください。");
+    }
+
+    const authorHandle = deriveAuthorHandle(uid);
     const today = todayKey();
     const userCounterRef = db.doc(`rateLimits/${uid}/daily/${today}`);
 
@@ -241,6 +258,7 @@ export const createComment = onCall(
       tx.set(commentRef, {
         body: trimmed,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        authorHandle,
       });
       tx.set(db.doc(`posts/${postId}/comments/${commentRef.id}/private/author`), { authorId: uid });
       tx.update(db.doc(`posts/${postId}`), { commentCount: admin.firestore.FieldValue.increment(1) });

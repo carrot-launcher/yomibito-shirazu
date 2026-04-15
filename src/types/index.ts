@@ -50,9 +50,10 @@ export interface PostDoc {
   createdAt: Timestamp;
   reactionSummary: Record<string, number>;
   commentCount: number;
+  authorHandle?: string;  // HMAC-SHA256(salt, uid).slice(0,12) — ブロック機能のため
   hogo?: boolean;
   hogoReason?: string;
-  hogoType?: 'caution' | 'ban';
+  hogoType?: 'caution' | 'ban' | 'pending';
   revealedAuthorName?: string;
   revealedAuthorCode?: string;
 }
@@ -67,9 +68,10 @@ export interface ReactionDoc {
 export interface CommentDoc {
   body: string;
   createdAt: Timestamp;
+  authorHandle?: string;  // HMAC-SHA256(salt, uid).slice(0,12) — ブロック機能のため
   hogo?: boolean;
   hogoReason?: string;
-  hogoType?: 'caution' | 'ban';
+  hogoType?: 'caution' | 'ban' | 'pending';
 }
 
 export interface MyPostDoc {
