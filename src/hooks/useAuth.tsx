@@ -92,6 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             joinedGroups: [],
             notificationSettings: { newPost: true, reaction: true, comment: true },
             createdAt: serverTimestamp(),
+            // LoginScreen のチェックボックスで同意した時点で作成されるので、同時に記録
+            termsAcceptedAt: serverTimestamp(),
           });
           setUserCode(code);
           setOnboardingDoneState(false);
@@ -145,12 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setOnboardingDone = async (done: boolean) => {
     setOnboardingDoneState(done);
     if (user) {
-      const update: Record<string, unknown> = { onboardingDone: done };
-      if (done) {
-        // 同意時刻を記録（利用規約改訂時の再同意判定に将来使う）
-        update.termsAcceptedAt = serverTimestamp();
-      }
-      await updateDoc(doc(db, 'users', user.uid), update).catch(() => {});
+      await updateDoc(doc(db, 'users', user.uid), { onboardingDone: done }).catch(() => {});
     }
   };
 
