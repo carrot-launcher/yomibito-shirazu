@@ -84,8 +84,7 @@ function buildHtml(cards: TankaCard[], mode: string, hasLoadMore: boolean, color
     letter-spacing: 0.1em;
     color: ${colors.text};
     flex: 1;
-    display: flex;
-    align-items: flex-start;
+    overflow: hidden;
   }
   .tanka-body.hogo {
     font-style: italic;
