@@ -726,8 +726,8 @@ export default function TankaDetailScreen({ route, navigation }: any) {
             </TouchableOpacity>
           )}
 
-          {/* 三点リーダメニュー（反故でも、自分の歌なら削除のために表示） */}
-          {(!isHogo || fromMyPosts) && (
+          {/* 三点リーダメニュー: 自投稿（削除/解題）、他投稿（通報/ブロック）、オーナー（裁き）のいずれかがあれば表示 */}
+          {(isSelf('post') || !isHogo || isOwner) && (
             <TouchableOpacity style={styles.moreBtn} onPress={openPostMenu}>
               <MaterialCommunityIcons name="dots-horizontal" size={20} color={colors.text} />
             </TouchableOpacity>
@@ -786,8 +786,8 @@ export default function TankaDetailScreen({ route, navigation }: any) {
           <View style={styles.menuSheet}>
             <Text style={styles.menuTitle}>{isMenuForPost ? '歌' : '評'}</Text>
 
-            {/* 解題（投稿メニューのみ、未解題の場合） */}
-            {isMenuForPost && !post.revealedAuthorName && !menuCommentHogo && (
+            {/* 解題（自分の歌のみ、未解題の場合） */}
+            {isMenuForPost && !post.revealedAuthorName && !menuCommentHogo && isSelf('post') && (
               <TouchableOpacity style={styles.menuItem} onPress={() => {
                 setMenuVisible(false);
                 alert('解題', 'あなたがこの詠草の作者であれば、名前が公開されます。\nこの操作は取り消せません。', [
@@ -816,8 +816,8 @@ export default function TankaDetailScreen({ route, navigation }: any) {
               </TouchableOpacity>
             )}
 
-            {/* 削除（全員に表示、CloudFunctionで認証） */}
-            {!menuCommentHogo && (
+            {/* 削除（自分の投稿のみ表示、サーバー側でも認証） */}
+            {isSelf(isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined) && (
               <TouchableOpacity style={styles.menuItem} onPress={() => {
                 setMenuVisible(false);
                 if (isMenuForPost) handleDelete();
@@ -829,7 +829,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
             )}
 
             {/* 通報・ブロック（自投稿以外、反故以外） */}
-            {!menuCommentHogo && !(isMenuForPost && fromMyPosts) && !isSelf(isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined) && (
+            {!menuCommentHogo && !isSelf(isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined) && (
               <>
                 <View style={styles.menuDivider} />
                 <TouchableOpacity style={styles.menuItem} onPress={() => {
