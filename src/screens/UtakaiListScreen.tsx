@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
   cardBgCharWrap: {
     position: 'absolute',
     right: -10,
-    top: -25,
+    top: -30,
     bottom: -10,
     width: 180,
     justifyContent: 'center',
