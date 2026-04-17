@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "運営用のローカル監視スクリプト",
   "dependencies": {
+    "@napi-rs/canvas": "^0.1.98",
     "firebase-admin": "^12.0.0"
   }
 }
