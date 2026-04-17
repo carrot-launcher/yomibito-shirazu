@@ -1,12 +1,14 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { arrayUnion, doc, increment, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
+import { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeContext';
 import { fs } from '../utils/scale';
 
@@ -26,18 +28,65 @@ type PreviewData = {
   full: boolean;
 };
 
+const previewFontSize = 16;
+// 31文字が折り返さず1列に収まる高さ (fontSize * 31 * (1 + letterSpacing) + padding)
+const previewWebViewHeight = 580;
+
+function buildPreviewHtml(posts: PreviewPost[], colors: ThemeColors): string {
+  const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const rubyToHtml = (s: string) => s.replace(/\{([^|{}]+)\|([^|{}]+)\}/g, '<ruby>$1<rp>(</rp><rt>$2</rt><rp>)</rp></ruby>');
+
+  const cardsHtml = posts.map(p => {
+    const body = p.hogo
+      ? `<span style="font-style:italic;color:${colors.textTertiary};font-size:0.8em">現在確認中です</span>`
+      : rubyToHtml(escapeHtml(p.body.replace(/[\n\r]+/g, '\u3000')));
+    return `<div class="card">${body}</div>`;
+  }).join('');
+
+  return `<!DOCTYPE html><html><head>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent;
+      -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
+  html, body {
+    height:100%; background:${colors.webViewBg};
+    font-family:"Noto Serif JP","Yu Mincho","Hiragino Mincho Pro",serif;
+    overflow:hidden;
+  }
+  .container {
+    display:flex; flex-direction:row-reverse; align-items:stretch;
+    height:100%; width:100%; padding:8px 0;
+    overflow:hidden;
+  }
+  .card {
+    writing-mode:vertical-rl; font-size:${previewFontSize}px;
+    line-height:2.0; letter-spacing:0.1em; color:${colors.text};
+    padding:8px 14px; border-right:1px solid ${colors.border};
+    overflow:hidden; flex:none;
+  }
+  .card:first-child { border-right:none; }
+  rt { font-size:0.45em; letter-spacing:0; }
+  .empty {
+    display:flex; align-items:center; justify-content:center;
+    height:100%; width:100%; color:${colors.textTertiary}; font-size:14px;
+  }
+</style></head><body>
+<div class="container">${posts.length ? cardsHtml : '<div class="empty">まだ歌がありません</div>'}</div>
+</body></html>`;
+}
+
 export default function UtakaiPreviewScreen({ navigation, route }: any) {
   const { groupId } = route.params;
   const { user, userCode } = useAuth();
   const { colors } = useTheme();
   const { alert } = useAlert();
-
   const [data, setData] = useState<PreviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [showNameModal, setShowNameModal] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [joining, setJoining] = useState(false);
+  const previewHtml = useMemo(() => buildPreviewHtml(data?.posts || [], colors), [data?.posts, colors]);
 
   useEffect(() => {
     let mounted = true;
@@ -157,23 +206,19 @@ export default function UtakaiPreviewScreen({ navigation, route }: any) {
               </View>
             ) : null}
 
-            {/* 最近の歌 */}
+            {/* 最近の歌（固定高さ、横スクロール不可、収まる分だけ） */}
             <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>最近の歌</Text>
-            {data.posts.length === 0 ? (
-              <View style={[styles.poemCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Text style={[styles.poemEmpty, { color: colors.textTertiary }]}>まだ歌がありません</Text>
-              </View>
-            ) : (
-              data.posts.map(p => (
-                <View key={p.postId} style={[styles.poemCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  {p.hogo ? (
-                    <Text style={[styles.poemBody, styles.poemHogo, { color: colors.textTertiary }]}>（この歌は現在確認中です）</Text>
-                  ) : (
-                    <Text style={[styles.poemBody, { color: colors.text }]}>{p.body}</Text>
-                  )}
-                </View>
-              ))
-            )}
+            <View style={[styles.previewWebView, { borderColor: colors.border }]}>
+              <WebView
+                source={{ html: previewHtml }}
+                style={{ backgroundColor: colors.webViewBg }}
+                scrollEnabled={false}
+                showsHorizontalScrollIndicator={false}
+                javaScriptEnabled={false}
+                originWhitelist={['*']}
+                androidLayerType="software"
+              />
+            </View>
           </ScrollView>
 
           {/* 固定フッター: 入会ボタン */}
@@ -236,10 +281,11 @@ const styles = StyleSheet.create({
   ownerName: { fontSize: 13, fontFamily: 'NotoSerifJP_500Medium' },
   ownerCode: { fontSize: 11, fontFamily: 'IBMPlexMono_600SemiBold' },
   sectionTitle: { fontSize: 13, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 2, marginBottom: 10, marginTop: 4 },
-  poemCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, padding: 14, marginBottom: 8 },
-  poemBody: { fontSize: fs(15), lineHeight: 24, fontFamily: 'NotoSerifJP_400Regular' },
-  poemHogo: { fontStyle: 'italic' },
-  poemEmpty: { fontSize: 13, fontFamily: 'NotoSerifJP_400Regular', textAlign: 'center' },
+  previewWebView: {
+    height: previewWebViewHeight,
+    borderRadius: 10, borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden', marginBottom: 8,
+  },
   footer: { padding: 12, borderTopWidth: StyleSheet.hairlineWidth },
   joinBtn: { paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
   joinBtnText: { fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_500Medium' },
