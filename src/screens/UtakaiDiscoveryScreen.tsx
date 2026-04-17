@@ -214,8 +214,8 @@ export default function UtakaiDiscoveryScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   tabBar: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth },
-  tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabText: { fontSize: 15, fontFamily: 'NotoSerifJP_400Regular' },
+  tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabText: { fontSize: 14, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular' },
   list: { padding: 16, paddingBottom: 24 },
   card: {
     borderRadius: 12,
