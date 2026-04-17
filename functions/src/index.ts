@@ -1237,7 +1237,7 @@ export const revealAuthor = onCall(
 );
 
 /**
- * deleteAccount — ユーザーデータ全消去「消息を絶つ」
+ * deleteAccount — アカウント削除とデータ消去
  */
 export const deleteAccount = onCall(
   { region: "asia-northeast1", timeoutSeconds: 300 },

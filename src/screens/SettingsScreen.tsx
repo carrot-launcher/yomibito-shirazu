@@ -200,14 +200,14 @@ export default function SettingsScreen({ navigation }: any) {
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.logoutBtn} onPress={() => setShowDeleteAccount(true)}>
-        <Text style={[styles.logoutText, { color: colors.destructive }]}>消息を絶つ</Text>
+        <Text style={[styles.logoutText, { color: colors.destructive }]}>アカウント削除とデータ消去</Text>
       </TouchableOpacity>
 
-      {/* 消息を絶つ確認モーダル */}
+      {/* アカウント削除とデータ消去確認モーダル */}
       <Modal visible={showDeleteAccount} transparent animationType="fade" onRequestClose={() => { if (!deleting) setShowDeleteAccount(false); }}>
         <View style={[styles.deleteOverlay, { backgroundColor: colors.overlay }]}>
           <View style={[styles.deleteModal, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.deleteTitle, { color: colors.destructive }]}>消息を絶つ</Text>
+            <Text style={[styles.deleteTitle, { color: colors.destructive }]}>アカウント削除とデータ消去</Text>
             <Text style={[styles.deleteDesc, { color: colors.textSecondary }]}>
               この操作は取り消せません。{'\n'}あなたの歌、評、歌会がすべて削除されます。
             </Text>
@@ -236,7 +236,7 @@ export default function SettingsScreen({ navigation }: any) {
                 onPress={handleDeleteAccount}
                 disabled={deleteConfirmCode !== userCode || deleting}
               >
-                <Text style={styles.deleteConfirmText}>{deleting ? '処理中...' : '消息を絶つ'}</Text>
+                <Text style={styles.deleteConfirmText}>{deleting ? '処理中...' : 'アカウント削除とデータ消去'}</Text>
               </TouchableOpacity>
             </View>
           </View>
