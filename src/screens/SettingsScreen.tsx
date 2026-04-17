@@ -206,7 +206,7 @@ export default function SettingsScreen({ navigation }: any) {
       {/* アカウント削除とデータ消去確認モーダル */}
       <Modal visible={showDeleteAccount} transparent animationType="fade" onRequestClose={() => { if (!deleting) setShowDeleteAccount(false); }}>
         <View style={[styles.deleteOverlay, { backgroundColor: colors.overlay }]}>
-          <View style={[styles.deleteModal, { backgroundColor: colors.surface }]}>
+          <View style={[styles.deleteModal, { backgroundColor: colors.surface, borderColor: colors.destructive }]}>
             <Text style={[styles.deleteTitle, { color: colors.destructive }]}>アカウント削除とデータ消去</Text>
             <Text style={[styles.deleteDesc, { color: colors.textSecondary }]}>
               この操作は取り消せません。{'\n'}あなたの歌、評、歌会がすべて削除されます。
@@ -236,7 +236,7 @@ export default function SettingsScreen({ navigation }: any) {
                 onPress={handleDeleteAccount}
                 disabled={deleteConfirmCode !== userCode || deleting}
               >
-                <Text style={styles.deleteConfirmText}>{deleting ? '処理中...' : 'アカウント削除とデータ消去'}</Text>
+                <Text style={styles.deleteConfirmText}>{deleting ? '処理中...' : '削除する'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   segment: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
   segmentText: { fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular' },
   deleteOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  deleteModal: { borderRadius: 16, padding: 28, width: '86%' },
+  deleteModal: { borderRadius: 16, padding: 28, width: '86%', borderWidth: 2 },
   deleteTitle: { fontSize: 18, fontWeight: '500', textAlign: 'center', marginBottom: 12, fontFamily: 'NotoSerifJP_500Medium' },
   deleteDesc: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 12 },
   deleteHint: { fontSize: 12, textAlign: 'center', marginBottom: 8 },
