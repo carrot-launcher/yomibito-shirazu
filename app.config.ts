@@ -46,11 +46,11 @@ export default {
         {
           backgroundColor: "#F5F0E8",
           image: "./assets/images/splash-icon.png",
-          imageWidth: 76,
+          imageWidth: 140,
           dark: {
             backgroundColor: "#1A1510",
             image: "./assets/images/splash-icon-dark.png",
-            imageWidth: 76,
+            imageWidth: 140,
           },
         },
       ],
