@@ -4,6 +4,7 @@ import { WebView } from 'react-native-webview';
 import { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeContext';
 import { TankaCard } from '../types';
+import { formatTankaBody } from '../utils/formatTanka';
 
 interface Props {
   cards: TankaCard[];
@@ -27,6 +28,10 @@ const metaFontSize = Math.round(11 * Math.max(screenWidth / 390, 1));
 function serializeCards(cards: TankaCard[]) {
   return cards.map(c => ({
     ...c,
+    body: c.hogo ? '' : formatTankaBody(c.body, 'timeline', {
+      convertHalfSpace: (c as any).convertHalfSpace,
+      convertLineBreak: (c as any).convertLineBreak,
+    }),
     createdAt: c.createdAt?.toISOString?.() || new Date().toISOString(),
     bookmarkedAt: c.bookmarkedAt?.toISOString?.() || null,
   }));
@@ -228,9 +233,8 @@ function createCardEl(card, index) {
       '<div class="tanka-body hogo">' + label + '</div>' +
       '<div class="tanka-meta">' + metaHtml + '</div>';
   } else {
-    var displayBody = card.body.replace(/[\\n\\r]+/g, '\\u3000');
     el.innerHTML =
-      '<div class="tanka-body">' + rubyToHtml(escapeHtml(displayBody)) + '</div>' +
+      '<div class="tanka-body">' + rubyToHtml(escapeHtml(card.body)) + '</div>' +
       '<div class="tanka-meta">' + metaHtml + '</div>';
   }
   return el;

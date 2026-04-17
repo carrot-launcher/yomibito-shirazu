@@ -138,6 +138,8 @@ export interface TankaCard {
   groupName?: string;
   batchId?: string;
   bookmarkedAt?: Date;
+  convertHalfSpace?: boolean;
+  convertLineBreak?: boolean;
   hogo?: boolean;
   hogoReason?: string;
   hogoType?: 'caution' | 'ban' | 'pending';

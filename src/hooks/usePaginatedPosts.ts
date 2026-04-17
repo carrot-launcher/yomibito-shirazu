@@ -14,6 +14,8 @@ function docToCard(d: QueryDocumentSnapshot): TankaCard {
     createdAt: data.createdAt?.toDate() || new Date(),
     reactionSummary: data.reactionSummary || {},
     commentCount: data.commentCount || 0,
+    convertHalfSpace: data.convertHalfSpace,
+    convertLineBreak: data.convertLineBreak,
     hogo: data.hogo,
     hogoReason: data.hogoReason,
     hogoType: data.hogoType,

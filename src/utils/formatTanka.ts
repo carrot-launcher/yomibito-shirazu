@@ -13,8 +13,8 @@ export function formatTankaBody(
   let result = body;
 
   if (context === 'timeline') {
-    // Timeline: always replace line breaks, keep half-width spaces as-is
     result = result.replace(/[\n\r]+/g, '\u3000');
+    if (flags?.convertHalfSpace) result = result.replace(/ /g, '\u3000');
   } else {
     // Detail/screenshot: apply based on post flags
     if (flags?.convertLineBreak) result = result.replace(/[\n\r]+/g, '\u3000');

@@ -35,7 +35,7 @@ export default function KashuScreen({ navigation }: any) {
     return onSnapshot(query(collection(db, 'users', user.uid, 'myPosts'), orderBy('createdAt', 'desc')), (snap) => {
       const baseCards = snap.docs.map(d => {
         const data = d.data() as MyPostDoc;
-        return { postId: data.postId, groupId: data.groupId, body: data.tankaBody, createdAt: data.createdAt?.toDate() || new Date(), reactionSummary: {} as any, commentCount: 0, groupName: data.groupName, batchId: data.batchId };
+        return { postId: data.postId, groupId: data.groupId, body: data.tankaBody, createdAt: data.createdAt?.toDate() || new Date(), reactionSummary: {} as any, commentCount: 0, groupName: data.groupName, batchId: data.batchId, convertHalfSpace: data.convertHalfSpace, convertLineBreak: data.convertLineBreak };
       });
       baseCardsRef.current = baseCards;
       enrichPosts(baseCards);
