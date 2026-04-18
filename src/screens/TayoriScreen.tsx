@@ -6,6 +6,7 @@ import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
+import { setTayoriFocused } from '../hooks/useTayoriUnread';
 import { useTheme } from '../theme/ThemeContext';
 import { NotificationDoc } from '../types';
 import { stripRuby } from '../utils/formatTanka';
@@ -96,13 +97,22 @@ export default function TayoriScreen({ navigation }: any) {
 
   // 画面を離れた時に既読更新（focusだと未読が即座に消えてしまう）
   useEffect(() => {
-    const unsub = navigation.addListener('blur', () => {
+    const unsubFocus = navigation.addListener('focus', () => {
+      setTayoriFocused(true);
+    });
+    const unsubBlur = navigation.addListener('blur', () => {
+      // Firestore反映を待たずに即時でバッジを0にする（ちらつき防止）
+      setTayoriFocused(false);
       if (!user) return;
       updateDoc(doc(db, 'users', user.uid), {
         tayoriLastReadAt: serverTimestamp(),
       }).catch(() => {});
     });
-    return unsub;
+    return () => {
+      unsubFocus();
+      unsubBlur();
+      setTayoriFocused(false);
+    };
   }, [navigation, user]);
 
   const isUnread = (item: TayoriItem) => {
