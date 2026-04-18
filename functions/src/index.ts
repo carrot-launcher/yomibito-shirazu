@@ -3,82 +3,19 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { moderate, OPENAI_API_KEY } from "./moderation/openaiModeration";
 import { deriveAuthorHandle, AUTHOR_HANDLE_SALT } from "./moderation/authorHandle";
+import {
+  assertString,
+  assertOptionalString,
+  assertEnum,
+  assertOptionalBoolean,
+  assertDocId,
+  assertOptionalDocId,
+  truncate,
+  todayKey as _todayKeyPure,
+} from "./validation";
 
 admin.initializeApp();
 const db = admin.firestore();
-
-function truncate(s: string, max: number): string {
-  return s.length > max ? s.slice(0, max) + "…" : s;
-}
-
-// ===== 入力検証ヘルパー =====
-// callable 関数は TypeScript 型が実行時には効かない（any のデータが来る）ので、
-// 全パラメータを明示的に検証してからビジネスロジックに進める。
-
-function assertString(
-  val: unknown,
-  name: string,
-  opts?: { min?: number; max?: number; pattern?: RegExp }
-): string {
-  if (typeof val !== "string") {
-    throw new HttpsError("invalid-argument", `${name} は文字列で指定してください`);
-  }
-  if (opts?.min !== undefined && val.length < opts.min) {
-    throw new HttpsError("invalid-argument", `${name} は${opts.min}文字以上で入力してください`);
-  }
-  if (opts?.max !== undefined && val.length > opts.max) {
-    throw new HttpsError("invalid-argument", `${name} は${opts.max}文字以内で入力してください`);
-  }
-  if (opts?.pattern && !opts.pattern.test(val)) {
-    throw new HttpsError("invalid-argument", `${name} の形式が不正です`);
-  }
-  return val;
-}
-
-function assertOptionalString(
-  val: unknown,
-  name: string,
-  opts?: { max?: number; pattern?: RegExp }
-): string | undefined {
-  if (val === undefined || val === null) return undefined;
-  return assertString(val, name, opts);
-}
-
-function assertEnum<T extends string>(
-  val: unknown,
-  allowed: readonly T[],
-  name: string
-): T {
-  if (typeof val !== "string" || !(allowed as readonly string[]).includes(val)) {
-    throw new HttpsError(
-      "invalid-argument",
-      `${name} は ${allowed.join("/")} のいずれかで指定してください`
-    );
-  }
-  return val as T;
-}
-
-function assertOptionalBoolean(
-  val: unknown,
-  name: string,
-  defaultVal: boolean
-): boolean {
-  if (val === undefined || val === null) return defaultVal;
-  if (typeof val !== "boolean") {
-    throw new HttpsError("invalid-argument", `${name} は真偽値で指定してください`);
-  }
-  return val;
-}
-
-// Firestore ドキュメントID 用（安全な文字のみ、パストラバーサル対策）
-const DOC_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
-function assertDocId(val: unknown, name: string): string {
-  return assertString(val, name, { min: 1, max: 128, pattern: DOC_ID_PATTERN });
-}
-function assertOptionalDocId(val: unknown, name: string): string | undefined {
-  if (val === undefined || val === null) return undefined;
-  return assertDocId(val, name);
-}
 
 // ===== 通知ヘルパー =====
 
@@ -314,9 +251,7 @@ async function unmarkNotificationsForComment(
 
 // ===== レートリミット付き作成 =====
 
-function todayKey(): string {
-  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
-}
+const todayKey = () => _todayKeyPure();
 
 /**
  * createPost — 歌の投稿（レートリミット付き）
