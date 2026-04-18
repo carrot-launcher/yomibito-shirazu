@@ -33,13 +33,9 @@ const originalTextRender = (Text as any).render;
     style: [{ fontFamily }, style],
   });
 };
-const originalTextInputRender = (TextInput as any).render;
-(TextInput as any).render = function (...args: any[]) {
-  const origin = originalTextInputRender.apply(this, args);
-  return React.cloneElement(origin, {
-    style: [{ fontFamily: defaultFontFamily }, origin.props.style],
-  });
-};
+// TextInput は意図的にシステムフォント（iOS: SF / Android: Roboto = ゴシック）のまま使う。
+// 入力欄を明朝にすると字形が読み取りにくく、IME の変換候補とも雰囲気が合わないため。
+// 以前は NotoSerifJP を当てていたが、UX 優先で外した。
 
 export default function App() {
   const [fontsLoaded] = useFonts({

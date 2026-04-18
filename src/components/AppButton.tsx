@@ -87,6 +87,12 @@ export function AppButton({
   })();
 
   const isLink = variant === 'link';
+  // 塗りつぶし系（primary/destructive/caution）の disabled は、
+  // opacity だけだと元の色が透ける（暗いまま）ので、背景を colors.disabled に差し替えて
+  // 明確に「押せない」と伝える。outlined 系は透明背景のままで opacity のみ。
+  const isFilled = variant === 'primary' || variant === 'destructive' || variant === 'caution';
+  const isDisabledLook = disabled || loading;
+  const effectiveBg = isFilled && isDisabledLook ? colors.disabled : bg;
 
   const containerStyle: StyleProp<ViewStyle> = [
     {
@@ -96,11 +102,12 @@ export function AppButton({
       paddingVertical: isLink ? 4 : spec.paddingVertical,
       paddingHorizontal: isLink ? 4 : spec.paddingHorizontal,
       minHeight: isLink ? undefined : spec.minHeight,
-      backgroundColor: bg,
+      backgroundColor: effectiveBg,
       borderRadius: isLink ? 0 : 10,
       borderWidth: border ? 1 : 0,
       borderColor: border,
-      opacity: disabled || loading ? 0.4 : 1,
+      // 塗りつぶし系は背景で disabled を表現したので opacity は浅めに。outlined 系は従来通り 0.4。
+      opacity: isDisabledLook ? (isFilled ? 0.8 : 0.4) : 1,
       // 既定は 'center'。親が 'stretch'(default) でも勝手に横幅100%にならず、
       // 'center'/'flex-start' などを指定していれば素直に従う。
       alignSelf: fullWidth ? 'stretch' : 'center',

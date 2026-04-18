@@ -9,6 +9,7 @@ import { formatTankaBody } from '../utils/formatTanka';
 interface Props {
   cards: TankaCard[];
   onTap: (postId: string, groupId: string, batchId?: string) => void;
+  onLongPress?: (postId: string, groupId: string, batchId?: string) => void;
   mode: 'timeline' | 'myPosts' | 'bookmarks';
   onLoadMore?: () => void;
   generation?: number;
@@ -175,11 +176,27 @@ function createCardEl(card, index) {
   el.className = isUnread ? "tanka-card unread" : "tanka-card";
   var fade = Math.max(0.6, 1 - (index / 8) * 0.7);
   el.style.opacity = fade;
-  el.onclick = function() {
-    var msg = { postId: card.postId, groupId: card.groupId };
-    if (mode === 'myPosts' && card.batchId) msg.batchId = card.batchId;
-    window.ReactNativeWebView.postMessage(JSON.stringify(msg));
-  };
+  // 評の長押しと同じパターン: 500ms 以上で長押し → postMenu。それ以外は短押しで navigate。
+  var cardPressTimer = null;
+  var cardLongPressed = false;
+  el.addEventListener('touchstart', function() {
+    cardLongPressed = false;
+    cardPressTimer = setTimeout(function() {
+      cardLongPressed = true;
+      var msg = { action: 'postMenu', postId: card.postId, groupId: card.groupId };
+      if (mode === 'myPosts' && card.batchId) msg.batchId = card.batchId;
+      window.ReactNativeWebView.postMessage(JSON.stringify(msg));
+    }, 500);
+  });
+  el.addEventListener('touchend', function() {
+    clearTimeout(cardPressTimer);
+    if (!cardLongPressed) {
+      var msg = { postId: card.postId, groupId: card.groupId };
+      if (mode === 'myPosts' && card.batchId) msg.batchId = card.batchId;
+      window.ReactNativeWebView.postMessage(JSON.stringify(msg));
+    }
+  });
+  el.addEventListener('touchmove', function() { clearTimeout(cardPressTimer); });
 
   var metaHtml = '';
   if (mode === 'timeline') {
@@ -363,7 +380,7 @@ requestAnimationFrame(function() {
 </html>`;
 }
 
-export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation, newArrivals, arrivalGen, unreadSince, changedCards, removedIds, updateGen }: Props) {
+export default function TankaScroll({ cards, onTap, onLongPress, mode, onLoadMore, generation, newArrivals, arrivalGen, unreadSince, changedCards, removedIds, updateGen }: Props) {
   const { colors } = useTheme();
   const webViewRef = useRef<WebView>(null);
   const renderedCountRef = useRef(0);
@@ -449,6 +466,10 @@ export default function TankaScroll({ cards, onTap, mode, onLoadMore, generation
       const data = JSON.parse(event.nativeEvent.data);
       if (data.action === 'loadMore') {
         onLoadMore?.();
+        return;
+      }
+      if (data.action === 'postMenu') {
+        onLongPress?.(data.postId, data.groupId, data.batchId);
         return;
       }
       onTap(data.postId, data.groupId, data.batchId);

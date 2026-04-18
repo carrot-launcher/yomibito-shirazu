@@ -1,8 +1,9 @@
 import * as MediaLibrary from 'expo-media-library';
 import React, { useEffect, useRef, useState } from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, StyleSheet, View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import { WebView } from 'react-native-webview';
+import { AppButton } from '../components/AppButton';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { useTheme } from '../theme/ThemeContext';
@@ -141,9 +142,13 @@ export default function ScreenshotScreen({ route }: any) {
         )}
       </View>
       <View style={styles.buttonRow}>
-        <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.accent }, !ready && styles.saveBtnDisabled]} onPress={handleCapture} disabled={!ready}>
-          <Text style={[styles.saveBtnText, { color: colors.accentText }]}>画像を保存</Text>
-        </TouchableOpacity>
+        <AppButton
+          label="画像を保存"
+          variant="primary"
+          size="lg"
+          onPress={handleCapture}
+          disabled={!ready}
+        />
       </View>
     </GradientBackground>
   );
@@ -154,7 +159,4 @@ const styles = StyleSheet.create({
   cardWrapper: { width: CARD_WIDTH, height: CARD_HEIGHT, borderRadius: 4, overflow: 'hidden' },
   webview: { flex: 1 },
   buttonRow: { marginTop: 24, alignItems: 'center' },
-  saveBtn: { borderRadius: 10, paddingHorizontal: 28, paddingVertical: 14 },
-  saveBtnDisabled: { opacity: 0.4 },
-  saveBtnText: { fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular' },
 });

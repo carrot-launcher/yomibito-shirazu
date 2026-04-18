@@ -148,6 +148,7 @@ export default function TimelineScreen({ route, navigation }: any) {
         <TankaScroll
           cards={visibleCards}
           onTap={(postId, gId) => navigation.navigate('TankaDetail', { postId, groupId: gId })}
+          onLongPress={(postId, gId) => navigation.navigate('TankaDetail', { postId, groupId: gId, openPostMenu: true })}
           mode="timeline"
           onLoadMore={hasMore && !loading ? loadMore : undefined}
           generation={generation}

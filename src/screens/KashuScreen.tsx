@@ -72,6 +72,7 @@ export default function KashuScreen({ navigation }: any) {
   }, [user]);
 
   const handleTap = (postId: string, groupId: string, batchId?: string) => navigation.navigate('TankaDetail', { postId, groupId, batchId, fromMyPosts: tab === 'myPosts' });
+  const handleLongPress = (postId: string, groupId: string, batchId?: string) => navigation.navigate('TankaDetail', { postId, groupId, batchId, fromMyPosts: tab === 'myPosts', openPostMenu: true });
 
   const dynamicStyles = useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
@@ -85,7 +86,7 @@ export default function KashuScreen({ navigation }: any) {
         <TouchableOpacity style={[styles.segment, tab === 'myPosts' && dynamicStyles.segmentActive]} onPress={() => setTab('myPosts')}><AppText variant="buttonLabel" weight={tab === 'myPosts' ? 'medium' : 'regular'} tone={tab === 'myPosts' ? 'primary' : 'secondary'}>自分の詠草</AppText></TouchableOpacity>
         <TouchableOpacity style={[styles.segment, tab === 'bookmarks' && dynamicStyles.segmentActive]} onPress={() => setTab('bookmarks')}><AppText variant="buttonLabel" weight={tab === 'bookmarks' ? 'medium' : 'regular'} tone={tab === 'bookmarks' ? 'primary' : 'secondary'}>栞</AppText></TouchableOpacity>
       </View>
-      <TankaScroll cards={tab === 'myPosts' ? myPosts : bookmarks} onTap={handleTap} mode={tab} />
+      <TankaScroll cards={tab === 'myPosts' ? myPosts : bookmarks} onTap={handleTap} onLongPress={handleLongPress} mode={tab} />
     </GradientBackground>
   );
 }

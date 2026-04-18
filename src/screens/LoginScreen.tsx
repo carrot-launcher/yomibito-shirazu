@@ -51,10 +51,10 @@ export default function LoginScreen() {
       <Text style={dynamicStyles.title}>詠み人知らず</Text>
 
       <View style={dynamicStyles.agreement}>
-        <AppText variant="meta" tone="tertiary" style={dynamicStyles.agreementText}>
-          <AppText variant="meta" tone="secondary" style={dynamicStyles.agreementLink} onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)}>利用規約</AppText>
+        <AppText variant="caption" tone="tertiary" style={dynamicStyles.agreementText}>
+          <AppText variant="caption" tone="secondary" style={dynamicStyles.agreementLink} onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)}>利用規約</AppText>
           {' と '}
-          <AppText variant="meta" tone="secondary" style={dynamicStyles.agreementLink} onPress={() => WebBrowser.openBrowserAsync(PRIVACY_URL)}>プライバシーポリシー</AppText>
+          <AppText variant="caption" tone="secondary" style={dynamicStyles.agreementLink} onPress={() => WebBrowser.openBrowserAsync(PRIVACY_URL)}>プライバシーポリシー</AppText>
         </AppText>
 
         <TouchableOpacity style={dynamicStyles.checkboxRow} onPress={() => setAgreed(v => !v)} activeOpacity={0.7}>

@@ -155,11 +155,33 @@ function buildDetailHtml(
 </head>
 <body>
 <div class="container" id="container">
-  <div class="tanka-section" onclick="${isHogo ? '' : "window.ReactNativeWebView.postMessage(JSON.stringify({action:'screenshot'}))"}">${tankaContent}</div>
+  <div class="tanka-section" id="tanka-main">${tankaContent}</div>
   <div class="divider"></div>
   <div class="comments-section" id="comments"></div>
 </div>
 <script>
+// 歌本体のタップハンドラ: 短押し→スクショ、長押し→メニュー（評の長押しと同じパターン）
+(function() {
+  var tankaEl = document.getElementById("tanka-main");
+  if (!tankaEl || ${isHogo ? 'true' : 'false'}) return;
+  var pressTimer = null;
+  var longPressed = false;
+  tankaEl.addEventListener('touchstart', function() {
+    longPressed = false;
+    pressTimer = setTimeout(function() {
+      longPressed = true;
+      window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'postMenu' }));
+    }, 500);
+  });
+  tankaEl.addEventListener('touchend', function() {
+    clearTimeout(pressTimer);
+    if (!longPressed) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'screenshot' }));
+    }
+  });
+  tankaEl.addEventListener('touchmove', function() { clearTimeout(pressTimer); });
+})();
+
 const comments = ${commentsJson};
 const commentsEl = document.getElementById("comments");
 if (comments.length === 0) {
@@ -222,7 +244,7 @@ requestAnimationFrame(function() {
 }
 
 export default function TankaDetailScreen({ route, navigation }: any) {
-  const { postId, groupId, batchId } = route.params;
+  const { postId, groupId, batchId, openPostMenu: shouldAutoOpenMenu } = route.params as { postId: string; groupId: string; batchId?: string; openPostMenu?: boolean };
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { user, myAuthorHandle, blockedHandles, blockedByHandles } = useAuth();
@@ -471,6 +493,14 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     setMenuVisible(true);
   };
 
+  // タイムライン等から長押しで遷移してきた場合、画面マウント直後にメニューを自動表示
+  useEffect(() => {
+    if (shouldAutoOpenMenu) {
+      openPostMenu();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const openCommentMenu = (commentId: string) => {
     setMenuTargetComment(commentId);
     setMenuVisible(true);
@@ -653,6 +683,8 @@ export default function TankaDetailScreen({ route, navigation }: any) {
         navigation.navigate('Screenshot', { body: displayBody, revealedAuthorName: post?.revealedAuthorName || '詠み人知らず' });
       } else if (data.action === 'commentMenu') {
         openCommentMenu(data.commentId);
+      } else if (data.action === 'postMenu') {
+        openPostMenu();
       }
     } catch {}
   };
@@ -758,13 +790,14 @@ export default function TankaDetailScreen({ route, navigation }: any) {
                 placeholderTextColor={colors.textTertiary}
                 multiline maxLength={500}
               />
-              <TouchableOpacity
-                style={[styles.commentSubmit, !commentText.trim() && styles.commentSubmitDisabled]}
+              <AppButton
+                label="送る"
+                variant="primary"
+                size="sm"
                 onPress={handleComment}
                 disabled={!commentText.trim() || submitting}
-              >
-                <AppText variant="buttonLabel" tone="onAccent">送る</AppText>
-              </TouchableOpacity>
+                loading={submitting}
+              />
             </View>
             {commentText.length > 0 && (
               <AppText variant="caption" tone="tertiary" style={styles.charCount}>{commentText.length}/500</AppText>
@@ -789,7 +822,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
       <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>
         <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setMenuVisible(false)}>
           <View style={styles.menuSheet}>
-            <AppText variant="caption" tone="tertiary" style={styles.menuTitle}>{isMenuForPost ? '歌' : '評'}</AppText>
+            <AppText variant="sectionTitle" tone="tertiary" style={styles.menuTitle}>{isMenuForPost ? '詠草' : '評'}</AppText>
 
             {/* 解題（自分の歌のみ、未解題の場合） */}
             {isMenuForPost && !post.revealedAuthorName && !menuCommentHogo && isSelf('post') && (
@@ -1031,8 +1064,6 @@ function makeStyles(colors: ThemeColors) {
       fontSize: 15, color: colors.text, borderWidth: 1, borderColor: colors.border,
       maxHeight: 80, textAlignVertical: 'top',
     },
-    commentSubmit: { backgroundColor: colors.accent, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12 },
-    commentSubmitDisabled: { opacity: 0.4 },
     charCount: { textAlign: 'right', marginTop: 4 },
     webview: { flex: 1 },
     deletedArea: { alignItems: 'center', marginTop: 80 },
@@ -1045,7 +1076,7 @@ function makeStyles(colors: ThemeColors) {
       padding: 20, paddingBottom: 36,
     },
     menuTitle: { textAlign: 'center', marginBottom: 12 },
-    menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, minHeight: 52 },
+    menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 16, minHeight: 60 },
     menuItemIcon: { fontSize: 18, width: 24, textAlign: 'center' as const },
     menuItemCancelText: { textAlign: 'center' as const, flex: 1 },
     menuItemHint: { marginLeft: 'auto' as const },
@@ -1064,7 +1095,7 @@ function makeStyles(colors: ThemeColors) {
       borderWidth: 1, borderColor: colors.border, borderRadius: 8,
       padding: 12, fontSize: 15, color: colors.text, marginBottom: 20,
       minHeight: 48, textAlignVertical: 'top',
-      fontFamily: 'NotoSerifJP_400Regular',
+      // fontFamily 指定なし → システムフォント（ゴシック）
     },
     judgmentButtons: { flexDirection: 'row', gap: 12 },
     judgmentBtnFlex: { flex: 1, alignSelf: 'auto' as const },
