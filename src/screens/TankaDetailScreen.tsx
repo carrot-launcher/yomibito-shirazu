@@ -965,7 +965,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
             {isMenuForPost && !post.revealedAuthorName && !menuCommentHogo && isSelf('post') && (
               <TouchableOpacity style={styles.menuItem} onPress={() => {
                 setMenuVisible(false);
-                alert('解題', 'あなたがこの詠草の作者であれば、名前が公開されます。\nこの操作は取り消せません。', [
+                alert('解題', 'あなたがこの詠草の作者であることを明かします。\nこの操作は取り消せません。', [
                   { text: 'やめる', style: 'cancel' },
                   {
                     text: '解題する', style: 'destructive',
