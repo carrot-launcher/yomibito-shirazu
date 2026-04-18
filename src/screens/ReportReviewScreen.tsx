@@ -3,20 +3,18 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs,
   onSnapshot,
   orderBy,
   query,
-  where,
+  where
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
@@ -141,7 +139,7 @@ export default function ReportReviewScreen({ route, navigation }: any) {
         { text: 'やめる', style: 'cancel' },
         {
           text: type === 'caution' ? '戒告する' : '破門する',
-          style: 'destructive',
+          style: type === 'caution' ? 'caution' : 'destructive',
           onPress: async () => {
             setWorking(item.targetId);
             try {
@@ -177,7 +175,7 @@ export default function ReportReviewScreen({ route, navigation }: any) {
 
         {loading && <AppText variant="body" tone="secondary" style={styles.empty}>読み込み中...</AppText>}
         {!loading && items.length === 0 && (
-          <AppText variant="body" tone="secondary" style={styles.empty}>仮非表示中の投稿はありません。</AppText>
+          <AppText variant="body" tone="secondary" style={styles.empty}>仮非表示中の投稿はありません</AppText>
         )}
 
         {items.map((item) => (

@@ -7,7 +7,7 @@ import { AppText } from './AppText';
 
 type AlertButton = {
   text: string;
-  style?: 'default' | 'cancel' | 'destructive';
+  style?: 'default' | 'cancel' | 'destructive' | 'caution';
   onPress?: () => void;
 };
 
@@ -79,7 +79,11 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
                 <AppButton
                   key={i}
                   label={btn.text}
-                  variant={btn.style === 'destructive' ? 'destructive' : 'primary'}
+                  variant={
+                    btn.style === 'destructive' ? 'destructive'
+                    : btn.style === 'caution' ? 'caution'
+                    : 'primary'
+                  }
                   onPress={() => handlePress(btn)}
                   style={btnStyle}
                 />

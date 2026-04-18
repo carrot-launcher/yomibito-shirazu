@@ -483,7 +483,7 @@ export default function UtakaiListScreen({ navigation }: any) {
       <Modal visible={showJoin} transparent animationType="fade">
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}><View style={[styles.modal, { backgroundColor: colors.surface }]}>
           <AppText variant="sectionTitle" style={styles.modalTitle}>歌会に参加</AppText>
-          <TextInput style={[styles.input, styles.codeInput, { borderColor: colors.border, color: colors.text }]} placeholder="招待コード（6文字）" value={joinCode} onChangeText={handleJoinCodeChange} autoCapitalize="characters" autoCorrect={false} placeholderTextColor={colors.textTertiary} />
+          <TextInput style={[styles.input, styles.codeInput, { borderColor: colors.border, color: colors.text }]} placeholder="XXXXXX" value={joinCode} onChangeText={handleJoinCodeChange} autoCapitalize="characters" autoCorrect={false} placeholderTextColor={colors.textTertiary} />
           <View style={styles.modalButtons}>
             <AppButton label="やめる" variant="ghost" onPress={() => { setShowJoin(false); setJoinCode(''); }} />
             <AppButton label="次へ" variant="primary" onPress={handleJoinStep1} />

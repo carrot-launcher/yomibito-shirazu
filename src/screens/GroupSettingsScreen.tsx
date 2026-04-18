@@ -273,7 +273,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* 公開歌会の趣意 */}
       {isPublic && (
-        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <>
           <View style={styles.purposeHeaderRow}>
             <AppText variant="sectionTitle">趣意</AppText>
             <View style={[styles.publicBadge, { borderColor: colors.border }]}>
@@ -302,78 +302,74 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
               <AppText variant="bodySm" tone="secondary" style={styles.purposeBody}>{purpose}</AppText>
             ) : null
           )}
-        </View>
+          <View style={styles.sectionGap} />
+        </>
       )}
 
       {/* 招待コード */}
-      <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <AppText variant="sectionTitle" style={styles.sectionTitle}>招待コード</AppText>
-        <View style={styles.codeRow}>
-          <Text style={[styles.inviteCode, { color: colors.text }]}>{inviteCode}</Text>
-          <TouchableOpacity style={[styles.copyBtn, { backgroundColor: colors.accent }]} onPress={handleCopyCode}>
-            <AppText variant="caption" tone="onAccent">{copied ? 'コピーしました' : 'コピー'}</AppText>
-          </TouchableOpacity>
-        </View>
+      <AppText variant="sectionTitle" style={styles.sectionTitle}>招待コード</AppText>
+      <View style={styles.codeRow}>
+        <Text style={[styles.inviteCode, { color: colors.text }]}>{inviteCode}</Text>
+        <AppButton label={copied ? 'コピーしました' : 'コピー'} variant="primary" size="xs" onPress={handleCopyCode} />
       </View>
+      <View style={styles.sectionGap} />
 
       {/* 歌会名（オーナーのみ編集可） */}
       {isOwner && (
-        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <>
           <AppText variant="sectionTitle" style={styles.sectionTitle}>歌会の名前</AppText>
           <TextInput style={[styles.input, { borderColor: colors.border, color: colors.text }]} value={editingName} onChangeText={setEditingName} onBlur={handleBlurGroupName} maxLength={16} />
           {savedHint === 'groupName' && <AppText variant="caption" tone="tertiary" style={styles.savedHint}>保存しました</AppText>}
-        </View>
+          <View style={styles.sectionGap} />
+        </>
       )}
 
       {/* 自分の表示名 */}
-      <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <AppText variant="sectionTitle" style={styles.sectionTitle}>この歌会でのあなたの名前</AppText>
-        <AppText variant="caption" tone="secondary" style={styles.hint}>この歌会でのみ使われる名前です。他の歌会には影響しません。</AppText>
-        <TextInput style={[styles.input, { borderColor: colors.border, color: colors.text }]} value={displayName} onChangeText={setDisplayName} onBlur={handleBlurDisplayName} placeholder="あなたの名前" placeholderTextColor={colors.textTertiary} maxLength={16} />
-        {savedHint === 'displayName' && <AppText variant="caption" tone="tertiary" style={styles.savedHint}>保存しました</AppText>}
-      </View>
+      <AppText variant="sectionTitle" style={styles.sectionTitle}>この歌会でのあなたの名前</AppText>
+      <AppText variant="caption" tone="secondary" style={styles.hint}>この歌会でのみ使われる名前です。他の歌会には影響しません。</AppText>
+      <TextInput style={[styles.input, { borderColor: colors.border, color: colors.text }]} value={displayName} onChangeText={setDisplayName} onBlur={handleBlurDisplayName} placeholder="あなたの名前" placeholderTextColor={colors.textTertiary} maxLength={16} />
+      {savedHint === 'displayName' && <AppText variant="caption" tone="tertiary" style={styles.savedHint}>保存しました</AppText>}
+      <View style={styles.sectionGap} />
 
       {/* 通知 */}
-      <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <AppText variant="sectionTitle" style={styles.sectionTitle}>通知</AppText>
-        <View style={styles.muteRow}>
-          <AppText variant="bodyLg">この歌会の通知をミュート</AppText>
-          <Switch
-            value={muted}
-            onValueChange={async (v) => {
-              setMuted(v);
-              if (user) {
-                await updateDoc(doc(db, 'groups', groupId, 'members', user.uid), { muted: v }).catch(() => {});
-              }
-            }}
-            trackColor={colors.switchTrack}
-            thumbColor={muted ? colors.switchThumb.on : colors.switchThumb.off}
-          />
-        </View>
+      <AppText variant="sectionTitle" style={styles.sectionTitle}>通知</AppText>
+      <View style={[styles.switchRow, { borderBottomColor: colors.border }]}>
+        <AppText variant="bodyLg">この歌会の通知をミュート</AppText>
+        <Switch
+          value={muted}
+          onValueChange={async (v) => {
+            setMuted(v);
+            if (user) {
+              await updateDoc(doc(db, 'groups', groupId, 'members', user.uid), { muted: v }).catch(() => {});
+            }
+          }}
+          trackColor={colors.switchTrack}
+          thumbColor={muted ? colors.switchThumb.on : colors.switchThumb.off}
+        />
       </View>
+      <View style={styles.sectionGap} />
 
       {/* 歌人一覧 */}
-      <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <AppText variant="sectionTitle" style={styles.sectionTitle}>歌人一覧（{members.length}人）</AppText>
-        {members.map(m => (
-          <View key={m.id} style={[styles.memberRow, { borderBottomColor: colors.border }]}>
-            <View style={styles.memberInfo}>
-              <AppText variant="bodyLg">
-                {m.displayName || '名無し'}
-                {m.role === 'owner' && <MaterialCommunityIcons name="crown-outline" size={14} color={colors.textSecondary} style={{ marginLeft: 4 }} />}
-              </AppText>
-              <AppText variant="caption" tone="tertiary" style={styles.memberId}>#{m.userCode || '---'}</AppText>
-            </View>
-            {isOwner && m.id !== user?.uid && m.role !== 'owner' && (
-              <AppButton label="追放" variant="outlineDestructive" size="sm" onPress={() => handleKick(m)} />
-            )}
+      <AppText variant="sectionTitle" style={styles.sectionTitle}>歌人一覧（{members.length}人）</AppText>
+      {members.map(m => (
+        <View key={m.id} style={[styles.memberRow, { borderBottomColor: colors.border }]}>
+          <View style={styles.memberInfo}>
+            <AppText variant="bodyLg">
+              {m.displayName || '名無し'}
+              {m.role === 'owner' && <MaterialCommunityIcons name="crown-outline" size={14} color={colors.textSecondary} style={{ marginLeft: 4 }} />}
+            </AppText>
+            <AppText variant="caption" tone="tertiary" style={styles.memberId}>#{m.userCode || '---'}</AppText>
           </View>
-        ))}
-      </View>
+          {isOwner && m.id !== user?.uid && m.role !== 'owner' && (
+            <AppButton label="追放" variant="outlineDestructive" size="xs" onPress={() => handleKick(m)} />
+          )}
+        </View>
+      ))}
+      <View style={styles.sectionGap} />
 
       {/* 追放リスト（オーナーのみ） */}
       {isOwner && Object.keys(bannedUsers).length > 0 && (
-        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <>
           <AppText variant="sectionTitle" style={styles.sectionTitle}>追放したユーザー（{Object.keys(bannedUsers).length}人）</AppText>
           <AppText variant="caption" tone="secondary" style={styles.hint}>解除すると、このユーザーは再び招待コードで参加できるようになります。</AppText>
           {Object.entries(bannedUsers).map(([uid, info]) => (
@@ -382,31 +378,36 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
                 <AppText variant="bodyLg">{info.displayName || '名無し'}</AppText>
                 <AppText variant="caption" tone="tertiary" style={styles.memberId}>#{info.userCode || '---'}</AppText>
               </View>
-              <AppButton label="解除" variant="outlineMuted" size="sm" onPress={() => handleUnban(uid)} />
+              <AppButton label="解除" variant="outlineMuted" size="xs" onPress={() => handleUnban(uid)} />
             </View>
           ))}
-        </View>
+          <View style={styles.sectionGap} />
+        </>
       )}
 
       {/* 通報の確認（オーナーのみ） */}
       {isOwner && (
-        <TouchableOpacity
-          style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
-          onPress={() => navigation.navigate('ReportReview', { groupId })}
-        >
-          <View style={{ flex: 1 }}>
-            <AppText variant="sectionTitle" style={styles.sectionTitle}>通報の確認</AppText>
-            <AppText variant="caption" tone="secondary" style={styles.judgmentExplain}>
-              仮非表示になった歌・評を確認して、解除または裁きに昇格します。
-            </AppText>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textSecondary} />
-        </TouchableOpacity>
+        <>
+          <AppText variant="sectionTitle" style={styles.sectionTitle}>通報</AppText>
+          <TouchableOpacity
+            style={[styles.linkRow, { borderBottomColor: colors.border }]}
+            onPress={() => navigation.navigate('ReportReview', { groupId })}
+          >
+            <View style={{ flex: 1 }}>
+              <AppText variant="body">通報の確認</AppText>
+              <AppText variant="caption" tone="secondary" style={styles.linkSubText}>
+                仮非表示になった歌・評を確認
+              </AppText>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textTertiary} />
+          </TouchableOpacity>
+          <View style={styles.sectionGap} />
+        </>
       )}
 
       {/* 裁きについて（オーナーのみ） */}
       {isOwner && (
-        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <>
           <AppText variant="sectionTitle" style={styles.sectionTitle}>裁きについて</AppText>
           <AppText variant="caption">
             歌や評の詳細画面から、不適切な投稿に対して裁きを行えます。{'\n\n'}
@@ -416,16 +417,14 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
             {'　'}投稿を反故にし、著者を即座に歌会から追放します。追放されたユーザーは招待コードで再参加できなくなります。{'\n\n'}
             裁かれた投稿は「反故」として跡地が残り、本文は見えなくなります。裁きは匿名のまま行われ、オーナーにも著者は分かりません。破門が発生した場合のみ、メンバー全員に通知されます。
           </AppText>
-        </View>
+          <View style={styles.sectionGap} />
+        </>
       )}
 
       {/* 歌会の退会（オーナー以外） */}
       {!isOwner && (
-        <AppButton
-          label="歌会を退会する"
-          variant="outlineMuted"
-          fullWidth
-          style={styles.footerBtn}
+        <TouchableOpacity
+          style={styles.footerLinkBtn}
           onPress={() => {
             alert('歌会を退会しますか？', '招待コードで再び参加できます。', [
               { text: 'やめる', style: 'cancel' },
@@ -442,18 +441,16 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
               },
             ]);
           }}
-        />
+        >
+          <AppText variant="body" tone="secondary">歌会を退会する</AppText>
+        </TouchableOpacity>
       )}
 
       {/* 歌会の解散（オーナーのみ） */}
       {isOwner && (
-        <AppButton
-          label="歌会を解散する"
-          variant="outlineDestructive"
-          fullWidth
-          style={styles.footerBtn}
-          onPress={() => setShowDissolve(true)}
-        />
+        <TouchableOpacity style={styles.footerLinkBtn} onPress={() => setShowDissolve(true)}>
+          <AppText variant="body" tone="destructive">歌会を解散する</AppText>
+        </TouchableOpacity>
       )}
 
       {/* 解散確認モーダル */}
@@ -524,25 +521,26 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
   content: { padding: 20, paddingBottom: 60 },
-  section: {
-    borderRadius: 12, padding: 16,
-    marginBottom: 16, borderWidth: 1,
-  },
   sectionTitle: { marginBottom: 4 },
+  sectionGap: { height: 24 },
   hint: { marginBottom: 8 },
   codeRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   inviteCode: { fontSize: 24, letterSpacing: 6, fontFamily: 'IBMPlexMono_600SemiBold', flex: 1 },
-  copyBtn: { borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
   input: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 12 },
   savedHint: { marginTop: 4 },
-  muteRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
+  switchRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 14, borderBottomWidth: 1,
+  },
   memberRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 10, borderBottomWidth: 1,
   },
   memberInfo: { flex: 1 },
   memberId: { marginTop: 2 },
-  footerBtn: { marginTop: 16 },
+  linkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
+  linkSubText: { marginTop: 2 },
+  footerLinkBtn: { alignItems: 'center', marginTop: 24, paddingVertical: 12 },
 
   // 解散確認モーダル
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -570,7 +568,6 @@ const styles = StyleSheet.create({
   },
   checkmark: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
   checkboxLabel: { flex: 1 },
-  judgmentExplain: { marginTop: 4 },
   purposeHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   publicBadge: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 },
   publicBadgeText: { fontSize: 10, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 1 },

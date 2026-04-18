@@ -600,7 +600,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
       setReportModalVisible(false);
       setReportReason(null);
       setReportDetail('');
-      alert('通報を受け付けました', 'ご協力ありがとうございます。歌会の主宰が内容を確認します。');
+      alert('通報を受け付けました', 'ご協力ありがとうございます。');
     } catch (e: any) {
       const msg = e?.code === 'functions/already-exists'
         ? 'この投稿は既に通報済みです'
@@ -886,7 +886,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
           <View style={styles.judgmentModal}>
             <AppText variant="sectionTitle" style={styles.judgmentTitle}>通報</AppText>
             <AppText variant="caption" tone="secondary" style={styles.judgmentDesc}>
-              この{reportTarget.type === 'comment' ? '評' : '歌'}を歌会の主宰に通報します。理由を選んでください。即座に削除されるわけではなく、主宰が確認した上で対応します。
+              この{reportTarget.type === 'comment' ? '評' : '歌'}を通報します。複数人から通報が集まると自動で仮非表示になり、主宰の確認対象になります。
             </AppText>
 
             {([

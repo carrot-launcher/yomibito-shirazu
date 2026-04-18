@@ -20,7 +20,7 @@ export type AppButtonVariant =
   | 'outlineDestructive'
   | 'ghost'
   | 'link';
-export type AppButtonSize = 'sm' | 'md' | 'lg';
+export type AppButtonSize = 'xs' | 'sm' | 'md' | 'lg';
 
 export interface AppButtonProps extends Omit<TouchableOpacityProps, 'children'> {
   label: string;
@@ -39,9 +39,12 @@ interface SizeSpec {
   textVariant: TextVariant;
 }
 
-// minHeight はアクセシビリティ最小タップ領域を保証するためライブラリ側で固定。
+// sm/md/lg はアクセシビリティ最小タップ領域を保証するためライブラリ側で固定。
 // sm=44 (iOS HIG 最低)、md=48 (Material 推奨)、lg=56 (プロミネントCTA)。
+// xs はアクセシビリティ制約を外したインライン用。リスト行内や他のコンパクト要素
+// と並ぶときだけ使う（それ以外は sm 以上を選ぶこと）。
 const SIZE_SPECS: Record<AppButtonSize, SizeSpec> = {
+  xs: { paddingVertical: 8,  paddingHorizontal: 14, minHeight: 0,  textVariant: 'buttonLabelSm' },
   sm: { paddingVertical: 8,  paddingHorizontal: 14, minHeight: 44, textVariant: 'buttonLabelSm' },
   md: { paddingVertical: 10, paddingHorizontal: 16, minHeight: 48, textVariant: 'buttonLabel' },
   lg: { paddingVertical: 14, paddingHorizontal: 20, minHeight: 56, textVariant: 'buttonLabelLg' },
