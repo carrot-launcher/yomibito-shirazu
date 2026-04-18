@@ -14,7 +14,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
   StyleSheet,
@@ -38,6 +38,16 @@ import { compressNewlines, formatTankaBody } from '../utils/formatTanka';
 function rubyToHtml(escaped: string): string {
   return escaped.replace(/\{([^|{}]+)\|([^|{}]+)\}/g,
     '<ruby>$1<rp>(</rp><rt>$2</rt><rp>)</rp></ruby>');
+}
+
+function timeAgo(date: Date): string {
+  const diff = Date.now() - date.getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return 'たった今';
+  if (min < 60) return `${min}分前`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}時間前`;
+  return `${Math.floor(hr / 24)}日前`;
 }
 
 function hogoLabel(type: string | undefined, reason: string | undefined): string {
@@ -280,10 +290,16 @@ if (comments.length === 0) {
   });
 }
 
-// 初期スクロール: コンテンツ生成完了後、右端にスクロール → 表示
+// 初期スクロール: コンテンツ生成完了後、右端にスクロール → 表示。
+// その後 React 側に 'rendered' を送り、健全性チェックのタイマーを止めてもらう。
 requestAnimationFrame(function() {
   document.body.scrollLeft = document.body.scrollWidth;
   document.body.style.visibility = 'visible';
+  requestAnimationFrame(function() {
+    try {
+      window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'rendered' }));
+    } catch (e) {}
+  });
 });
 </script>
 </body>
@@ -310,6 +326,54 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   const { alert } = useAlert();
   const webViewRef = useRef<WebView>(null);
   const fromMyPosts = !!route.params.fromMyPosts;
+
+  // Android WebView が初回描画を composite し損ねて真っ白のまま固まる workaround。
+  // 観察事実: 評を投稿して WebView の html が本物に変化したとき、その瞬間に描画が復活する。
+  // → Android の WebView は「最初の content load」で composite を失敗することがあり、
+  //   2 回目以降のロードは成功する性質がある。
+  // 対策: 2 段階ロードで自然にこの経路を通す。
+  //   1. 初回はほぼ空のプレースホルダー HTML を WebView に読ませる
+  //   2. そのプレースホルダーから 'placeholderReady' を受けたら本物の HTML に差し替え
+  //   → WebView は「2 回目のロード」として本物を描画し、composite が成功する
+  // それでも稀に WebView インスタンス自体が壊れて本物ロード後も描画されないケースがあるため、
+  // 本物から 'rendered' を受け取るまでの健全性チェックタイマーを走らせ、届かなければ
+  // `webViewKey` を更新して WebView を remount する（上限 2 回）。
+  const [contentPhase, setContentPhase] = useState<'placeholder' | 'real'>('placeholder');
+  const [webViewKey, setWebViewKey] = useState(0);
+  const twoPhaseAppliedRef = useRef(false);
+  const healthTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const remountAttemptsRef = useRef(0);
+  const MAX_REMOUNT_ATTEMPTS = 2;
+
+  const advanceToRealContent = useCallback(() => {
+    if (twoPhaseAppliedRef.current) return;
+    twoPhaseAppliedRef.current = true;
+    setTimeout(() => setContentPhase('real'), 50);
+  }, []);
+
+  // webViewKey が変わるたびに 2 段階ロード状態をリセットし、健全性タイマーを再セットする。
+  // 2.5 秒以内に本物から 'rendered' が来なければ remount 再試行。
+  useEffect(() => {
+    setContentPhase('placeholder');
+    twoPhaseAppliedRef.current = false;
+    if (healthTimerRef.current) clearTimeout(healthTimerRef.current);
+    healthTimerRef.current = setTimeout(() => {
+      if (remountAttemptsRef.current < MAX_REMOUNT_ATTEMPTS) {
+        remountAttemptsRef.current += 1;
+        setWebViewKey(k => k + 1);
+      }
+    }, 2500);
+    return () => {
+      if (healthTimerRef.current) clearTimeout(healthTimerRef.current);
+    };
+  }, [webViewKey]);
+
+  const markAsRendered = useCallback(() => {
+    if (healthTimerRef.current) {
+      clearTimeout(healthTimerRef.current);
+      healthTimerRef.current = null;
+    }
+  }, []);
 
   // 三点リーダメニュー
   const [menuVisible, setMenuVisible] = useState(false);
@@ -734,10 +798,57 @@ export default function TankaDetailScreen({ route, navigation }: any) {
       .catch(() => {});
   }, [deleted, user, postId]);
 
+  // html ビルドに関わる派生値は useMemo で安定化する。
+  // post.reactionSummary や bookmark 状態など、WebView の描画内容に影響しない
+  // state 変化で毎回 html 文字列を作り直すと、Android の WebView がロード嵐で
+  // プロセス破損（以降、他の WebView まで空になる）を起こしうる。
+  // 早期 return の「前」に置くこと（Hook の順序を保つため）。
+  const isHogo = !!post?.hogo;
+  const displayBody = useMemo(
+    () => !post || isHogo ? '' : formatTankaBody(post.body, 'detail', {
+      convertHalfSpace: post.convertHalfSpace,
+      convertLineBreak: post.convertLineBreak,
+    }),
+    [isHogo, post?.body, post?.convertHalfSpace, post?.convertLineBreak],
+  );
+  const commentData = useMemo(
+    () => comments
+      .filter(c => {
+        const h = (c as any).authorHandle as string | undefined;
+        return !h || (!blockedHandles[h] && !blockedByHandles[h]);
+      })
+      .map(c => ({
+        id: c.id,
+        body: c.body,
+        time: c.createdAt ? timeAgo(c.createdAt.toDate()) : '',
+        hogo: !!c.hogo,
+        hogoReason: c.hogoReason,
+        hogoType: c.hogoType,
+      })),
+    [comments, blockedHandles, blockedByHandles],
+  );
+  const realHtml = useMemo(
+    () => post ? buildDetailHtml(displayBody, commentData, isHogo, post.hogoReason, post.hogoType, colors) : '',
+    [post, displayBody, commentData, isHogo, colors],
+  );
+  // プレースホルダー HTML: 空っぽの背景だけ表示して、読み込み完了を postMessage で React に伝える。
+  const placeholderHtml = useMemo(
+    () => `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><style>html,body{margin:0;padding:0;height:100%;background:${colors.webViewBg};}</style></head><body><script>setTimeout(function(){try{window.ReactNativeWebView.postMessage(JSON.stringify({action:'placeholderReady'}));}catch(e){}},0);</script></body></html>`,
+    [colors.webViewBg],
+  );
+  const webViewSource = useMemo(
+    () => ({ html: contentPhase === 'real' ? realHtml : placeholderHtml }),
+    [contentPhase, realHtml, placeholderHtml],
+  );
+
   const handleWebViewMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      if (data.action === 'screenshot') {
+      if (data.action === 'placeholderReady') {
+        advanceToRealContent();
+      } else if (data.action === 'rendered') {
+        markAsRendered();
+      } else if (data.action === 'screenshot') {
         navigation.navigate('Screenshot', { body: displayBody, revealedAuthorName: post?.revealedAuthorName || '詠み人知らず' });
       } else if (data.action === 'commentMenu') {
         openCommentMenu(data.commentId);
@@ -758,40 +869,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
 
   if (!post) return <View style={styles.container}><AppText variant="body" tone="secondary" style={styles.loading}>読み込み中...</AppText></View>;
 
-  const timeAgo = (date: Date) => {
-    const diff = Date.now() - date.getTime();
-    const min = Math.floor(diff / 60000);
-    if (min < 1) return 'たった今';
-    if (min < 60) return `${min}分前`;
-    const hr = Math.floor(min / 60);
-    if (hr < 24) return `${hr}時間前`;
-    return `${Math.floor(hr / 24)}日前`;
-  };
-
   const reactionCount = (post.reactionSummary?.[REACTION_EMOJI] || 0) + extraReactions;
-  const isHogo = !!post.hogo;
-
-  const displayBody = isHogo ? '' : formatTankaBody(post.body, 'detail', {
-    convertHalfSpace: post.convertHalfSpace,
-    convertLineBreak: post.convertLineBreak,
-  });
-
-  const commentData = comments
-    .filter(c => {
-      const h = (c as any).authorHandle as string | undefined;
-      // 双方向のブロック関係があれば評も非表示
-      return !h || (!blockedHandles[h] && !blockedByHandles[h]);
-    })
-    .map(c => ({
-      id: c.id,
-      body: c.body,
-      time: c.createdAt ? timeAgo(c.createdAt.toDate()) : '',
-      hogo: !!c.hogo,
-      hogoReason: c.hogoReason,
-      hogoType: c.hogoType,
-    }));
-
-  const html = buildDetailHtml(displayBody, commentData, isHogo, post.hogoReason, post.hogoType, colors);
 
   // メニューで表示する項目を決定
   const isMenuForPost = menuTargetComment === null;
@@ -865,8 +943,9 @@ export default function TankaDetailScreen({ route, navigation }: any) {
       </View>
 
       <WebView
+        key={webViewKey}
         ref={webViewRef}
-        source={{ html }}
+        source={webViewSource}
         style={[styles.webview, { backgroundColor: colors.webViewBg }]}
         onMessage={handleWebViewMessage}
         scrollEnabled={true}
