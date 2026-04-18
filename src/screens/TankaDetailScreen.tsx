@@ -225,27 +225,28 @@ if (comments.length === 0) {
     const el = document.createElement("div");
     el.className = "comment-item" + (c.hogo ? " comment-hogo" : "");
 
-    if (c.hogo) {
-      el.innerHTML = (c.hogoLabel || ('反故——' + (c.hogoReason || '仔細あり'))) +
-        '<div class="comment-time">' + c.time + '</div>';
-      // 反故の評は長押しメニューを出さない
-      commentsEl.appendChild(el);
-      return;
-    }
-
-    var bodyLines = c.body.split('\\n');
-    var needsFold = bodyLines.length > 6;
-    var shortBody = needsFold ? bodyLines.slice(0, 6).join('\\n') : null;
-    var expanded = !needsFold;
-
+    // 反故評は本文の代わりに反故ラベル。折りたたみは発生しない。
+    var needsFold, shortBody, expanded;
     function renderComment() {
+      if (c.hogo) {
+        el.innerHTML = (c.hogoLabel || ('反故——' + (c.hogoReason || '仔細あり'))) +
+          '<div class="comment-time">' + c.time + '</div>';
+        return;
+      }
       var displayBody = expanded ? c.body : shortBody;
       el.innerHTML = displayBody +
         (needsFold ? '<div class="fold-hint">' + (expanded ? '▲ 閉じる' : '▼ 続きを読む') + '</div>' : '') +
         '<div class="comment-time">' + c.time + '</div>';
     }
+    if (!c.hogo) {
+      var bodyLines = c.body.split('\\n');
+      needsFold = bodyLines.length > 6;
+      shortBody = needsFold ? bodyLines.slice(0, 6).join('\\n') : null;
+      expanded = !needsFold;
+    }
     renderComment();
 
+    // 反故評でもブロック等のため長押しメニューは出せるようにする（通報は React 側で隠す）。
     var pressTimer = null;
     var longPressed = false;
     var moved = false;
@@ -899,12 +900,11 @@ export default function TankaDetailScreen({ route, navigation }: any) {
             </TouchableOpacity>
           )}
 
-          {/* 三点リーダメニュー: 自投稿（削除/解題）、他投稿（通報/ブロック）、オーナー（裁き）のいずれかがあれば表示 */}
-          {(isSelf('post') || !isHogo || isOwner) && (
-            <TouchableOpacity style={styles.moreBtn} onPress={openPostMenu}>
-              <MaterialCommunityIcons name="dots-horizontal" size={20} color={colors.text} />
-            </TouchableOpacity>
-          )}
+          {/* 三点リーダメニュー: 削除/解題/通報/ブロック/裁きのうち該当する項目が並ぶ。
+              反故投稿でもブロックはできるので、常に表示する。 */}
+          <TouchableOpacity style={styles.moreBtn} onPress={openPostMenu}>
+            <MaterialCommunityIcons name="dots-horizontal" size={20} color={colors.text} />
+          </TouchableOpacity>
 
           {post.revealedAuthorName && (
             <AppText variant="caption" tone="secondary" style={styles.revealedAuthor}>
@@ -1003,17 +1003,20 @@ export default function TankaDetailScreen({ route, navigation }: any) {
               </TouchableOpacity>
             )}
 
-            {/* 通報・ブロック（自投稿以外、反故以外） */}
-            {!menuCommentHogo && !isSelf(isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined) && (
+            {/* 通報・ブロック（いずれも自投稿以外）。反故（post でも評でも）は通報を隠し、
+                ブロックは残す（後からブロックし直せるようにするため）。 */}
+            {!isSelf(isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined) && (
               <>
                 <View style={styles.menuDivider} />
-                <TouchableOpacity style={styles.menuItem} onPress={() => {
-                  openReportModal(isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined);
-                }}>
-                  <MaterialCommunityIcons name="flag-outline" size={20} color={colors.text} />
-                  <AppText variant="bodyLg">通報</AppText>
-                  <AppText variant="caption" tone="tertiary" style={styles.menuItemHint}>主宰が確認</AppText>
-                </TouchableOpacity>
+                {!(isMenuForPost ? isHogo : menuCommentHogo) && (
+                  <TouchableOpacity style={styles.menuItem} onPress={() => {
+                    openReportModal(isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined);
+                  }}>
+                    <MaterialCommunityIcons name="flag-outline" size={20} color={colors.text} />
+                    <AppText variant="bodyLg">通報</AppText>
+                    <AppText variant="caption" tone="tertiary" style={styles.menuItemHint}>主宰が確認</AppText>
+                  </TouchableOpacity>
+                )}
                 {!isBlocked(isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined) && (
                   <TouchableOpacity style={styles.menuItem} onPress={() => {
                     handleBlockAuthor(isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined);
