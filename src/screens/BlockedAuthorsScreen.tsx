@@ -1,11 +1,8 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
-  Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { AppButton } from '../components/AppButton';
@@ -61,7 +58,7 @@ export default function BlockedAuthorsScreen() {
     <GradientBackground>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <AppText variant="caption" tone="secondary" style={styles.intro}>
-          ブロック中の歌人の歌・評は、あなたには表示されません。相手にブロックしたことは通知されません。解除するとまた表示されるようになります。{'\n\n'}
+          ブロック中の歌人とは、互いの歌・評が見えなくなり、互いにリアクションや評も送れなくなります。相手にブロックしたことは通知されません。解除するとまた表示されるようになります。{'\n\n'}
           歌人は匿名のため、歌会での表示名ではなく、歌のサンプルで見分けてください。
         </AppText>
 
@@ -85,10 +82,9 @@ export default function BlockedAuthorsScreen() {
                 </AppText>
               </View>
               <AppButton
-                label="解除"
+                label="ブロック解除"
                 variant="secondary"
-                size="sm"
-                leftIcon={<MaterialCommunityIcons name="close" size={14} color={colors.text} />}
+                size="xs"
                 onPress={() => handleUnblock(e.handle)}
                 disabled={working === e.handle}
               />

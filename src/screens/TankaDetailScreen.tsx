@@ -642,7 +642,18 @@ export default function TankaDetailScreen({ route, navigation }: any) {
                 commentId: target === 'comment' ? commentId : undefined,
                 sampleBody: sampleBody.slice(0, 80),
               });
-              alert('ブロックしました', 'この歌人とはお互いの歌・評が表示されなくなります。設定画面から解除できます。');
+              alert('ブロックしました', 'この歌人とはお互いの歌・評が表示されなくなります。設定画面から解除できます。', [
+                { text: 'OK', onPress: () => {
+                  // Timeline がスタック内にあれば refresh 指示付きで戻す（既存 params を維持しないと groupId 等が落ちる）
+                  const state = navigation.getState?.();
+                  const timelineRoute = state?.routes?.find((r: any) => r.name === 'Timeline');
+                  if (timelineRoute) {
+                    navigation.navigate('Timeline', { ...(timelineRoute.params as object), refreshAt: Date.now() });
+                  } else {
+                    navigation.goBack();
+                  }
+                }},
+              ]);
             } catch (e: any) {
               const msg = e?.code === 'functions/resource-exhausted'
                 ? 'ブロックできるのは200人までです'

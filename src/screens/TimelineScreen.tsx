@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
@@ -116,6 +116,16 @@ export default function TimelineScreen({ route, navigation }: any) {
       lastReadAt: serverTimestamp(),
     }).catch(() => {});
   }, [arrivalGen, user, groupId]);
+
+  // 詳細画面でブロックされたとき等、明示的な更新要求があれば refresh を呼ぶ
+  const lastHandledRefreshAt = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const at = route.params?.refreshAt as number | undefined;
+    if (at && at !== lastHandledRefreshAt.current) {
+      lastHandledRefreshAt.current = at;
+      refresh().catch(() => {});
+    }
+  }, [route.params?.refreshAt, refresh]);
 
   return (
     <GradientBackground>
