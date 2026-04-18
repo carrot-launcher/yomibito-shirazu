@@ -17,14 +17,17 @@ const SHOW_PUBLIC_PURPOSE_STRIP = true;
 
 export default function TimelineScreen({ route, navigation }: any) {
   const { groupId, groupName } = route.params;
-  const { user, blockedHandles } = useAuth();
+  const { user, blockedHandles, blockedByHandles } = useAuth();
   const { alert } = useAlert();
   const { colors } = useTheme();
   const { cards, loading, hasMore, refresh, loadMore, generation, newArrivals, arrivalGen, changedCards, removedIds, updateGen } = usePaginatedPosts(groupId);
   const filterBlocked = useCallback(<T extends { authorHandle?: string }>(list: T[]) => {
-    if (!Object.keys(blockedHandles).length) return list;
-    return list.filter(c => !c.authorHandle || !blockedHandles[c.authorHandle]);
-  }, [blockedHandles]);
+    // 双方向：自分がブロックしている相手、および自分をブロックしている相手の投稿を除外
+    const hasAny = Object.keys(blockedHandles).length + Object.keys(blockedByHandles).length;
+    if (!hasAny) return list;
+    return list.filter(c => !c.authorHandle
+      || (!blockedHandles[c.authorHandle] && !blockedByHandles[c.authorHandle]));
+  }, [blockedHandles, blockedByHandles]);
   const visibleCards = useMemo(() => filterBlocked(cards), [cards, filterBlocked]);
   const visibleNewArrivals = useMemo(() => filterBlocked(newArrivals), [newArrivals, filterBlocked]);
   const visibleChangedCards = useMemo(() => filterBlocked(changedCards), [changedCards, filterBlocked]);

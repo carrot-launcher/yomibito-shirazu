@@ -225,7 +225,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   const { postId, groupId, batchId } = route.params;
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { user, myAuthorHandle, blockedHandles } = useAuth();
+  const { user, myAuthorHandle, blockedHandles, blockedByHandles } = useAuth();
   const [post, setPost] = useState<PostDoc | null>(null);
   const [deleted, setDeleted] = useState(false);
   const [comments, setComments] = useState<(CommentDoc & { id: string })[]>([]);
@@ -551,7 +551,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
       : (post?.body || '');
     alert(
       'この歌人をブロック',
-      'この歌人の歌・評があなたには表示されなくなります。',
+      'お互いの歌・評が見えなくなり、互いにリアクションや評も送れなくなります。',
       [
         { text: 'やめる', style: 'cancel' },
         {
@@ -560,8 +560,12 @@ export default function TankaDetailScreen({ route, navigation }: any) {
           onPress: async () => {
             try {
               const fns = getFunctions(undefined, 'asia-northeast1');
-              await httpsCallable(fns, 'blockAuthor')({ handle, sampleBody: sampleBody.slice(0, 80) });
-              alert('ブロックしました', 'この歌人の歌・評は表示されなくなります。設定画面から解除できます。');
+              await httpsCallable(fns, 'blockAuthor')({
+                postId,
+                commentId: target === 'comment' ? commentId : undefined,
+                sampleBody: sampleBody.slice(0, 80),
+              });
+              alert('ブロックしました', 'この歌人とはお互いの歌・評が表示されなくなります。設定画面から解除できます。');
             } catch (e: any) {
               const msg = e?.code === 'functions/resource-exhausted'
                 ? 'ブロックできるのは200人までです'
@@ -685,7 +689,8 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   const commentData = comments
     .filter(c => {
       const h = (c as any).authorHandle as string | undefined;
-      return !h || !blockedHandles[h];
+      // 双方向のブロック関係があれば評も非表示
+      return !h || (!blockedHandles[h] && !blockedByHandles[h]);
     })
     .map(c => ({
       id: c.id,

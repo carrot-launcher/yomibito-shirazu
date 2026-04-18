@@ -18,6 +18,16 @@ service cloud.firestore {
       let groupData = get(/databases/$(db)/documents/groups/$(groupId)).data;
       return 'bannedUsers' in groupData && request.auth.uid in groupData.bannedUsers;
     }
+    // post の作者を自分がブロック中、または作者が自分をブロック中か判定
+    // （双方向のブロック関係で reactions 等の干渉を遮断するため）
+    function hasBlockRelation(postId) {
+      let postAuthorHandle = get(/databases/$(db)/documents/posts/$(postId)).data.authorHandle;
+      let myDoc = get(/databases/$(db)/documents/users/$(request.auth.uid)).data;
+      // 自分がブロックしているか
+      return ('blockedHandles' in myDoc && postAuthorHandle in myDoc.blockedHandles)
+             // 相手が自分をブロックしているか（blockedByHandles に相手のハンドルが入っている）
+             || ('blockedByHandles' in myDoc && postAuthorHandle in myDoc.blockedByHandles);
+    }
 
     // ===== レートリミットカウンタ（サーバー専用） =====
     match /rateLimits/{document=**} {
@@ -104,10 +114,12 @@ service cloud.firestore {
       // リアクション
       match /reactions/{reactionId} {
         allow read: if isAuth() && resource.data.userId == request.auth.uid;
+        // ブロック関係（双方向）があれば書き込み不可
         allow write: if isAuth()
                      && isGroupMember(
                           get(/databases/$(db)/documents/posts/$(postId)).data.groupId
-                        );
+                        )
+                     && !hasBlockRelation(postId);
       }
 
       // 評

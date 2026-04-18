@@ -18,7 +18,7 @@ import { relativeTimeJa } from '../utils/relativeTime';
 import { fs } from '../utils/scale';
 
 export default function UtakaiListScreen({ navigation }: any) {
-  const { user, userCode } = useAuth();
+  const { user, userCode, blockedHandles, blockedByHandles } = useAuth();
   const { alert } = useAlert();
   const { colors, isDark } = useTheme();
   // 未読時の光る色（モード別）
@@ -266,15 +266,28 @@ export default function UtakaiListScreen({ navigation }: any) {
     }
   };
 
-  // 未読判定: lastPostAt > lastReadAt
-  // lastReadMap[gid] が undefined の場合（まだロード中）は既読扱いにしてチラつき防止
+  // 未読判定: 「ブロック関係にない誰かの未読投稿」があるか。
+  // - lastPostsByHandle があれば、ブロック関係のハンドルを除外して最新の投稿時刻を求める
+  // - 無ければ（旧データ・未投稿の歌会）従来の lastPostAt を使う
+  // - lastReadMap[gid] が undefined の場合（まだロード中）は既読扱いにしてチラつき防止
   const isUnread = (g: GroupDoc & { id: string }) => {
-    const lastPost = g.lastPostAt?.toDate?.();
-    if (!lastPost) return false;
     if (!(g.id in lastReadMap)) return false;
     const lastRead = lastReadMap[g.id];
-    if (!lastRead) return true;
-    return lastPost > lastRead;
+
+    const byHandle = g.lastPostsByHandle;
+    let effectiveLastPost: Date | null = null;
+    if (byHandle && Object.keys(byHandle).length > 0) {
+      for (const [handle, ts] of Object.entries(byHandle)) {
+        if (blockedHandles[handle] || blockedByHandles[handle]) continue;
+        const d = (ts as any)?.toDate?.();
+        if (!d) continue;
+        if (!effectiveLastPost || d > effectiveLastPost) effectiveLastPost = d;
+      }
+    } else {
+      effectiveLastPost = g.lastPostAt?.toDate?.() || null;
+    }
+    if (!effectiveLastPost) return false;
+    return lastRead ? effectiveLastPost > lastRead : true;
   };
 
   const renderGroupItem = ({ item, drag, isActive }: RenderItemParams<GroupDoc & { id: string }>) => {

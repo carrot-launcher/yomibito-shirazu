@@ -77,11 +77,12 @@ interface AuthContextType {
   setOnboardingDone: (done: boolean) => void;
   myAuthorHandle: string;
   blockedHandles: Record<string, { blockedAt: any; sampleBody?: string }>;
+  blockedByHandles: Record<string, { blockedAt: any }>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null, loading: true, userCode: '', onboardingDone: true, setOnboardingDone: () => {},
-  myAuthorHandle: '', blockedHandles: {},
+  myAuthorHandle: '', blockedHandles: {}, blockedByHandles: {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -91,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [onboardingDone, setOnboardingDoneState] = useState(true);
   const [myAuthorHandle, setMyAuthorHandle] = useState('');
   const [blockedHandles, setBlockedHandles] = useState<Record<string, { blockedAt: any; sampleBody?: string }>>({});
+  const [blockedByHandles, setBlockedByHandles] = useState<Record<string, { blockedAt: any }>>({});
 
   useEffect(() => {
     let unsubUserDoc: (() => void) | null = null;
@@ -130,10 +132,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUserCode(result.userCode);
         setOnboardingDoneState(result.onboardingDone);
 
-        // blockedHandles をリアルタイム購読
+        // blockedHandles / blockedByHandles をリアルタイム購読
         unsubUserDoc = onSnapshot(userRef, (snap) => {
           const data = snap.data();
           setBlockedHandles((data?.blockedHandles as Record<string, { blockedAt: any; sampleBody?: string }>) || {});
+          setBlockedByHandles((data?.blockedByHandles as Record<string, { blockedAt: any }>) || {});
         });
 
         // 自分の authorHandle を取得（キャッシュ）
@@ -149,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUserCode('');
         setMyAuthorHandle('');
         setBlockedHandles({});
+        setBlockedByHandles({});
       }
       if (!firebaseUser) setOnboardingDoneState(true);
       setUser(firebaseUser);
@@ -173,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, userCode, onboardingDone, setOnboardingDone, myAuthorHandle, blockedHandles }}>
+    <AuthContext.Provider value={{ user, loading, userCode, onboardingDone, setOnboardingDone, myAuthorHandle, blockedHandles, blockedByHandles }}>
       {children}
     </AuthContext.Provider>
   );

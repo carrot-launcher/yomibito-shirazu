@@ -93,6 +93,7 @@ async function createNotification(
     emoji?: string;
     commentBody?: string;
     commentId?: string; // comment 通知の場合、削除検知用に保存
+    actorHandle?: string; // 投稿者/リアクター/コメント者の authorHandle（ブロック判定用、保存はしない）
   }
 ) {
   const userSnap = await db.doc(`users/${targetUserId}`).get();
@@ -103,6 +104,18 @@ async function createNotification(
   if (type === "new_post" && !settings.newPost) return;
   if (type === "reaction" && !settings.reaction) return;
   if (type === "comment" && !settings.comment) return;
+
+  // ブロック関係チェック：相手（actor）との間に双方向のいずれかのブロックがあれば通知しない
+  if (data.actorHandle) {
+    const blocked = (userData.blockedHandles as Record<string, unknown> | undefined) || {};
+    const blockedBy = (userData.blockedByHandles as Record<string, unknown> | undefined) || {};
+    if (blocked[data.actorHandle] || blockedBy[data.actorHandle]) {
+      return;
+    }
+  }
+  // actorHandle はクライアントに見せる情報ではないので保存データから除外
+  const { actorHandle: _omit, ...persistData } = data;
+  void _omit;
 
   // FCM送信（毎回）
   const fcmToken = userData.fcmToken;
@@ -169,7 +182,7 @@ async function createNotification(
     } else {
       await db.collection(`users/${targetUserId}/notifications`).add({
         type: "reaction",
-        ...data,
+        ...persistData,
         reactionCount: 1,
         createdAt: admin.firestore.Timestamp.now(),
       });
@@ -177,7 +190,7 @@ async function createNotification(
   } else {
     await db.collection(`users/${targetUserId}/notifications`).add({
       type,
-      ...data,
+      ...persistData,
       createdAt: admin.firestore.Timestamp.now(),
     });
   }
@@ -381,9 +394,12 @@ export const createPost = onCall(
       tx.set(userCounterRef, { postCount: (userPostCount + 1), commentCount: userCounter.data()?.commentCount || 0 }, { merge: true });
       tx.set(groupCounterRef, { postCount: (groupPostCount + 1) }, { merge: true });
 
-      // 歌会の最終投稿時刻と累計投稿数を更新
+      // 歌会の最終投稿時刻と累計投稿数を更新。
+      // lastPostsByHandle は "handle → その人の最終投稿時刻" のマップで、
+      // クライアント側でブロック関係を除外した未読判定に使う。
       tx.update(db.doc(`groups/${groupId}`), {
         lastPostAt: admin.firestore.FieldValue.serverTimestamp(),
+        [`lastPostsByHandle.${authorHandle}`]: admin.firestore.FieldValue.serverTimestamp(),
         postCount: admin.firestore.FieldValue.increment(1),
       });
       // 投稿者本人の lastReadAt も同時に更新（自分の投稿で未読扱いにならないように）
@@ -417,6 +433,23 @@ export const createComment = onCall(
     const groupId = postSnap.data()?.groupId;
     const memberSnap = await db.doc(`groups/${groupId}/members/${uid}`).get();
     if (!memberSnap.exists) throw new HttpsError("permission-denied", "この歌会のメンバーではありません");
+
+    // ブロック関係チェック（双方向）：投稿者とコメント者のどちらかが相手をブロック中なら拒否
+    const authorSnap = await db.doc(`posts/${postId}/private/author`).get();
+    const postAuthorId = authorSnap.data()?.authorId as string | undefined;
+    if (postAuthorId && postAuthorId !== uid) {
+      const myHandle = deriveAuthorHandle(uid);
+      const authorHandleForBlock = deriveAuthorHandle(postAuthorId);
+      const [myUserSnap, authorUserSnap] = await Promise.all([
+        db.doc(`users/${uid}`).get(),
+        db.doc(`users/${postAuthorId}`).get(),
+      ]);
+      const iBlockedAuthor = !!(myUserSnap.data()?.blockedHandles || {})[authorHandleForBlock];
+      const authorBlockedMe = !!(authorUserSnap.data()?.blockedHandles || {})[myHandle];
+      if (iBlockedAuthor || authorBlockedMe) {
+        throw new HttpsError("permission-denied", "この歌には評を送れません");
+      }
+    }
 
     // 公開歌会の場合は kill switch を確認
     const groupSnap = await db.doc(`groups/${groupId}`).get();
@@ -682,7 +715,7 @@ export const updatePurpose = onCall(
  * private/author の作成をトリガーにすることで、post本体が確実に存在する
  */
 export const onNewPost = onDocumentCreated(
-  { document: "posts/{postId}/private/author", region: "asia-northeast1" },
+  { document: "posts/{postId}/private/author", region: "asia-northeast1", secrets: [AUTHOR_HANDLE_SALT] },
   async (event) => {
     const authorId = event.data?.data()?.authorId;
     const postId = event.params.postId;
@@ -699,6 +732,7 @@ export const onNewPost = onDocumentCreated(
     const membersSnap = await db
       .collection(`groups/${post.groupId}/members`)
       .get();
+    const actorHandle = deriveAuthorHandle(authorId);
     await Promise.all(
       membersSnap.docs
         .filter((m) => m.id !== authorId && !m.data()?.muted)
@@ -708,6 +742,7 @@ export const onNewPost = onDocumentCreated(
             groupId: post.groupId,
             groupName,
             tankaBody: post.body,
+            actorHandle,
           })
         )
     );
@@ -721,6 +756,7 @@ export const onNewReaction = onDocumentCreated(
   {
     document: "posts/{postId}/reactions/{reactionId}",
     region: "asia-northeast1",
+    secrets: [AUTHOR_HANDLE_SALT],
   },
   async (event) => {
     const reactionData = event.data?.data();
@@ -748,6 +784,7 @@ export const onNewReaction = onDocumentCreated(
       groupName,
       tankaBody: post.body,
       emoji: reactionData.emoji,
+      actorHandle: deriveAuthorHandle(reactionData.userId),
     });
   }
 );
@@ -760,6 +797,7 @@ export const onNewComment = onDocumentCreated(
   {
     document: "posts/{postId}/comments/{commentId}/private/author",
     region: "asia-northeast1",
+    secrets: [AUTHOR_HANDLE_SALT],
   },
   async (event) => {
     const commentAuthorId = event.data?.data()?.authorId;
@@ -793,6 +831,7 @@ export const onNewComment = onDocumentCreated(
       groupName,
       tankaBody: post.body,
       commentBody,
+      actorHandle: deriveAuthorHandle(commentAuthorId),
     });
   }
 );
@@ -1891,58 +1930,114 @@ export const getMyAuthorHandle = onCall(
 );
 
 /**
- * blockAuthor — handle ベースで特定の詠み人をブロック
- *   - users/{uid}.blockedHandles map に追加
- *   - 自分自身のハンドルはブロック不可
- *   - 上限 200
+ * blockAuthor — 特定の詠み人を双方向ブロック
+ *   - postId または commentId を受け取り、対象の UID を Cloud Function 側で解決する
+ *   - users/{blocker}.blockedHandles[targetHandle] に追加（targetUid を内部保持）
+ *   - users/{target}.blockedByHandles[blockerHandle] に追加（逆方向検知用）
+ *   - ルールで reactions/comments 作成を相互に遮断できるようにする
  */
 export const blockAuthor = onCall(
   { region: "asia-northeast1", secrets: [AUTHOR_HANDLE_SALT] },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
-    const handle = assertString(request.data?.handle, "handle", { pattern: /^[0-9a-f]{12}$/ });
+    const postId = assertDocId(request.data?.postId, "postId");
+    const commentId = assertOptionalDocId(request.data?.commentId, "commentId");
     const sampleBody = assertOptionalString(request.data?.sampleBody, "sampleBody", { max: 500 });
-    if (handle === deriveAuthorHandle(uid)) {
+
+    // 対象の UID を server-side で確定（クライアントの入力を信用しない）
+    const authorPath = commentId
+      ? `posts/${postId}/comments/${commentId}/private/author`
+      : `posts/${postId}/private/author`;
+    const authorSnap = await db.doc(authorPath).get();
+    if (!authorSnap.exists) throw new HttpsError("not-found", "対象の著者情報が見つかりません");
+    const targetUid = authorSnap.data()?.authorId as string | undefined;
+    if (!targetUid) throw new HttpsError("not-found", "対象の著者が不明です");
+    if (targetUid === uid) {
       throw new HttpsError("failed-precondition", "自分自身はブロックできません");
     }
 
-    const userRef = db.doc(`users/${uid}`);
+    const blockerHandle = deriveAuthorHandle(uid);
+    const targetHandle = deriveAuthorHandle(targetUid);
+
+    const blockerRef = db.doc(`users/${uid}`);
+    const targetRef = db.doc(`users/${targetUid}`);
+
     await db.runTransaction(async (tx) => {
-      const snap = await tx.get(userRef);
-      if (!snap.exists) throw new HttpsError("not-found", "ユーザーが見つかりません");
-      const current = (snap.data()?.blockedHandles as Record<string, unknown>) || {};
-      if (current[handle]) {
-        // 既にブロック済みなら何もしない
+      const [blockerSnap, targetSnap] = await Promise.all([
+        tx.get(blockerRef),
+        tx.get(targetRef),
+      ]);
+      if (!blockerSnap.exists) throw new HttpsError("not-found", "ユーザーが見つかりません");
+
+      const current = (blockerSnap.data()?.blockedHandles as Record<string, unknown>) || {};
+      if (current[targetHandle]) {
+        // 既にブロック済み → no-op（相互記録は既にある想定）
         return;
       }
       if (Object.keys(current).length >= BLOCK_LIMIT) {
         throw new HttpsError("resource-exhausted", `ブロックは最大${BLOCK_LIMIT}人までです`);
       }
-      const entry: Record<string, unknown> = {
+
+      const blockerEntry: Record<string, unknown> = {
         blockedAt: admin.firestore.Timestamp.now(),
+        targetUid, // 解除時に相手側のドキュメントを更新するため
       };
       if (typeof sampleBody === "string" && sampleBody.trim().length > 0) {
-        entry.sampleBody = sampleBody.trim().slice(0, 80);
+        blockerEntry.sampleBody = sampleBody.trim().slice(0, 80);
       }
-      tx.update(userRef, { [`blockedHandles.${handle}`]: entry });
+      tx.update(blockerRef, { [`blockedHandles.${targetHandle}`]: blockerEntry });
+
+      if (targetSnap.exists) {
+        tx.update(targetRef, {
+          [`blockedByHandles.${blockerHandle}`]: {
+            blockedAt: admin.firestore.Timestamp.now(),
+          },
+        });
+      } else {
+        // 対象ユーザーのドキュメントが存在しないケース（通常は無いが保険）
+        tx.set(
+          targetRef,
+          {
+            blockedByHandles: {
+              [blockerHandle]: { blockedAt: admin.firestore.Timestamp.now() },
+            },
+          },
+          { merge: true }
+        );
+      }
     });
     return { success: true };
   }
 );
 
 /**
- * unblockAuthor — ブロック解除
+ * unblockAuthor — 双方向ブロックを解除
+ *   - blocker.blockedHandles[handle] から targetUid を取り出して相手側も掃除
  */
 export const unblockAuthor = onCall(
-  { region: "asia-northeast1" },
+  { region: "asia-northeast1", secrets: [AUTHOR_HANDLE_SALT] },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
     const handle = assertString(request.data?.handle, "handle", { pattern: /^[0-9a-f]{12}$/ });
-    await db.doc(`users/${uid}`).update({
+
+    const blockerRef = db.doc(`users/${uid}`);
+    const blockerSnap = await blockerRef.get();
+    const entry = (blockerSnap.data()?.blockedHandles as Record<string, any> | undefined)?.[handle];
+    const targetUid = entry?.targetUid as string | undefined;
+    const blockerHandle = deriveAuthorHandle(uid);
+
+    const batch = db.batch();
+    batch.update(blockerRef, {
       [`blockedHandles.${handle}`]: admin.firestore.FieldValue.delete(),
     });
+    if (targetUid) {
+      batch.update(db.doc(`users/${targetUid}`), {
+        [`blockedByHandles.${blockerHandle}`]: admin.firestore.FieldValue.delete(),
+      });
+    }
+    await batch.commit();
     return { success: true };
   }
 );

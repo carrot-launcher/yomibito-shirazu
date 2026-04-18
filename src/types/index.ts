@@ -12,7 +12,8 @@ export interface UserDoc {
     comment: boolean;
   };
   createdAt: Timestamp;
-  blockedHandles?: Record<string, { blockedAt: Timestamp; sampleBody?: string }>;
+  blockedHandles?: Record<string, { blockedAt: Timestamp; sampleBody?: string; targetUid?: string }>;
+  blockedByHandles?: Record<string, { blockedAt: Timestamp }>;
 }
 
 export interface GroupDoc {
@@ -23,6 +24,9 @@ export interface GroupDoc {
   bannedUsers?: Record<string, { displayName: string; userCode: string }>;
   createdAt: Timestamp;
   lastPostAt?: Timestamp;
+  // 投稿者ハンドルごとの最終投稿時刻。未読判定でブロック関係の相手を除外して
+  // 「自分にとっての実効的な最新投稿時刻」を求めるために使う。
+  lastPostsByHandle?: Record<string, Timestamp>;
   // 公開歌会（作成時に固定、変更不可）
   isPublic?: boolean;
   purpose?: string;       // 趣意書（公開歌会のみ、25〜200字）
