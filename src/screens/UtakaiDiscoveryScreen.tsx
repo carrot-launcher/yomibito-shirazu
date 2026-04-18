@@ -128,32 +128,32 @@ export default function UtakaiDiscoveryScreen({ navigation }: any) {
         activeOpacity={0.75}
       >
         <View style={styles.cardHeader}>
-          <Text style={[styles.cardName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
+          <AppText variant="bodyLg" weight="medium" style={styles.cardName} numberOfLines={1}>{item.name}</AppText>
           {joined && (
             <View style={[styles.joinedBadge, { backgroundColor: colors.border }]}>
-              <Text style={[styles.joinedBadgeText, { color: colors.textSecondary }]}>参加中</Text>
+              <AppText variant="meta" tone="secondary">参加中</AppText>
             </View>
           )}
         </View>
         {item.purpose ? (
-          <Text style={[styles.cardPurpose, { color: colors.textSecondary }]} numberOfLines={3}>
+          <AppText variant="caption" tone="secondary" style={styles.cardPurpose} numberOfLines={3}>
             {item.purpose}
-          </Text>
+          </AppText>
         ) : null}
         <View style={styles.cardFooter}>
           <MaterialCommunityIcons name="account-multiple-outline" size={14} color={colors.textTertiary} />
-          <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>{item.memberCount}人</Text>
-          <Text style={[styles.cardMetaSep, { color: colors.textTertiary }]}> ・ </Text>
+          <AppText variant="meta" tone="tertiary">{item.memberCount}人</AppText>
+          <AppText variant="meta" tone="tertiary"> ・ </AppText>
           <MaterialCommunityIcons name="feather" size={14} color={colors.textTertiary} />
-          <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>{item.postCount ?? 0}首</Text>
+          <AppText variant="meta" tone="tertiary">{item.postCount ?? 0}首</AppText>
         </View>
         {item.ownerDisplayName ? (
           <View style={styles.cardOwnerRow}>
-            <Text style={[styles.cardOwnerLabel, { color: colors.textTertiary }]}>主宰</Text>
-            <Text style={[styles.cardOwnerName, { color: colors.textTertiary }]} numberOfLines={1}>
+            <AppText variant="meta" weight="medium" tone="tertiary" style={styles.cardOwnerLabel}>主宰</AppText>
+            <AppText variant="meta" tone="tertiary" style={styles.cardOwnerName} numberOfLines={1}>
               {item.ownerDisplayName}
               {item.ownerUserCode ? ` #${item.ownerUserCode}` : ''}
-            </Text>
+            </AppText>
           </View>
         ) : null}
       </TouchableOpacity>
@@ -179,7 +179,7 @@ export default function UtakaiDiscoveryScreen({ navigation }: any) {
 
       {disabled ? (
         <View style={styles.emptyBox}>
-          <Text style={[styles.emptyText, { color: colors.textTertiary }]}>{disabledMessage}</Text>
+          <AppText variant="bodySm" tone="tertiary" style={styles.emptyText}>{disabledMessage}</AppText>
         </View>
       ) : loading ? (
         <View style={styles.emptyBox}>
@@ -187,13 +187,13 @@ export default function UtakaiDiscoveryScreen({ navigation }: any) {
         </View>
       ) : errorMessage ? (
         <View style={styles.emptyBox}>
-          <Text style={[styles.emptyText, { color: colors.textTertiary }]}>{errorMessage}</Text>
+          <AppText variant="bodySm" tone="tertiary" style={styles.emptyText}>{errorMessage}</AppText>
         </View>
       ) : groups.length === 0 ? (
         <View style={styles.emptyBox}>
-          <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
+          <AppText variant="bodySm" tone="tertiary" style={styles.emptyText}>
             {tab === 'new' ? 'まだ公開歌会がありません' : '条件に合う歌会がありません'}
-          </Text>
+          </AppText>
         </View>
       ) : (
         <FlatList
@@ -220,16 +220,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  cardName: { flex: 1, fontSize: fs(17), fontFamily: 'NotoSerifJP_500Medium' },
+  cardName: { flex: 1, fontSize: fs(17) },
   joinedBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, marginLeft: 8 },
-  joinedBadgeText: { fontSize: 11, fontFamily: 'NotoSerifJP_400Regular' },
-  cardPurpose: { fontSize: 13, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular', marginBottom: 10 },
+  cardPurpose: { marginBottom: 10 },
   cardFooter: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  cardMeta: { fontSize: 12, fontFamily: 'NotoSerifJP_400Regular' },
-  cardMetaSep: { fontSize: 12 },
   cardOwnerRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  cardOwnerLabel: { fontSize: 11, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 2 },
-  cardOwnerName: { flex: 1, fontSize: 12, fontFamily: 'NotoSerifJP_400Regular' },
+  cardOwnerLabel: { letterSpacing: 2 },
+  cardOwnerName: { flex: 1 },
   emptyBox: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
-  emptyText: { fontSize: 14, textAlign: 'center', lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular' },
+  emptyText: { textAlign: 'center' },
 });

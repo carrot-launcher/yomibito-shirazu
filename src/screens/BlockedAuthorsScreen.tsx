@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppButton } from '../components/AppButton';
+import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { useAuth } from '../hooks/useAuth';
@@ -58,13 +60,13 @@ export default function BlockedAuthorsScreen() {
   return (
     <GradientBackground>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Text style={styles.intro}>
+        <AppText variant="caption" tone="secondary" style={styles.intro}>
           ブロック中の歌人の歌・評は、あなたには表示されません。相手にブロックしたことは通知されません。解除するとまた表示されるようになります。{'\n\n'}
           歌人は匿名のため、歌会での表示名ではなく、歌のサンプルで見分けてください。
-        </Text>
+        </AppText>
 
         {entries.length === 0 && (
-          <Text style={styles.empty}>ブロック中の歌人はいません。</Text>
+          <AppText variant="body" tone="secondary" style={styles.empty}>ブロック中の歌人はいません。</AppText>
         )}
 
         {entries.map((e) => {
@@ -74,22 +76,22 @@ export default function BlockedAuthorsScreen() {
             <View key={e.handle} style={styles.card}>
               <View style={styles.cardMain}>
                 {e.sampleBody ? (
-                  <Text style={styles.sample} numberOfLines={2}>「{e.sampleBody}」</Text>
+                  <AppText variant="bodySm" numberOfLines={2}>「{e.sampleBody}」</AppText>
                 ) : (
-                  <Text style={styles.samplePlaceholder}>（歌のサンプルなし）</Text>
+                  <AppText variant="caption" tone="tertiary">（歌のサンプルなし）</AppText>
                 )}
-                <Text style={styles.meta}>
+                <AppText variant="meta" tone="secondary">
                   {dateStr ? `${dateStr}にブロック` : 'ブロック中'}
-                </Text>
+                </AppText>
               </View>
-              <TouchableOpacity
-                style={[styles.unblockBtn, working === e.handle && styles.unblockBtnDisabled]}
+              <AppButton
+                label="解除"
+                variant="secondary"
+                size="sm"
+                leftIcon={<MaterialCommunityIcons name="close" size={14} color={colors.text} />}
                 onPress={() => handleUnblock(e.handle)}
                 disabled={working === e.handle}
-              >
-                <MaterialCommunityIcons name="close" size={14} color={colors.text} />
-                <Text style={styles.unblockText}>解除</Text>
-              </TouchableOpacity>
+              />
             </View>
           );
         })}
@@ -102,14 +104,8 @@ function makeStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1 },
     content: { padding: 16, paddingBottom: 40 },
-    intro: {
-      fontSize: 13, lineHeight: 20, color: colors.textSecondary,
-      marginBottom: 16, fontFamily: 'NotoSerifJP_400Regular',
-    },
-    empty: {
-      textAlign: 'center', marginTop: 40, color: colors.textSecondary,
-      fontFamily: 'NotoSerifJP_400Regular',
-    },
+    intro: { marginBottom: 16 },
+    empty: { textAlign: 'center', marginTop: 40 },
     card: {
       flexDirection: 'row', alignItems: 'center',
       backgroundColor: colors.surface, borderRadius: 10,
@@ -117,28 +113,5 @@ function makeStyles(colors: ThemeColors) {
       padding: 12, marginBottom: 10, gap: 12,
     },
     cardMain: { flex: 1, gap: 4 },
-    sample: {
-      fontSize: 14, lineHeight: 20, color: colors.text,
-      fontFamily: 'NotoSerifJP_400Regular',
-    },
-    samplePlaceholder: {
-      fontSize: 13, lineHeight: 18, color: colors.textTertiary,
-      fontFamily: 'NotoSerifJP_400Regular',
-    },
-    meta: {
-      fontSize: 11, lineHeight: 15, color: colors.textSecondary,
-      fontFamily: 'NotoSerifJP_400Regular',
-    },
-    unblockBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
-      paddingHorizontal: 10, paddingVertical: 6,
-      borderRadius: 6, borderWidth: 1, borderColor: colors.border,
-      backgroundColor: colors.surface,
-    },
-    unblockBtnDisabled: { opacity: 0.4 },
-    unblockText: {
-      fontSize: 12, lineHeight: 16, color: colors.text,
-      fontFamily: 'NotoSerifJP_400Regular',
-    },
   });
 }

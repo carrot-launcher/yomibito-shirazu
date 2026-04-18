@@ -5,6 +5,8 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
 import { Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
+import { AppButton } from '../components/AppButton';
+import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
@@ -320,26 +322,29 @@ export default function UtakaiListScreen({ navigation }: any) {
           ) : null}
 
           <View style={styles.cardRowTop}>
-            <Text
-              style={[styles.cardName, { color: unread ? colors.text : colors.textSecondary, fontWeight: unread ? '500' : '400' }]}
+            <AppText
+              variant="bodyLg"
+              weight={unread ? 'medium' : 'regular'}
+              tone={unread ? 'primary' : 'secondary'}
+              style={styles.cardName}
               numberOfLines={1}
             >
               {item.name}
-            </Text>
+            </AppText>
             {item.isPublic && (
               <View style={[styles.publicBadge, { borderColor: colors.border }]}>
-                <Text style={[styles.publicBadgeText, { color: colors.textTertiary }]}>公開</Text>
+                <AppText variant="meta" tone="tertiary">公開</AppText>
               </View>
             )}
           </View>
           <View style={styles.cardRowBottom}>
-            <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>{item.memberCount}人</Text>
-            <Text style={[styles.cardMetaSep, { color: colors.textTertiary }]}>・</Text>
-            <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>{postCount}首</Text>
+            <AppText variant="meta" tone="tertiary">{item.memberCount}人</AppText>
+            <AppText variant="meta" tone="tertiary">・</AppText>
+            <AppText variant="meta" tone="tertiary">{postCount}首</AppText>
             {lastLabel ? (
               <>
-                <Text style={[styles.cardMetaSep, { color: colors.textTertiary }]}>・</Text>
-                <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>{lastLabel}</Text>
+                <AppText variant="meta" tone="tertiary">・</AppText>
+                <AppText variant="meta" tone="tertiary">{lastLabel}</AppText>
               </>
             ) : null}
           </View>
@@ -362,7 +367,7 @@ export default function UtakaiListScreen({ navigation }: any) {
         <View style={[styles.emptyList, styles.empty]} />
       ) : groups.length === 0 ? (
         <View style={[styles.emptyList, styles.empty]}>
-          <Text style={[styles.emptyText, { color: colors.textTertiary }]}>まだ歌会がありません</Text>
+          <AppText variant="bodyLg" tone="tertiary" style={styles.emptyText}>まだ歌会がありません</AppText>
 
           <TouchableOpacity
             activeOpacity={0.75}
@@ -370,20 +375,20 @@ export default function UtakaiListScreen({ navigation }: any) {
             onPress={() => navigation.navigate('UtakaiDiscovery')}
           >
             <MaterialCommunityIcons name="compass-outline" size={36} color={colors.textSecondary} style={styles.discoverIcon} />
-            <Text style={[styles.discoverTitle, { color: colors.text }]}>公開歌会を探す</Text>
-            <Text style={[styles.discoverDesc, { color: colors.textSecondary }]}>
+            <AppText variant="sectionTitle" style={styles.discoverTitle}>公開歌会を探す</AppText>
+            <AppText variant="caption" tone="secondary" style={styles.discoverDesc}>
               誰でも参加できる歌会から{'\n'}始めてみる
-            </Text>
+            </AppText>
           </TouchableOpacity>
 
-          <Text style={[styles.emptyOr, { color: colors.textTertiary }]}>または、右上の＋から</Text>
+          <AppText variant="meta" tone="tertiary" style={styles.emptyOr}>または、右上の＋から</AppText>
           <View style={styles.emptyActionsRow}>
             <TouchableOpacity onPress={() => setShowCreate(true)}>
-              <Text style={[styles.emptyActionLink, { color: colors.textSecondary }]}>歌会を開く</Text>
+              <AppText variant="bodySm" weight="medium" tone="secondary" style={styles.emptyActionLink}>歌会を開く</AppText>
             </TouchableOpacity>
-            <Text style={[styles.emptyActionSep, { color: colors.textTertiary }]}>・</Text>
+            <AppText variant="caption" tone="tertiary" style={styles.emptyActionSep}>・</AppText>
             <TouchableOpacity onPress={() => setShowJoin(true)}>
-              <Text style={[styles.emptyActionLink, { color: colors.textSecondary }]}>招待コードで参加</Text>
+              <AppText variant="bodySm" weight="medium" tone="secondary" style={styles.emptyActionLink}>招待コードで参加</AppText>
             </TouchableOpacity>
           </View>
         </View>
@@ -403,12 +408,12 @@ export default function UtakaiListScreen({ navigation }: any) {
           <View style={[styles.menuModal, { backgroundColor: colors.surface }]}>
             <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); setShowCreate(true); }}>
               <MaterialCommunityIcons name="plus-circle-outline" size={22} color={colors.text} />
-              <Text style={[styles.menuText, { color: colors.text }]}>歌会を開く</Text>
+              <AppText variant="bodyLg">歌会を開く</AppText>
             </TouchableOpacity>
             <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
             <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); setShowJoin(true); }}>
               <MaterialCommunityIcons name="key-variant" size={22} color={colors.text} />
-              <Text style={[styles.menuText, { color: colors.text }]}>招待コードで参加</Text>
+              <AppText variant="bodyLg">招待コードで参加</AppText>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -417,11 +422,11 @@ export default function UtakaiListScreen({ navigation }: any) {
       {/* 歌会作成モーダル */}
       <Modal visible={showCreate} transparent animationType="fade">
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}><View style={[styles.modal, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.modalTitle, { color: colors.text }]}>歌会を開く</Text>
+          <AppText variant="sectionTitle" style={styles.modalTitle}>歌会を開く</AppText>
           <TextInput style={[styles.input, { borderColor: colors.border, color: colors.text }]} placeholder="歌会の名前" value={newName} onChangeText={setNewName} placeholderTextColor={colors.textTertiary} maxLength={16} />
           <View style={styles.modalButtons}>
-            <TouchableOpacity onPress={() => { setShowCreate(false); setNewName(''); }}><Text style={[styles.cancelText, { color: colors.textSecondary }]}>やめる</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.confirmBtn, { backgroundColor: colors.accent }]} onPress={handleCreateStep1}><Text style={[styles.confirmText, { color: colors.accentText }]}>次へ</Text></TouchableOpacity>
+            <AppButton label="やめる" variant="ghost" onPress={() => { setShowCreate(false); setNewName(''); }} />
+            <AppButton label="次へ" variant="primary" onPress={handleCreateStep1} />
           </View>
         </View></View>
       </Modal>
@@ -429,26 +434,24 @@ export default function UtakaiListScreen({ navigation }: any) {
       {/* 公開/非公開選択モーダル */}
       <Modal visible={showChoosePublic} transparent animationType="fade">
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}><View style={[styles.modal, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.modalTitle, { color: colors.text }]}>歌会の種類</Text>
-          <Text style={[styles.modalHint, { color: colors.textSecondary }]}>あとから変更することはできません</Text>
+          <AppText variant="sectionTitle" style={styles.modalTitle}>歌会の種類</AppText>
+          <AppText variant="caption" tone="secondary" style={styles.modalHint}>あとから変更することはできません</AppText>
           <TouchableOpacity
             style={[styles.choiceCard, { borderColor: colors.border, backgroundColor: colors.bg }]}
             onPress={() => handleChoosePublic(false)}
           >
-            <Text style={[styles.choiceTitle, { color: colors.text }]}>非公開</Text>
-            <Text style={[styles.choiceDesc, { color: colors.textSecondary }]}>招待コードを知っている人だけが参加できます</Text>
+            <AppText variant="bodyLg" weight="medium" style={styles.choiceTitle}>非公開</AppText>
+            <AppText variant="caption" tone="secondary" style={styles.choiceDesc}>招待コードを知っている人だけが参加できます</AppText>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.choiceCard, { borderColor: colors.border, backgroundColor: colors.bg }]}
             onPress={() => handleChoosePublic(true)}
           >
-            <Text style={[styles.choiceTitle, { color: colors.text }]}>公開</Text>
-            <Text style={[styles.choiceDesc, { color: colors.textSecondary }]}>誰でも発見して参加できます。趣意書を書いていただきます。作成は1人につき3つまで</Text>
+            <AppText variant="bodyLg" weight="medium" style={styles.choiceTitle}>公開</AppText>
+            <AppText variant="caption" tone="secondary" style={styles.choiceDesc}>誰でも発見して参加できます。趣意書を書いていただきます。作成は1人につき3つまで</AppText>
           </TouchableOpacity>
           <View style={styles.modalButtons}>
-            <TouchableOpacity onPress={() => { setShowChoosePublic(false); setShowCreate(true); }}>
-              <Text style={[styles.cancelText, { color: colors.textSecondary }]}>戻る</Text>
-            </TouchableOpacity>
+            <AppButton label="戻る" variant="ghost" onPress={() => { setShowChoosePublic(false); setShowCreate(true); }} />
           </View>
         </View></View>
       </Modal>
@@ -456,8 +459,8 @@ export default function UtakaiListScreen({ navigation }: any) {
       {/* 趣意書入力モーダル */}
       <Modal visible={showPurpose} transparent animationType="fade">
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}><View style={[styles.modal, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.modalTitle, { color: colors.text }]}>趣意書</Text>
-          <Text style={[styles.modalHint, { color: colors.textSecondary }]}>この歌会でどのような歌を詠んでほしいかを10〜200文字で。{'\n'}発見画面や歌会のヘッダーなどで、参加前の人にも公開されます。</Text>
+          <AppText variant="sectionTitle" style={styles.modalTitle}>趣意書</AppText>
+          <AppText variant="caption" tone="secondary" style={styles.modalHint}>この歌会でどのような歌を詠んでほしいかを10〜200文字で。{'\n'}発見画面や歌会のヘッダーなどで、参加前の人にも公開されます。</AppText>
           <TextInput
             style={[styles.input, styles.purposeInput, { borderColor: colors.border, color: colors.text }]}
             placeholder="趣意書"
@@ -468,18 +471,10 @@ export default function UtakaiListScreen({ navigation }: any) {
             multiline
             textAlignVertical="top"
           />
-          <Text style={[styles.counterText, { color: colors.textTertiary }]}>{newPurpose.trim().length} / 200</Text>
+          <AppText variant="caption" tone="tertiary" style={styles.counterText}>{newPurpose.trim().length} / 200</AppText>
           <View style={styles.modalButtons}>
-            <TouchableOpacity onPress={() => { setShowPurpose(false); setShowChoosePublic(true); }}>
-              <Text style={[styles.cancelText, { color: colors.textSecondary }]}>戻る</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.confirmBtn, { backgroundColor: colors.accent }, (newPurpose.trim().length < 10) && { opacity: 0.4 }]}
-              onPress={handlePurposeNext}
-              disabled={newPurpose.trim().length < 10}
-            >
-              <Text style={[styles.confirmText, { color: colors.accentText }]}>次へ</Text>
-            </TouchableOpacity>
+            <AppButton label="戻る" variant="ghost" onPress={() => { setShowPurpose(false); setShowChoosePublic(true); }} />
+            <AppButton label="次へ" variant="primary" onPress={handlePurposeNext} disabled={newPurpose.trim().length < 10} />
           </View>
         </View></View>
       </Modal>
@@ -487,11 +482,11 @@ export default function UtakaiListScreen({ navigation }: any) {
       {/* 招待コードモーダル */}
       <Modal visible={showJoin} transparent animationType="fade">
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}><View style={[styles.modal, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.modalTitle, { color: colors.text }]}>歌会に参加</Text>
+          <AppText variant="sectionTitle" style={styles.modalTitle}>歌会に参加</AppText>
           <TextInput style={[styles.input, styles.codeInput, { borderColor: colors.border, color: colors.text }]} placeholder="招待コード（6文字）" value={joinCode} onChangeText={handleJoinCodeChange} autoCapitalize="characters" autoCorrect={false} placeholderTextColor={colors.textTertiary} />
           <View style={styles.modalButtons}>
-            <TouchableOpacity onPress={() => { setShowJoin(false); setJoinCode(''); }}><Text style={[styles.cancelText, { color: colors.textSecondary }]}>やめる</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.confirmBtn, { backgroundColor: colors.accent }]} onPress={handleJoinStep1}><Text style={[styles.confirmText, { color: colors.accentText }]}>次へ</Text></TouchableOpacity>
+            <AppButton label="やめる" variant="ghost" onPress={() => { setShowJoin(false); setJoinCode(''); }} />
+            <AppButton label="次へ" variant="primary" onPress={handleJoinStep1} />
           </View>
         </View></View>
       </Modal>
@@ -499,16 +494,20 @@ export default function UtakaiListScreen({ navigation }: any) {
       {/* 表示名設定モーダル */}
       <Modal visible={showSetName} transparent animationType="fade">
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}><View style={[styles.modal, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.modalTitle, { color: colors.text }]}>
+          <AppText variant="sectionTitle" style={styles.modalTitle}>
             {pendingAction?.type === 'create' ? '歌会を開く' : `「${pendingAction?.groupName}」に参加`}
-          </Text>
-          <Text style={[styles.modalHint, { color: colors.textSecondary }]}>この歌会でのあなたの名前を決めてください{'\n'}後から歌会設定で変更できます</Text>
+          </AppText>
+          <AppText variant="caption" tone="secondary" style={styles.modalHint}>この歌会でのあなたの名前を決めてください{'\n'}後から歌会設定で変更できます</AppText>
           <TextInput style={[styles.input, { borderColor: colors.border, color: colors.text }]} placeholder="あなたの名前" value={memberDisplayName} onChangeText={setMemberDisplayName} placeholderTextColor={colors.textTertiary} maxLength={16} autoFocus />
           <View style={styles.modalButtons}>
-            <TouchableOpacity onPress={() => { setShowSetName(false); setPendingAction(null); }}><Text style={[styles.cancelText, { color: colors.textSecondary }]}>やめる</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.confirmBtn, { backgroundColor: colors.accent }, (!memberDisplayName.trim() || confirming) && { opacity: 0.4 }]} onPress={handleConfirmName} disabled={!memberDisplayName.trim() || confirming}>
-              <Text style={[styles.confirmText, { color: colors.accentText }]}>{pendingAction?.type === 'create' ? '開く' : '参加'}</Text>
-            </TouchableOpacity>
+            <AppButton label="やめる" variant="ghost" onPress={() => { setShowSetName(false); setPendingAction(null); }} />
+            <AppButton
+              label={pendingAction?.type === 'create' ? '開く' : '参加'}
+              variant="primary"
+              onPress={handleConfirmName}
+              disabled={!memberDisplayName.trim() || confirming}
+              loading={confirming}
+            />
           </View>
         </View></View>
       </Modal>
@@ -521,8 +520,7 @@ const styles = StyleSheet.create({
   list: { padding: 16, paddingBottom: 24 },
   emptyList: { flex: 1, justifyContent: 'center' as const },
   empty: { alignItems: 'center' },
-  emptyText: { fontSize: 17, fontFamily: 'NotoSerifJP_500Medium', marginBottom: 28 },
-  emptySubtext: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginTop: 8 },
+  emptyText: { marginBottom: 28 },
   discoverCard: {
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
@@ -538,12 +536,12 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   discoverIcon: { marginBottom: 10 },
-  discoverTitle: { fontSize: 17, lineHeight: 24, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 2, marginBottom: 8 },
-  discoverDesc: { fontSize: 13, lineHeight: 20, textAlign: 'center', fontFamily: 'NotoSerifJP_400Regular' },
-  emptyOr: { fontSize: 12, marginTop: 28, marginBottom: 10, fontFamily: 'NotoSerifJP_400Regular' },
+  discoverTitle: { letterSpacing: 2, marginBottom: 8 },
+  discoverDesc: { textAlign: 'center' },
+  emptyOr: { marginTop: 28, marginBottom: 10 },
   emptyActionsRow: { flexDirection: 'row', alignItems: 'center' },
-  emptyActionLink: { fontSize: 14, lineHeight: 22, fontFamily: 'NotoSerifJP_500Medium', paddingHorizontal: 8, paddingVertical: 4 },
-  emptyActionSep: { fontSize: 13 },
+  emptyActionLink: { paddingHorizontal: 8, paddingVertical: 4 },
+  emptyActionSep: {},
   card: {
     borderRadius: 14,
     paddingHorizontal: 20,
@@ -570,10 +568,8 @@ const styles = StyleSheet.create({
     marginTop: 6,
     gap: 6,
   },
-  cardName: { fontSize: fs(18), fontFamily: 'NotoSerifJP_500Medium', flexShrink: 1 },
-  cardLastActivity: { fontSize: 12, fontFamily: 'NotoSerifJP_400Regular', marginLeft: 'auto' },
-  cardMeta: { fontSize: 12, fontFamily: 'NotoSerifJP_400Regular' },
-  cardMetaSep: { fontSize: 12 },
+  // 歌会名は画面サイズに応じてスケール
+  cardName: { fontSize: fs(18), flexShrink: 1 },
   cardBgCharWrap: {
     position: 'absolute',
     right: -10,
@@ -606,23 +602,18 @@ const styles = StyleSheet.create({
   },
   menuModal: { borderRadius: 16, padding: 8, width: '75%' },
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
-  menuText: { fontSize: 17, fontFamily: 'NotoSerifJP_500Medium' },
   menuDivider: { height: 1, marginHorizontal: 12 },
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   modal: { borderRadius: 16, padding: 20, width: '85%' },
-  modalTitle: { fontSize: 18, fontWeight: '500', marginBottom: 6, fontFamily: 'NotoSerifJP_500Medium' },
-  modalHint: { fontSize: 12, lineHeight: 18, marginBottom: 10 },
+  modalTitle: { marginBottom: 6 },
+  modalHint: { marginBottom: 10 },
   input: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 14 },
   codeInput: { fontFamily: 'IBMPlexMono_600SemiBold', letterSpacing: 4, textAlign: 'center', fontSize: 20 },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 16, alignItems: 'center' },
-  cancelText: { fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular' },
-  confirmBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  confirmText: { fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_500Medium' },
   choiceCard: { borderWidth: 1, borderRadius: 10, padding: 14, marginBottom: 10 },
-  choiceTitle: { fontSize: 16, fontFamily: 'NotoSerifJP_500Medium', marginBottom: 4 },
-  choiceDesc: { fontSize: 13, lineHeight: 19, fontFamily: 'NotoSerifJP_400Regular' },
+  choiceTitle: { marginBottom: 4 },
+  choiceDesc: {},
   purposeInput: { minHeight: 110, textAlignVertical: 'top' },
-  counterText: { fontSize: 12, textAlign: 'right', marginTop: -10, marginBottom: 10 },
+  counterText: { textAlign: 'right', marginTop: -10, marginBottom: 10 },
   publicBadge: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1, marginRight: 8 },
-  publicBadgeText: { fontSize: 10, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 1 },
 });

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Text, TouchableOpacity, StyleSheet, View } from 'react-native';
+import { TouchableOpacity, StyleSheet, View } from 'react-native';
 import { AppText } from '../components/AppText';
 import GradientBackground from '../components/GradientBackground';
 import { collection, doc, getDoc, query, orderBy, onSnapshot } from 'firebase/firestore';

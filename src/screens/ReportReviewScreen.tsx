@@ -18,6 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
@@ -170,13 +171,13 @@ export default function ReportReviewScreen({ route, navigation }: any) {
   return (
     <GradientBackground>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Text style={styles.intro}>
+        <AppText variant="caption" tone="secondary" style={styles.intro}>
           通報によって仮非表示になっている歌・評の一覧です。内容を確認して解除するか、裁きに昇格させてください。
-        </Text>
+        </AppText>
 
-        {loading && <Text style={styles.empty}>読み込み中...</Text>}
+        {loading && <AppText variant="body" tone="secondary" style={styles.empty}>読み込み中...</AppText>}
         {!loading && items.length === 0 && (
-          <Text style={styles.empty}>仮非表示中の投稿はありません。</Text>
+          <AppText variant="body" tone="secondary" style={styles.empty}>仮非表示中の投稿はありません。</AppText>
         )}
 
         {items.map((item) => (
@@ -187,21 +188,21 @@ export default function ReportReviewScreen({ route, navigation }: any) {
                 size={16}
                 color={colors.text}
               />
-              <Text style={styles.cardHeaderText}>
+              <AppText variant="caption" tone="secondary">
                 {item.targetType === 'comment' ? '評' : '歌'} ・ 通報 {item.reports.length} 件
-              </Text>
+              </AppText>
             </View>
 
             <TouchableOpacity onPress={() => openTarget(item)} style={styles.bodyWrap}>
-              <Text style={styles.body} numberOfLines={4}>{item.body || '（本文なし）'}</Text>
-              <Text style={styles.openHint}>タップして詳細を見る</Text>
+              <AppText variant="body" numberOfLines={4}>{item.body || '（本文なし）'}</AppText>
+              <AppText variant="meta" tone="secondary" style={styles.openHint}>タップして詳細を見る</AppText>
             </TouchableOpacity>
 
             <View style={styles.reasons}>
               {item.reports.map((r) => (
                 <View key={r.id} style={styles.reasonChip}>
-                  <Text style={styles.reasonChipText}>{REASON_LABEL[r.reason]}</Text>
-                  {r.detail ? <Text style={styles.reasonDetail}>「{r.detail}」</Text> : null}
+                  <AppText variant="meta">{REASON_LABEL[r.reason]}</AppText>
+                  {r.detail ? <AppText variant="meta" tone="secondary" style={styles.reasonDetail}>「{r.detail}」</AppText> : null}
                 </View>
               ))}
             </View>
@@ -212,21 +213,21 @@ export default function ReportReviewScreen({ route, navigation }: any) {
                 onPress={() => handleResolve(item)}
                 disabled={working === item.targetId}
               >
-                <Text style={styles.btnResolveText}>解除</Text>
+                <AppText variant="buttonLabelSm">解除</AppText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.btn, styles.btnCaution, working === item.targetId && styles.btnDisabled]}
                 onPress={() => handleJudge(item, 'caution')}
                 disabled={working === item.targetId}
               >
-                <Text style={styles.btnCautionText}>🟡 戒告</Text>
+                <AppText variant="buttonLabelSm">🟡 戒告</AppText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.btn, styles.btnBan, working === item.targetId && styles.btnDisabled]}
                 onPress={() => handleJudge(item, 'ban')}
                 disabled={working === item.targetId}
               >
-                <Text style={styles.btnBanText}>🔴 破門</Text>
+                <AppText variant="buttonLabelSm" tone="destructive">🔴 破門</AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -240,14 +241,8 @@ function makeStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1 },
     content: { padding: 16, paddingBottom: 40 },
-    intro: {
-      fontSize: 13, lineHeight: 20, color: colors.textSecondary,
-      marginBottom: 16, fontFamily: 'NotoSerifJP_400Regular',
-    },
-    empty: {
-      textAlign: 'center', marginTop: 40, color: colors.textSecondary,
-      fontFamily: 'NotoSerifJP_400Regular',
-    },
+    intro: { marginBottom: 16 },
+    empty: { textAlign: 'center', marginTop: 40 },
     card: {
       backgroundColor: colors.surface, borderRadius: 10,
       borderWidth: 1, borderColor: colors.border,
@@ -256,19 +251,8 @@ function makeStyles(colors: ThemeColors) {
     cardHeader: {
       flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8,
     },
-    cardHeaderText: {
-      fontSize: 12, lineHeight: 16, color: colors.textSecondary,
-      fontFamily: 'NotoSerifJP_400Regular',
-    },
     bodyWrap: { paddingVertical: 8 },
-    body: {
-      fontSize: 15, lineHeight: 22, color: colors.text,
-      fontFamily: 'NotoSerifJP_400Regular',
-    },
-    openHint: {
-      marginTop: 6, fontSize: 11, lineHeight: 15, color: colors.textSecondary,
-      fontFamily: 'NotoSerifJP_400Regular',
-    },
+    openHint: { marginTop: 6 },
     reasons: {
       flexDirection: 'row', flexWrap: 'wrap', gap: 6,
       marginTop: 10, marginBottom: 10,
@@ -278,14 +262,7 @@ function makeStyles(colors: ThemeColors) {
       paddingHorizontal: 8, paddingVertical: 4,
       backgroundColor: colors.activeHighlight, borderRadius: 10,
     },
-    reasonChipText: {
-      fontSize: 11, lineHeight: 15, color: colors.text,
-      fontFamily: 'NotoSerifJP_400Regular',
-    },
-    reasonDetail: {
-      fontSize: 11, lineHeight: 15, color: colors.textSecondary,
-      fontFamily: 'NotoSerifJP_400Regular', maxWidth: 180,
-    },
+    reasonDetail: { maxWidth: 180 },
     actions: {
       flexDirection: 'row', gap: 8, marginTop: 6,
     },
@@ -295,19 +272,7 @@ function makeStyles(colors: ThemeColors) {
     },
     btnDisabled: { opacity: 0.4 },
     btnResolve: { borderColor: colors.border, backgroundColor: colors.surface },
-    btnResolveText: {
-      fontSize: 13, lineHeight: 18, color: colors.text,
-      fontFamily: 'NotoSerifJP_500Medium',
-    },
     btnCaution: { borderColor: colors.warning, backgroundColor: colors.warningBg },
-    btnCautionText: {
-      fontSize: 13, lineHeight: 18, color: colors.text,
-      fontFamily: 'NotoSerifJP_500Medium',
-    },
     btnBan: { borderColor: colors.destructive, backgroundColor: colors.destructiveBg },
-    btnBanText: {
-      fontSize: 13, lineHeight: 18, color: colors.destructive,
-      fontFamily: 'NotoSerifJP_500Medium',
-    },
   });
 }

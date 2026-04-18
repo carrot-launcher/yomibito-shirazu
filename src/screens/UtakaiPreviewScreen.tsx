@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { AppButton } from '../components/AppButton';
+import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
@@ -188,37 +189,37 @@ export default function UtakaiPreviewScreen({ navigation, route }: any) {
         <View style={styles.centered}><ActivityIndicator color={colors.textSecondary} /></View>
       ) : errorMessage ? (
         <View style={styles.centered}>
-          <Text style={[styles.errorText, { color: colors.textTertiary }]}>{errorMessage}</Text>
+          <AppText variant="bodySm" tone="tertiary" style={styles.errorText}>{errorMessage}</AppText>
         </View>
       ) : data ? (
         <>
           <ScrollView contentContainerStyle={styles.content}>
             {/* 趣意書 */}
             <View style={[styles.purposeBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.purposeLabel, { color: colors.textTertiary }]}>趣意</Text>
-              <Text style={[styles.purposeText, { color: colors.text }]}>{data.group.purpose}</Text>
+              <AppText variant="meta" weight="medium" tone="tertiary" style={styles.purposeLabel}>趣意</AppText>
+              <AppText variant="body" style={styles.purposeText}>{data.group.purpose}</AppText>
             </View>
 
             {/* 情報 */}
             <View style={styles.statsRow}>
               <MaterialCommunityIcons name="account-multiple-outline" size={14} color={colors.textTertiary} />
-              <Text style={[styles.statsText, { color: colors.textTertiary }]}>{data.group.memberCount}人</Text>
-              <Text style={[styles.statsText, { color: colors.textTertiary }]}> ・ </Text>
+              <AppText variant="meta" tone="tertiary">{data.group.memberCount}人</AppText>
+              <AppText variant="meta" tone="tertiary"> ・ </AppText>
               <MaterialCommunityIcons name="feather" size={14} color={colors.textTertiary} />
-              <Text style={[styles.statsText, { color: colors.textTertiary }]}>{data.group.postCount}首</Text>
+              <AppText variant="meta" tone="tertiary">{data.group.postCount}首</AppText>
             </View>
 
             {/* オーナー */}
             {data.owner ? (
               <View style={styles.ownerRow}>
-                <Text style={[styles.ownerLabel, { color: colors.textTertiary }]}>主宰</Text>
-                <Text style={[styles.ownerName, { color: colors.textSecondary }]}>{data.owner.displayName}</Text>
+                <AppText variant="meta" weight="medium" tone="tertiary" style={styles.ownerLabel}>主宰</AppText>
+                <AppText variant="caption" weight="medium" tone="secondary">{data.owner.displayName}</AppText>
                 <Text style={[styles.ownerCode, { color: colors.textTertiary }]}>#{data.owner.userCode}</Text>
               </View>
             ) : null}
 
             {/* 最近の歌（固定高さ、横スクロール不可、収まる分だけ） */}
-            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>最近の歌</Text>
+            <AppText variant="caption" weight="medium" tone="secondary" style={styles.sectionTitle}>最近の歌</AppText>
             <View style={[styles.previewWebView, { borderColor: colors.border }]}>
               <WebView
                 source={{ html: previewHtml }}
@@ -243,12 +244,12 @@ export default function UtakaiPreviewScreen({ navigation, route }: any) {
       <Modal visible={showNameModal} transparent animationType="fade">
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
           <View style={[styles.modal, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
+            <AppText variant="sectionTitle" style={styles.modalTitle}>
               {data ? `「${data.group.name}」に参加` : '歌会に参加'}
-            </Text>
-            <Text style={[styles.modalHint, { color: colors.textSecondary }]}>
+            </AppText>
+            <AppText variant="caption" tone="secondary" style={styles.modalHint}>
               この歌会でのあなたの名前を決めてください{'\n'}後から歌会設定で変更できます
-            </Text>
+            </AppText>
             <TextInput
               style={[styles.input, { borderColor: colors.border, color: colors.text }]}
               placeholder="あなたの名前"
@@ -282,18 +283,17 @@ export default function UtakaiPreviewScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
-  errorText: { fontSize: 14, textAlign: 'center', fontFamily: 'NotoSerifJP_400Regular' },
+  errorText: { textAlign: 'center' },
   content: { padding: 16, paddingBottom: 32 },
   purposeBox: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 16, marginBottom: 12 },
-  purposeLabel: { fontSize: 11, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 2, marginBottom: 6 },
-  purposeText: { fontSize: fs(15), lineHeight: 24, fontFamily: 'NotoSerifJP_400Regular' },
+  purposeLabel: { letterSpacing: 2, marginBottom: 6 },
+  // 趣意本文だけ画面ベースのスケール拡縮を効かせる
+  purposeText: { fontSize: fs(15), lineHeight: 24 },
   statsRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6, paddingHorizontal: 4 },
-  statsText: { fontSize: 12, fontFamily: 'NotoSerifJP_400Regular' },
   ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 20, paddingHorizontal: 4 },
-  ownerLabel: { fontSize: 11, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 2 },
-  ownerName: { fontSize: 13, fontFamily: 'NotoSerifJP_500Medium' },
+  ownerLabel: { letterSpacing: 2 },
   ownerCode: { fontSize: 11, fontFamily: 'IBMPlexMono_600SemiBold' },
-  sectionTitle: { fontSize: 13, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 2, marginBottom: 10, marginTop: 4 },
+  sectionTitle: { letterSpacing: 2, marginBottom: 10, marginTop: 4 },
   previewWebView: {
     height: previewWebViewHeight,
     borderRadius: 10, borderWidth: StyleSheet.hairlineWidth,
@@ -302,8 +302,8 @@ const styles = StyleSheet.create({
   footer: { padding: 12, borderTopWidth: StyleSheet.hairlineWidth },
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   modal: { borderRadius: 16, padding: 20, width: '85%' },
-  modalTitle: { fontSize: 18, fontWeight: '500', marginBottom: 6, fontFamily: 'NotoSerifJP_500Medium' },
-  modalHint: { fontSize: 12, lineHeight: 18, marginBottom: 10 },
+  modalTitle: { marginBottom: 6 },
+  modalHint: { marginBottom: 10 },
   input: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 14 },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 16, alignItems: 'center' },
 });

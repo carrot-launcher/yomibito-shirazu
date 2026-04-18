@@ -656,15 +656,13 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   if (deleted) return (
     <View style={styles.container}>
       <View style={styles.deletedArea}>
-        <Text style={styles.deletedText}>この歌は削除されました</Text>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.backBtnText}>戻る</Text>
-        </TouchableOpacity>
+        <AppText variant="bodyLg" weight="medium" tone="secondary" style={styles.deletedText}>この歌は削除されました</AppText>
+        <AppButton label="戻る" variant="primary" size="md" onPress={() => navigation.goBack()} />
       </View>
     </View>
   );
 
-  if (!post) return <View style={styles.container}><Text style={styles.loading}>読み込み中...</Text></View>;
+  if (!post) return <View style={styles.container}><AppText variant="body" tone="secondary" style={styles.loading}>読み込み中...</AppText></View>;
 
   const timeAgo = (date: Date) => {
     const diff = Date.now() - date.getTime();
@@ -715,7 +713,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
               activeOpacity={groupExists ? 0.2 : 1}
             >
               <Text style={styles.reactionEmoji}>{REACTION_EMOJI}</Text>
-              {reactionCount > 0 && <Text style={styles.reactionCount}>{reactionCount}</Text>}
+              {reactionCount > 0 && <AppText variant="caption" tone="secondary">{reactionCount}</AppText>}
             </TouchableOpacity>
           )}
 
@@ -736,12 +734,12 @@ export default function TankaDetailScreen({ route, navigation }: any) {
           )}
 
           {post.revealedAuthorName && (
-            <Text style={styles.revealedAuthor}>
+            <AppText variant="caption" tone="secondary" style={styles.revealedAuthor}>
               {post.revealedAuthorName}#{post.revealedAuthorCode}
-            </Text>
+            </AppText>
           )}
 
-          <Text style={styles.commentLabel}>評 {comments.length}</Text>
+          <AppText variant="bodySm" tone="secondary" style={styles.commentLabel}>評 {comments.length}</AppText>
         </View>
 
         {groupExists && (
@@ -760,11 +758,11 @@ export default function TankaDetailScreen({ route, navigation }: any) {
                 onPress={handleComment}
                 disabled={!commentText.trim() || submitting}
               >
-                <Text style={styles.commentSubmitText}>送る</Text>
+                <AppText variant="buttonLabel" tone="onAccent">送る</AppText>
               </TouchableOpacity>
             </View>
             {commentText.length > 0 && (
-              <Text style={styles.charCount}>{commentText.length}/500</Text>
+              <AppText variant="caption" tone="tertiary" style={styles.charCount}>{commentText.length}/500</AppText>
             )}
           </>
         )}
@@ -886,10 +884,10 @@ export default function TankaDetailScreen({ route, navigation }: any) {
       <Modal visible={reportModalVisible} transparent animationType="fade" onRequestClose={() => { if (!reporting) setReportModalVisible(false); }}>
         <View style={styles.judgmentOverlay}>
           <View style={styles.judgmentModal}>
-            <Text style={styles.judgmentTitle}>通報</Text>
-            <Text style={styles.judgmentDesc}>
+            <AppText variant="sectionTitle" style={styles.judgmentTitle}>通報</AppText>
+            <AppText variant="caption" tone="secondary" style={styles.judgmentDesc}>
               この{reportTarget.type === 'comment' ? '評' : '歌'}を歌会の主宰に通報します。理由を選んでください。即座に削除されるわけではなく、主宰が確認した上で対応します。
-            </Text>
+            </AppText>
 
             {([
               { key: 'inappropriate', label: '不適切な内容' },
@@ -908,7 +906,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
                   size={18}
                   color={reportReason === opt.key ? colors.text : colors.disabled}
                 />
-                <Text style={styles.reportReasonText}>{opt.label}</Text>
+                <AppText variant="body">{opt.label}</AppText>
               </TouchableOpacity>
             ))}
 
@@ -949,16 +947,16 @@ export default function TankaDetailScreen({ route, navigation }: any) {
       <Modal visible={judgmentModal !== null} transparent animationType="fade" onRequestClose={() => { if (!judging) setJudgmentModal(null); }}>
         <View style={styles.judgmentOverlay}>
           <View style={styles.judgmentModal}>
-            <Text style={styles.judgmentTitle}>
+            <AppText variant="sectionTitle" style={styles.judgmentTitle}>
               {judgmentModal === 'caution' ? '🟡 戒告' : '🔴 破門'}
-            </Text>
-            <Text style={styles.judgmentDesc}>
+            </AppText>
+            <AppText variant="caption" tone="secondary" style={styles.judgmentDesc}>
               {judgmentModal === 'caution'
                 ? 'この投稿の著者に戒告を与えます。戒告が3回に達すると自動的に破門されます。'
                 : 'この投稿の著者を即座に破門します。歌会から追放され、再参加できなくなります。'}
-            </Text>
+            </AppText>
 
-            <Text style={styles.judgmentLabel}>理由（任意）—— 反故に表示されます</Text>
+            <AppText variant="caption" style={styles.judgmentLabel}>理由（任意）—— 反故に表示されます</AppText>
             <TextInput
               style={styles.judgmentInput}
               value={judgmentReason}
@@ -996,7 +994,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
 function makeStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1 },
-    loading: { textAlign: 'center', marginTop: 40, color: colors.textSecondary },
+    loading: { textAlign: 'center', marginTop: 40 },
     topBar: {
       borderBottomWidth: 1, borderBottomColor: colors.border,
       paddingHorizontal: 16, paddingVertical: 10,
@@ -1011,7 +1009,6 @@ function makeStyles(colors: ThemeColors) {
     },
     reactionBtnActive: { backgroundColor: colors.activeHighlight, borderColor: colors.disabled },
     reactionEmoji: { fontSize: 16 },
-    reactionCount: { fontSize: 13, color: colors.textSecondary },
     bookmarkBtn: {
       paddingHorizontal: 8, paddingVertical: 6,
       borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
@@ -1021,8 +1018,8 @@ function makeStyles(colors: ThemeColors) {
       paddingHorizontal: 8, paddingVertical: 6,
       borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
     },
-    revealedAuthor: { fontSize: 13, color: colors.textSecondary, fontFamily: 'NotoSerifJP_400Regular', lineHeight: 20 },
-    commentLabel: { fontSize: 14, color: colors.textSecondary, marginLeft: 'auto', fontFamily: 'NotoSerifJP_400Regular' },
+    revealedAuthor: {},
+    commentLabel: { marginLeft: 'auto' },
     commentInput: { flexDirection: 'row', gap: 8, alignItems: 'flex-end', marginTop: 10 },
     commentTextInput: {
       flex: 1, backgroundColor: colors.surface, borderRadius: 10, padding: 10,
@@ -1031,13 +1028,10 @@ function makeStyles(colors: ThemeColors) {
     },
     commentSubmit: { backgroundColor: colors.accent, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12 },
     commentSubmitDisabled: { opacity: 0.4 },
-    commentSubmitText: { color: colors.accentText, fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_500Medium' },
-    charCount: { fontSize: 12, color: colors.textTertiary, textAlign: 'right', marginTop: 4 },
+    charCount: { textAlign: 'right', marginTop: 4 },
     webview: { flex: 1 },
     deletedArea: { alignItems: 'center', marginTop: 80 },
-    deletedText: { fontSize: 17, color: colors.textSecondary, marginBottom: 20, fontFamily: 'NotoSerifJP_500Medium' },
-    backBtn: { backgroundColor: colors.accent, borderRadius: 8, paddingHorizontal: 20, paddingVertical: 10 },
-    backBtnText: { color: colors.accentText, fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_500Medium' },
+    deletedText: { marginBottom: 20 },
 
     // アクションメニュー
     menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
@@ -1058,9 +1052,9 @@ function makeStyles(colors: ThemeColors) {
       backgroundColor: colors.surface, borderRadius: 16, padding: 24,
       width: '85%', borderWidth: 1, borderColor: colors.border,
     },
-    judgmentTitle: { fontSize: 20, lineHeight: 28, color: colors.text, marginBottom: 12, textAlign: 'center', fontFamily: 'NotoSerifJP_500Medium' },
-    judgmentDesc: { fontSize: 13, color: colors.textSecondary, lineHeight: 20, marginBottom: 16, fontFamily: 'NotoSerifJP_400Regular' },
-    judgmentLabel: { fontSize: 13, color: colors.text, marginBottom: 6, fontFamily: 'NotoSerifJP_400Regular' },
+    judgmentTitle: { marginBottom: 12, textAlign: 'center' },
+    judgmentDesc: { marginBottom: 16 },
+    judgmentLabel: { marginBottom: 6 },
     judgmentInput: {
       borderWidth: 1, borderColor: colors.border, borderRadius: 8,
       padding: 12, fontSize: 15, color: colors.text, marginBottom: 20,
@@ -1078,11 +1072,6 @@ function makeStyles(colors: ThemeColors) {
     reportReasonBtnActive: {
       borderColor: colors.text,
       backgroundColor: colors.activeHighlight,
-    },
-    reportReasonText: {
-      fontSize: 14, lineHeight: 18,
-      color: colors.text,
-      fontFamily: 'NotoSerifJP_400Regular',
     },
     reportDetailInput: {
       borderWidth: 1, borderColor: colors.border, borderRadius: 8,

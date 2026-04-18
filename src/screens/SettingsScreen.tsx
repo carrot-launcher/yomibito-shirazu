@@ -84,13 +84,13 @@ export default function SettingsScreen({ navigation }: any) {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* 歌人ID */}
       <View style={[styles.idCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[styles.idLabel, { color: colors.textSecondary }]}>あなたの歌人ID</Text>
+        <AppText variant="caption" tone="secondary" style={styles.idLabel}>あなたの歌人ID</AppText>
         <Text style={[styles.idValue, { color: colors.text }]}>#{userCode}</Text>
-        <Text style={[styles.idHint, { color: colors.textTertiary }]}>他の歌人があなたを識別するためのIDです</Text>
+        <AppText variant="meta" tone="tertiary" style={styles.idHint}>他の歌人があなたを識別するためのIDです</AppText>
       </View>
 
       {/* 表示設定 */}
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>表示</Text>
+      <AppText variant="sectionTitle" style={styles.sectionTitle}>表示</AppText>
 
       <View style={[styles.segmentBar, { backgroundColor: colors.segmentBg }]}>
         {themeModes.map(t => (
@@ -106,112 +106,112 @@ export default function SettingsScreen({ navigation }: any) {
 
       <View style={{ height: 24 }} />
 
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>短歌の変換</Text>
-      <Text style={[styles.hint, { color: colors.textTertiary }]}>一般的な短歌の慣習に補正します</Text>
+      <AppText variant="sectionTitle" style={styles.sectionTitle}>短歌の変換</AppText>
+      <AppText variant="caption" tone="tertiary" style={styles.hint}>一般的な短歌の慣習に補正します</AppText>
 
       <View style={[styles.switchRow, { borderBottomColor: colors.border }]}>
-        <Text style={[styles.switchLabel, { color: colors.text }]}>半角スペース → 全角</Text>
+        <AppText variant="bodyLg">半角スペース → 全角</AppText>
         <Switch value={convertHalfSpace} onValueChange={(v) => { setConvertHalfSpace(v); saveSetting('tankaConvert.halfSpace', v); }}
           trackColor={colors.switchTrack} thumbColor={convertHalfSpace ? colors.switchThumb.on : colors.switchThumb.off} />
       </View>
       <View style={[styles.switchRow, { borderBottomColor: colors.border }]}>
-        <Text style={[styles.switchLabel, { color: colors.text }]}>改行 → 全角スペース</Text>
+        <AppText variant="bodyLg">改行 → 全角スペース</AppText>
         <Switch value={convertLineBreak} onValueChange={(v) => { setConvertLineBreak(v); saveSetting('tankaConvert.lineBreak', v); }}
           trackColor={colors.switchTrack} thumbColor={convertLineBreak ? colors.switchThumb.on : colors.switchThumb.off} />
       </View>
 
       <View style={{ height: 24 }} />
 
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>たよりの設定</Text>
-      <Text style={[styles.hint, { color: colors.textTertiary }]}>音やバイブの設定は端末のOS設定から変更できます</Text>
+      <AppText variant="sectionTitle" style={styles.sectionTitle}>たよりの設定</AppText>
+      <AppText variant="caption" tone="tertiary" style={styles.hint}>音やバイブの設定は端末のOS設定から変更できます</AppText>
 
       <View style={[styles.switchRow, { borderBottomColor: colors.border }]}>
-        <Text style={[styles.switchLabel, { color: colors.text }]}>新しい歌</Text>
+        <AppText variant="bodyLg">新しい歌</AppText>
         <Switch value={notifNewPost} onValueChange={(v) => { setNotifNewPost(v); saveSetting('notificationSettings.newPost', v); }}
           trackColor={colors.switchTrack} thumbColor={notifNewPost ? colors.switchThumb.on : colors.switchThumb.off} />
       </View>
       <View style={[styles.switchRow, { borderBottomColor: colors.border }]}>
-        <Text style={[styles.switchLabel, { color: colors.text }]}>リアクション</Text>
+        <AppText variant="bodyLg">リアクション</AppText>
         <Switch value={notifReaction} onValueChange={(v) => { setNotifReaction(v); saveSetting('notificationSettings.reaction', v); }}
           trackColor={colors.switchTrack} thumbColor={notifReaction ? colors.switchThumb.on : colors.switchThumb.off} />
       </View>
       <View style={[styles.switchRow, { borderBottomColor: colors.border }]}>
-        <Text style={[styles.switchLabel, { color: colors.text }]}>評</Text>
+        <AppText variant="bodyLg">評</AppText>
         <Switch value={notifComment} onValueChange={(v) => { setNotifComment(v); saveSetting('notificationSettings.comment', v); }}
           trackColor={colors.switchTrack} thumbColor={notifComment ? colors.switchThumb.on : colors.switchThumb.off} />
       </View>
       <View style={[styles.switchRow, { borderBottomColor: colors.border }]}>
-        <Text style={[styles.switchLabel, { color: colors.text }]}>その他</Text>
+        <AppText variant="bodyLg">その他</AppText>
         <Switch value={notifOther} onValueChange={(v) => { setNotifOther(v); saveSetting('notificationSettings.other', v); }}
           trackColor={colors.switchTrack} thumbColor={notifOther ? colors.switchThumb.on : colors.switchThumb.off} />
       </View>
 
       <View style={{ height: 24 }} />
 
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>ブロック</Text>
+      <AppText variant="sectionTitle" style={styles.sectionTitle}>ブロック</AppText>
       <TouchableOpacity
         style={[styles.linkRow, { borderBottomColor: colors.border }]}
         onPress={() => navigation.navigate('BlockedAuthors')}
       >
-        <Text style={[styles.linkText, { color: colors.text }]}>ブロック中の歌人</Text>
+        <AppText variant="body">ブロック中の歌人</AppText>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           {Object.keys(blockedHandles).length > 0 && (
-            <Text style={[styles.linkCount, { color: colors.textSecondary }]}>
+            <AppText variant="caption" tone="secondary">
               {Object.keys(blockedHandles).length} 人
-            </Text>
+            </AppText>
           )}
-          <Text style={[styles.linkArrow, { color: colors.textTertiary }]}>›</Text>
+          <AppText variant="bodyLg" tone="tertiary" style={styles.linkArrow}>›</AppText>
         </View>
       </TouchableOpacity>
 
       <View style={{ height: 24 }} />
 
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>このアプリについて</Text>
+      <AppText variant="sectionTitle" style={styles.sectionTitle}>このアプリについて</AppText>
 
       <TouchableOpacity
         style={[styles.linkRow, { borderBottomColor: colors.border }]}
         onPress={() => WebBrowser.openBrowserAsync('https://carrot-launcher.github.io/yomibito-shirazu/terms-of-service.html')}
       >
-        <Text style={[styles.linkText, { color: colors.text }]}>利用規約</Text>
-        <Text style={[styles.linkArrow, { color: colors.textTertiary }]}>›</Text>
+        <AppText variant="body">利用規約</AppText>
+        <AppText variant="bodyLg" tone="tertiary" style={styles.linkArrow}>›</AppText>
       </TouchableOpacity>
       <TouchableOpacity
         style={[styles.linkRow, { borderBottomColor: colors.border }]}
         onPress={() => WebBrowser.openBrowserAsync('https://carrot-launcher.github.io/yomibito-shirazu/privacy-policy.html')}
       >
-        <Text style={[styles.linkText, { color: colors.text }]}>プライバシーポリシー</Text>
-        <Text style={[styles.linkArrow, { color: colors.textTertiary }]}>›</Text>
+        <AppText variant="body">プライバシーポリシー</AppText>
+        <AppText variant="bodyLg" tone="tertiary" style={styles.linkArrow}>›</AppText>
       </TouchableOpacity>
       <TouchableOpacity
         style={[styles.linkRow, { borderBottomColor: colors.border }]}
         onPress={() => WebBrowser.openBrowserAsync('https://carrot-launcher.github.io/yomibito-shirazu/')}
       >
-        <Text style={[styles.linkText, { color: colors.text }]}>お問い合わせ・サポート</Text>
-        <Text style={[styles.linkArrow, { color: colors.textTertiary }]}>›</Text>
+        <AppText variant="body">お問い合わせ・サポート</AppText>
+        <AppText variant="bodyLg" tone="tertiary" style={styles.linkArrow}>›</AppText>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.logoutBtn} onPress={() => alert('ログアウト', 'ログアウトしますか？', [
         { text: 'やめる', style: 'cancel' },
         { text: 'ログアウト', style: 'destructive', onPress: async () => { try { await GoogleSignin.signOut(); } catch {} await signOut(auth); } },
       ])}>
-        <Text style={[styles.logoutText, { color: colors.destructive }]}>ログアウト</Text>
+        <AppText variant="body" tone="destructive">ログアウト</AppText>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.logoutBtn} onPress={() => setShowDeleteAccount(true)}>
-        <Text style={[styles.logoutText, { color: colors.destructive }]}>アカウント削除とデータ消去</Text>
+        <AppText variant="body" tone="destructive">アカウント削除とデータ消去</AppText>
       </TouchableOpacity>
 
       {/* アカウント削除とデータ消去確認モーダル */}
       <Modal visible={showDeleteAccount} transparent animationType="fade" onRequestClose={() => { if (!deleting) setShowDeleteAccount(false); }}>
         <View style={[styles.deleteOverlay, { backgroundColor: colors.overlay }]}>
           <View style={[styles.deleteModal, { backgroundColor: colors.surface, borderColor: colors.destructive }]}>
-            <Text style={[styles.deleteTitle, { color: colors.destructive }]}>アカウント削除とデータ消去</Text>
-            <Text style={[styles.deleteDesc, { color: colors.textSecondary }]}>
+            <AppText variant="sectionTitle" tone="destructive" style={styles.deleteTitle}>アカウント削除とデータ消去</AppText>
+            <AppText variant="bodySm" tone="secondary" style={styles.deleteDesc}>
               この操作は取り消せません。{'\n'}あなたの歌、評、歌会がすべて削除されます。
-            </Text>
-            <Text style={[styles.deleteHint, { color: colors.textTertiary }]}>
+            </AppText>
+            <AppText variant="caption" tone="tertiary" style={styles.deleteHint}>
               確認のため歌人ID（{userCode}）を入力してください
-            </Text>
+            </AppText>
             <TextInput
               style={[styles.deleteInput, { borderColor: colors.border, color: colors.text }]}
               value={deleteConfirmCode}
@@ -253,30 +253,25 @@ const styles = StyleSheet.create({
     borderRadius: 12, padding: 16,
     marginBottom: 24, borderWidth: 1, alignItems: 'center',
   },
-  idLabel: { fontSize: 12, marginBottom: 4 },
+  idLabel: { marginBottom: 4 },
   idValue: { fontSize: 28, fontWeight: '500', letterSpacing: 4, fontFamily: 'IBMPlexMono_600SemiBold' },
-  idHint: { fontSize: 11, marginTop: 6 },
-  sectionTitle: { fontSize: 17, fontWeight: '500', marginBottom: 4, fontFamily: 'NotoSerifJP_500Medium' },
-  hint: { fontSize: 12, marginBottom: 12, lineHeight: 18 },
+  idHint: { marginTop: 6 },
+  sectionTitle: { marginBottom: 4 },
+  hint: { marginBottom: 12 },
   switchRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingVertical: 14, borderBottomWidth: 1,
   },
-  switchLabel: { fontSize: 16, fontFamily: 'NotoSerifJP_400Regular' },
   logoutBtn: { alignItems: 'center', marginTop: 24, paddingVertical: 12 },
-  logoutText: { fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular' },
   linkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  linkText: { fontSize: 15, lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular' },
-  linkCount: { fontSize: 13, lineHeight: 18, fontFamily: 'NotoSerifJP_400Regular' },
   linkArrow: { fontSize: 20, lineHeight: 20 },
   segmentBar: { flexDirection: 'row', borderRadius: 8, padding: 3, marginBottom: 4 },
   segment: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
-  segmentText: { fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular' },
   deleteOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   deleteModal: { borderRadius: 16, padding: 28, width: '86%', borderWidth: 2 },
-  deleteTitle: { fontSize: 18, fontWeight: '500', textAlign: 'center', marginBottom: 12, fontFamily: 'NotoSerifJP_500Medium' },
-  deleteDesc: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 12 },
-  deleteHint: { fontSize: 12, textAlign: 'center', marginBottom: 8 },
+  deleteTitle: { textAlign: 'center', marginBottom: 12 },
+  deleteDesc: { textAlign: 'center', marginBottom: 12 },
+  deleteHint: { textAlign: 'center', marginBottom: 8 },
   deleteInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, fontSize: 20, textAlign: 'center', letterSpacing: 4, fontFamily: 'IBMPlexMono_600SemiBold' },
   deleteButtons: { flexDirection: 'row', gap: 12, marginTop: 20 },
   deleteBtnFlex: { flex: 1, alignSelf: 'auto' },

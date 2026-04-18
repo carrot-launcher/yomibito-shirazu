@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { AppButton } from '../components/AppButton';
+import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
@@ -274,7 +275,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
       {isPublic && (
         <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.purposeHeaderRow}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>趣意</Text>
+            <AppText variant="sectionTitle">趣意</AppText>
             <View style={[styles.publicBadge, { borderColor: colors.border }]}>
               <Text style={[styles.publicBadgeText, { color: colors.textSecondary }]}>公開</Text>
             </View>
@@ -292,13 +293,13 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
                 multiline
                 textAlignVertical="top"
               />
-              <Text style={[styles.savedHint, { color: colors.textTertiary }]}>
+              <AppText variant="caption" tone="tertiary" style={styles.savedHint}>
                 {savedHint === 'purpose' ? '保存しました' : `${editingPurpose.trim().length} / 200`}
-              </Text>
+              </AppText>
             </>
           ) : (
             purpose ? (
-              <Text style={[styles.purposeBody, { color: colors.textSecondary }]}>{purpose}</Text>
+              <AppText variant="bodySm" tone="secondary" style={styles.purposeBody}>{purpose}</AppText>
             ) : null
           )}
         </View>
@@ -306,11 +307,11 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
 
       {/* 招待コード */}
       <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>招待コード</Text>
+        <AppText variant="sectionTitle" style={styles.sectionTitle}>招待コード</AppText>
         <View style={styles.codeRow}>
           <Text style={[styles.inviteCode, { color: colors.text }]}>{inviteCode}</Text>
           <TouchableOpacity style={[styles.copyBtn, { backgroundColor: colors.accent }]} onPress={handleCopyCode}>
-            <Text style={[styles.copyBtnText, { color: colors.accentText }]}>{copied ? 'コピーしました' : 'コピー'}</Text>
+            <AppText variant="caption" tone="onAccent">{copied ? 'コピーしました' : 'コピー'}</AppText>
           </TouchableOpacity>
         </View>
       </View>
@@ -318,25 +319,25 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
       {/* 歌会名（オーナーのみ編集可） */}
       {isOwner && (
         <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>歌会の名前</Text>
+          <AppText variant="sectionTitle" style={styles.sectionTitle}>歌会の名前</AppText>
           <TextInput style={[styles.input, { borderColor: colors.border, color: colors.text }]} value={editingName} onChangeText={setEditingName} onBlur={handleBlurGroupName} maxLength={16} />
-          {savedHint === 'groupName' && <Text style={[styles.savedHint, { color: colors.textTertiary }]}>保存しました</Text>}
+          {savedHint === 'groupName' && <AppText variant="caption" tone="tertiary" style={styles.savedHint}>保存しました</AppText>}
         </View>
       )}
 
       {/* 自分の表示名 */}
       <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>この歌会でのあなたの名前</Text>
-        <Text style={[styles.hint, { color: colors.textSecondary }]}>この歌会でのみ使われる名前です。他の歌会には影響しません。</Text>
+        <AppText variant="sectionTitle" style={styles.sectionTitle}>この歌会でのあなたの名前</AppText>
+        <AppText variant="caption" tone="secondary" style={styles.hint}>この歌会でのみ使われる名前です。他の歌会には影響しません。</AppText>
         <TextInput style={[styles.input, { borderColor: colors.border, color: colors.text }]} value={displayName} onChangeText={setDisplayName} onBlur={handleBlurDisplayName} placeholder="あなたの名前" placeholderTextColor={colors.textTertiary} maxLength={16} />
-        {savedHint === 'displayName' && <Text style={[styles.savedHint, { color: colors.textTertiary }]}>保存しました</Text>}
+        {savedHint === 'displayName' && <AppText variant="caption" tone="tertiary" style={styles.savedHint}>保存しました</AppText>}
       </View>
 
       {/* 通知 */}
       <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>通知</Text>
+        <AppText variant="sectionTitle" style={styles.sectionTitle}>通知</AppText>
         <View style={styles.muteRow}>
-          <Text style={[styles.muteLabel, { color: colors.text }]}>この歌会の通知をミュート</Text>
+          <AppText variant="bodyLg">この歌会の通知をミュート</AppText>
           <Switch
             value={muted}
             onValueChange={async (v) => {
@@ -353,15 +354,15 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
 
       {/* 歌人一覧 */}
       <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>歌人一覧（{members.length}人）</Text>
+        <AppText variant="sectionTitle" style={styles.sectionTitle}>歌人一覧（{members.length}人）</AppText>
         {members.map(m => (
           <View key={m.id} style={[styles.memberRow, { borderBottomColor: colors.border }]}>
             <View style={styles.memberInfo}>
-              <Text style={[styles.memberName, { color: colors.text }]}>
+              <AppText variant="bodyLg">
                 {m.displayName || '名無し'}
                 {m.role === 'owner' && <MaterialCommunityIcons name="crown-outline" size={14} color={colors.textSecondary} style={{ marginLeft: 4 }} />}
-              </Text>
-              <Text style={[styles.memberId, { color: colors.textTertiary }]}>#{m.userCode || '---'}</Text>
+              </AppText>
+              <AppText variant="caption" tone="tertiary" style={styles.memberId}>#{m.userCode || '---'}</AppText>
             </View>
             {isOwner && m.id !== user?.uid && m.role !== 'owner' && (
               <AppButton label="追放" variant="outlineDestructive" size="sm" onPress={() => handleKick(m)} />
@@ -373,13 +374,13 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
       {/* 追放リスト（オーナーのみ） */}
       {isOwner && Object.keys(bannedUsers).length > 0 && (
         <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>追放したユーザー（{Object.keys(bannedUsers).length}人）</Text>
-          <Text style={[styles.hint, { color: colors.textSecondary }]}>解除すると、このユーザーは再び招待コードで参加できるようになります。</Text>
+          <AppText variant="sectionTitle" style={styles.sectionTitle}>追放したユーザー（{Object.keys(bannedUsers).length}人）</AppText>
+          <AppText variant="caption" tone="secondary" style={styles.hint}>解除すると、このユーザーは再び招待コードで参加できるようになります。</AppText>
           {Object.entries(bannedUsers).map(([uid, info]) => (
             <View key={uid} style={[styles.memberRow, { borderBottomColor: colors.border }]}>
               <View style={styles.memberInfo}>
-                <Text style={[styles.memberName, { color: colors.text }]}>{info.displayName || '名無し'}</Text>
-                <Text style={[styles.memberId, { color: colors.textTertiary }]}>#{info.userCode || '---'}</Text>
+                <AppText variant="bodyLg">{info.displayName || '名無し'}</AppText>
+                <AppText variant="caption" tone="tertiary" style={styles.memberId}>#{info.userCode || '---'}</AppText>
               </View>
               <AppButton label="解除" variant="outlineMuted" size="sm" onPress={() => handleUnban(uid)} />
             </View>
@@ -394,10 +395,10 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
           onPress={() => navigation.navigate('ReportReview', { groupId })}
         >
           <View style={{ flex: 1 }}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>通報の確認</Text>
-            <Text style={[styles.judgmentExplain, { color: colors.textSecondary, marginTop: 4 }]}>
+            <AppText variant="sectionTitle" style={styles.sectionTitle}>通報の確認</AppText>
+            <AppText variant="caption" tone="secondary" style={styles.judgmentExplain}>
               仮非表示になった歌・評を確認して、解除または裁きに昇格します。
-            </Text>
+            </AppText>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textSecondary} />
         </TouchableOpacity>
@@ -406,15 +407,15 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
       {/* 裁きについて（オーナーのみ） */}
       {isOwner && (
         <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>裁きについて</Text>
-          <Text style={[styles.judgmentExplain, { color: colors.text }]}>
+          <AppText variant="sectionTitle" style={styles.sectionTitle}>裁きについて</AppText>
+          <AppText variant="caption">
             歌や評の詳細画面から、不適切な投稿に対して裁きを行えます。{'\n\n'}
-            <Text style={{ fontWeight: '600' }}>🟡 戒告</Text>
+            <AppText variant="caption" weight="medium">🟡 戒告</AppText>
             {'　'}投稿を反故にし、著者に警告を与えます。同じ歌人への戒告が3回に達すると、自動的に破門されます。{'\n\n'}
-            <Text style={{ fontWeight: '600' }}>🔴 破門</Text>
+            <AppText variant="caption" weight="medium">🔴 破門</AppText>
             {'　'}投稿を反故にし、著者を即座に歌会から追放します。追放されたユーザーは招待コードで再参加できなくなります。{'\n\n'}
             裁かれた投稿は「反故」として跡地が残り、本文は見えなくなります。裁きは匿名のまま行われ、オーナーにも著者は分かりません。破門が発生した場合のみ、メンバー全員に通知されます。
-          </Text>
+          </AppText>
         </View>
       )}
 
@@ -459,12 +460,12 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
       <Modal visible={showDissolve} transparent animationType="fade">
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
           <View style={[styles.dissolveModal, { backgroundColor: colors.surface, borderColor: colors.destructive }]}>
-            <Text style={[styles.dissolveTitle, { color: colors.destructive }]}>歌会の解散</Text>
-            <Text style={[styles.dissolveWarning, { color: colors.text }]}>
+            <AppText variant="sectionTitle" tone="destructive" style={styles.dissolveTitle}>歌会の解散</AppText>
+            <AppText variant="caption" style={styles.dissolveWarning}>
               この操作は取り消せません。{'\n\n'}
               「{groupName}」のメンバー情報と歌会そのものが削除されます。{'\n'}
               歌はそのまま残り、歌集やブックマークから引き続き読めます。
-            </Text>
+            </AppText>
 
             <TouchableOpacity
               style={styles.checkboxRow}
@@ -474,15 +475,15 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
               <View style={[styles.checkbox, { borderColor: colors.destructive }, deleteAllPosts && { backgroundColor: colors.destructive }]}>
                 {deleteAllPosts && <Text style={styles.checkmark}>✓</Text>}
               </View>
-              <Text style={[styles.checkboxLabel, { color: colors.destructive }]}>すべての歌・リアクション・評・栞も削除する</Text>
+              <AppText variant="caption" tone="destructive" style={styles.checkboxLabel}>すべての歌・リアクション・評・栞も削除する</AppText>
             </TouchableOpacity>
 
-            <Text style={[styles.dissolveInstruction, { color: colors.textSecondary }]}>
+            <AppText variant="caption" tone="secondary" style={styles.dissolveInstruction}>
               確認のため、歌会の名前を正確に入力してください：
-            </Text>
-            <Text style={[styles.dissolveGroupName, { color: colors.text, backgroundColor: colors.bg }]}>
+            </AppText>
+            <AppText variant="bodyLg" weight="medium" style={[styles.dissolveGroupName, { backgroundColor: colors.bg }]}>
               {groupName}
-            </Text>
+            </AppText>
             <TextInput
               style={[
                 styles.dissolveInput,
@@ -527,27 +528,21 @@ const styles = StyleSheet.create({
     borderRadius: 12, padding: 16,
     marginBottom: 16, borderWidth: 1,
   },
-  sectionTitle: { fontSize: 17, fontWeight: '500', marginBottom: 4, fontFamily: 'NotoSerifJP_500Medium' },
-  hint: { fontSize: 12, lineHeight: 18, marginBottom: 8 },
+  sectionTitle: { marginBottom: 4 },
+  hint: { marginBottom: 8 },
   codeRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   inviteCode: { fontSize: 24, letterSpacing: 6, fontFamily: 'IBMPlexMono_600SemiBold', flex: 1 },
   copyBtn: { borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
-  copyBtnText: { fontSize: 13 },
   input: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 12 },
-  savedHint: { fontSize: 12, marginTop: 4 },
+  savedHint: { marginTop: 4 },
   muteRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
-  muteLabel: { fontSize: 16, fontFamily: 'NotoSerifJP_400Regular' },
   memberRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 10, borderBottomWidth: 1,
   },
   memberInfo: { flex: 1 },
-  memberName: { fontSize: 16, fontFamily: 'NotoSerifJP_400Regular' },
-  ownerBadge: { fontSize: 14 },
-  memberId: { fontSize: 12, marginTop: 2 },
+  memberId: { marginTop: 2 },
   footerBtn: { marginTop: 16 },
-
-  // 退会ボタン
 
   // 解散確認モーダル
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -555,11 +550,10 @@ const styles = StyleSheet.create({
     borderRadius: 16, padding: 24,
     width: '90%', borderWidth: 2,
   },
-  dissolveTitle: { fontSize: 20, fontWeight: '600', marginBottom: 12, textAlign: 'center' },
-  dissolveWarning: { fontSize: 13, lineHeight: 22, marginBottom: 20 },
-  dissolveInstruction: { fontSize: 13, marginBottom: 8 },
+  dissolveTitle: { marginBottom: 12, textAlign: 'center' },
+  dissolveWarning: { marginBottom: 20 },
+  dissolveInstruction: { marginBottom: 8 },
   dissolveGroupName: {
-    fontSize: 16, fontWeight: '600',
     padding: 8, borderRadius: 6,
     textAlign: 'center', marginBottom: 12, overflow: 'hidden',
   },
@@ -575,11 +569,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   checkmark: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
-  checkboxLabel: { fontSize: 13, flex: 1 },
-  judgmentExplain: { fontSize: 13, lineHeight: 22 },
+  checkboxLabel: { flex: 1 },
+  judgmentExplain: { marginTop: 4 },
   purposeHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   publicBadge: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 },
   publicBadgeText: { fontSize: 10, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 1 },
-  purposeBody: { fontSize: 14, lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular', marginBottom: 8 },
+  purposeBody: { marginBottom: 8 },
   purposeEditInput: { minHeight: 100, textAlignVertical: 'top' },
 });

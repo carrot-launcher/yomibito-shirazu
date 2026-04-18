@@ -26,7 +26,7 @@ const baseAndroidFix: TextStyle = {
 
 export const typographyVariants: Record<TextVariant, TextStyle> = {
   heading:       { ...baseAndroidFix, fontFamily: Fonts.medium,  fontSize: 22, lineHeight: 30 },
-  sectionTitle:  { ...baseAndroidFix, fontFamily: Fonts.medium,  fontSize: 17, lineHeight: 24 },
+  sectionTitle:  { ...baseAndroidFix, fontFamily: Fonts.medium,  fontSize: 19, lineHeight: 26 },
   bodyLg:        { ...baseAndroidFix, fontFamily: Fonts.regular, fontSize: 16, lineHeight: 22 },
   body:          { ...baseAndroidFix, fontFamily: Fonts.regular, fontSize: 15, lineHeight: 22 },
   bodySm:        { ...baseAndroidFix, fontFamily: Fonts.regular, fontSize: 14, lineHeight: 20 },

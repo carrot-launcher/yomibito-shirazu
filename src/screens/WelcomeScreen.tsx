@@ -1,13 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 import { AppButton } from '../components/AppButton';
+import { AppText } from '../components/AppText';
 import GradientBackground from '../components/GradientBackground';
 import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '../theme/ThemeContext';
 
 export default function WelcomeScreen() {
   const { setOnboardingDone } = useAuth();
-  const { colors } = useTheme();
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -24,15 +23,15 @@ export default function WelcomeScreen() {
     <GradientBackground style={styles.container}>
       <Animated.View style={[styles.content, { opacity }]}>
         <View style={styles.body}>
-          <Text style={[styles.text, { color: colors.textSecondary }]}>
+          <AppText variant="bodyLg" tone="secondary" style={styles.text}>
             ここは、名を伏せて短歌を詠み合う場所
-          </Text>
-          <Text style={[styles.text, { color: colors.textSecondary }]}>
+          </AppText>
+          <AppText variant="bodyLg" tone="secondary" style={styles.text}>
             あなたの詠草は{'\n'}誰が詠んだか知られることなく{'\n'}歌会の仲間に届きます
-          </Text>
-          <Text style={[styles.hint, { color: colors.textTertiary }]}>
+          </AppText>
+          <AppText variant="bodySm" tone="tertiary" style={styles.hint}>
             まずは公開歌会を探すか{'\n'}招待コードを受け取りましょう
-          </Text>
+          </AppText>
         </View>
 
         <AppButton label="はじめる" variant="primary" size="lg" onPress={handleStart} style={styles.startBtn} />
@@ -45,13 +44,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 36 },
   body: { gap: 20, marginBottom: 56 },
-  text: {
-    fontSize: 16, lineHeight: 28, textAlign: 'center',
-    fontFamily: 'NotoSerifJP_400Regular',
-  },
-  hint: {
-    fontSize: 14, lineHeight: 24, textAlign: 'center',
-    marginTop: 8, fontFamily: 'NotoSerifJP_400Regular',
-  },
+  // ウェルカム画面は静謐な雰囲気のため、行間を広めに上書き
+  text: { lineHeight: 28, textAlign: 'center' },
+  hint: { lineHeight: 24, textAlign: 'center', marginTop: 8 },
   startBtn: { paddingHorizontal: 48 },
 });

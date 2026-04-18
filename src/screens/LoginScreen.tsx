@@ -5,6 +5,7 @@ import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { AppButton } from '../components/AppButton';
+import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { auth, WEB_CLIENT_ID } from '../config/firebase';
@@ -37,12 +38,12 @@ export default function LoginScreen() {
 
   const dynamicStyles = useMemo(() => StyleSheet.create({
     container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    // ロゴ的扱いの大きなタイトル — 専用のフォントウェイト（300）と字間
     title: { fontSize: 36, fontWeight: '300', color: colors.text, letterSpacing: 8, marginBottom: 48, fontFamily: 'NotoSerifJP_400Regular' },
     agreement: { marginTop: 32, paddingHorizontal: 32, alignItems: 'center', gap: 12 },
     checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
-    checkboxLabel: { fontSize: 13, lineHeight: 20, color: colors.textSecondary, fontFamily: 'NotoSerifJP_400Regular' },
-    agreementText: { fontSize: 12, lineHeight: 20, color: colors.textTertiary, textAlign: 'center', fontFamily: 'NotoSerifJP_400Regular' },
-    agreementLink: { color: colors.textSecondary, textDecorationLine: 'underline' as const },
+    agreementText: { textAlign: 'center' as const, lineHeight: 20 },
+    agreementLink: { textDecorationLine: 'underline' as const },
   }), [colors]);
 
   return (
@@ -50,11 +51,11 @@ export default function LoginScreen() {
       <Text style={dynamicStyles.title}>詠み人知らず</Text>
 
       <View style={dynamicStyles.agreement}>
-        <Text style={dynamicStyles.agreementText}>
-          <Text style={dynamicStyles.agreementLink} onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)}>利用規約</Text>
+        <AppText variant="meta" tone="tertiary" style={dynamicStyles.agreementText}>
+          <AppText variant="meta" tone="secondary" style={dynamicStyles.agreementLink} onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)}>利用規約</AppText>
           {' と '}
-          <Text style={dynamicStyles.agreementLink} onPress={() => WebBrowser.openBrowserAsync(PRIVACY_URL)}>プライバシーポリシー</Text>
-        </Text>
+          <AppText variant="meta" tone="secondary" style={dynamicStyles.agreementLink} onPress={() => WebBrowser.openBrowserAsync(PRIVACY_URL)}>プライバシーポリシー</AppText>
+        </AppText>
 
         <TouchableOpacity style={dynamicStyles.checkboxRow} onPress={() => setAgreed(v => !v)} activeOpacity={0.7}>
           <MaterialCommunityIcons
@@ -62,7 +63,7 @@ export default function LoginScreen() {
             size={22}
             color={agreed ? colors.text : colors.textSecondary}
           />
-          <Text style={dynamicStyles.checkboxLabel}>上記に同意します</Text>
+          <AppText variant="caption" tone="secondary">上記に同意します</AppText>
         </TouchableOpacity>
       </View>
 

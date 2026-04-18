@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import TankaScroll from '../components/TankaScroll';
@@ -130,12 +131,14 @@ export default function TimelineScreen({ route, navigation }: any) {
               <Text style={[styles.publicBadgeText, { color: colors.textSecondary }]}>公開</Text>
             </View>
             {purpose ? (
-              <Text
-                style={[styles.purposeText, { color: colors.textSecondary }]}
+              <AppText
+                variant="meta"
+                tone="secondary"
+                style={styles.purposeText}
                 numberOfLines={purposeExpanded ? undefined : 1}
               >
                 {purpose}
-              </Text>
+              </AppText>
             ) : null}
           </TouchableOpacity>
         )}
@@ -170,5 +173,5 @@ const styles = StyleSheet.create({
   },
   publicBadge: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 },
   publicBadgeText: { fontSize: 9, lineHeight: 13, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 1 },
-  purposeText: { flex: 1, fontSize: 12, lineHeight: 17, fontFamily: 'NotoSerifJP_400Regular' },
+  purposeText: { flex: 1 },
 });
