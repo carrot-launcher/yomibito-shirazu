@@ -364,9 +364,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
               <Text style={[styles.memberId, { color: colors.textTertiary }]}>#{m.userCode || '---'}</Text>
             </View>
             {isOwner && m.id !== user?.uid && m.role !== 'owner' && (
-              <TouchableOpacity style={[styles.kickBtn, { borderColor: colors.destructive }]} onPress={() => handleKick(m)}>
-                <Text style={[styles.kickBtnText, { color: colors.destructive }]}>追放</Text>
-              </TouchableOpacity>
+              <AppButton label="追放" variant="outlineDestructive" size="sm" onPress={() => handleKick(m)} />
             )}
           </View>
         ))}
@@ -383,9 +381,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
                 <Text style={[styles.memberName, { color: colors.text }]}>{info.displayName || '名無し'}</Text>
                 <Text style={[styles.memberId, { color: colors.textTertiary }]}>#{info.userCode || '---'}</Text>
               </View>
-              <TouchableOpacity style={[styles.unbanBtn, { borderColor: colors.textSecondary }]} onPress={() => handleUnban(uid)}>
-                <Text style={[styles.unbanBtnText, { color: colors.textSecondary }]}>解除</Text>
-              </TouchableOpacity>
+              <AppButton label="解除" variant="outlineMuted" size="sm" onPress={() => handleUnban(uid)} />
             </View>
           ))}
         </View>
@@ -424,31 +420,39 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
 
       {/* 歌会の退会（オーナー以外） */}
       {!isOwner && (
-        <TouchableOpacity style={[styles.leaveBtn, { borderColor: colors.textSecondary }]} onPress={() => {
-          alert('歌会を退会しますか？', '招待コードで再び参加できます。', [
-            { text: 'やめる', style: 'cancel' },
-            {
-              text: '退会する',
-              onPress: () => {
-                if (!user) return;
-                navigation.popToTop();
-                deleteDoc(doc(db, 'groups', groupId, 'members', user.uid))
-                  .then(() => updateDoc(doc(db, 'groups', groupId), { memberCount: increment(-1) }))
-                  .then(() => updateDoc(doc(db, 'users', user.uid), { joinedGroups: arrayRemove(groupId) }))
-                  .catch(() => {});
+        <AppButton
+          label="歌会を退会する"
+          variant="outlineMuted"
+          fullWidth
+          style={styles.footerBtn}
+          onPress={() => {
+            alert('歌会を退会しますか？', '招待コードで再び参加できます。', [
+              { text: 'やめる', style: 'cancel' },
+              {
+                text: '退会する',
+                onPress: () => {
+                  if (!user) return;
+                  navigation.popToTop();
+                  deleteDoc(doc(db, 'groups', groupId, 'members', user.uid))
+                    .then(() => updateDoc(doc(db, 'groups', groupId), { memberCount: increment(-1) }))
+                    .then(() => updateDoc(doc(db, 'users', user.uid), { joinedGroups: arrayRemove(groupId) }))
+                    .catch(() => {});
+                },
               },
-            },
-          ]);
-        }}>
-          <Text style={[styles.leaveBtnText, { color: colors.textSecondary }]}>歌会を退会する</Text>
-        </TouchableOpacity>
+            ]);
+          }}
+        />
       )}
 
       {/* 歌会の解散（オーナーのみ） */}
       {isOwner && (
-        <TouchableOpacity style={[styles.dissolveBtn, { borderColor: colors.destructive }]} onPress={() => setShowDissolve(true)}>
-          <Text style={[styles.dissolveBtnText, { color: colors.destructive }]}>歌会を解散する</Text>
-        </TouchableOpacity>
+        <AppButton
+          label="歌会を解散する"
+          variant="outlineDestructive"
+          fullWidth
+          style={styles.footerBtn}
+          onPress={() => setShowDissolve(true)}
+        />
       )}
 
       {/* 解散確認モーダル */}
@@ -541,24 +545,9 @@ const styles = StyleSheet.create({
   memberName: { fontSize: 16, fontFamily: 'NotoSerifJP_400Regular' },
   ownerBadge: { fontSize: 14 },
   memberId: { fontSize: 12, marginTop: 2 },
-  kickBtn: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
-  kickBtnText: { fontSize: 12 },
-  unbanBtn: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
-  unbanBtnText: { fontSize: 12 },
+  footerBtn: { marginTop: 16 },
 
   // 退会ボタン
-  leaveBtn: {
-    marginTop: 16, paddingVertical: 14, alignItems: 'center',
-    borderRadius: 12, borderWidth: 1,
-  },
-  leaveBtnText: { fontSize: 15 },
-
-  // 解散ボタン
-  dissolveBtn: {
-    marginTop: 16, paddingVertical: 14, alignItems: 'center',
-    borderRadius: 12, borderWidth: 1,
-  },
-  dissolveBtnText: { fontSize: 15 },
 
   // 解散確認モーダル
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },

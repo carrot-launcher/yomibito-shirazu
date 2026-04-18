@@ -11,7 +11,15 @@ import { useTheme } from '../theme/ThemeContext';
 import { TextVariant } from '../constants/typography';
 import { AppText } from './AppText';
 
-export type AppButtonVariant = 'primary' | 'secondary' | 'destructive' | 'caution' | 'ghost' | 'link';
+export type AppButtonVariant =
+  | 'primary'
+  | 'secondary'
+  | 'destructive'
+  | 'caution'
+  | 'outlineMuted'
+  | 'outlineDestructive'
+  | 'ghost'
+  | 'link';
 export type AppButtonSize = 'sm' | 'md' | 'lg';
 
 export interface AppButtonProps extends Omit<TouchableOpacityProps, 'children'> {
@@ -64,6 +72,10 @@ export function AppButton({
         return { bg: colors.destructive, border: undefined, textTone: 'onDestructive' as const };
       case 'caution':
         return { bg: colors.caution, border: undefined, textTone: 'onDestructive' as const };
+      case 'outlineMuted':
+        return { bg: 'transparent', border: colors.textSecondary, textTone: 'secondary' as const };
+      case 'outlineDestructive':
+        return { bg: 'transparent', border: colors.destructive, textTone: 'destructive' as const };
       case 'ghost':
         return { bg: 'transparent', border: undefined, textTone: 'primary' as const };
       case 'link':
