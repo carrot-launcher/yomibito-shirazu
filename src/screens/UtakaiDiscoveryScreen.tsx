@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { collection, doc, getDoc, getDocs, limit, orderBy, query, Timestamp, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppText } from '../components/AppText';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
@@ -169,13 +170,9 @@ export default function UtakaiDiscoveryScreen({ navigation }: any) {
             style={[styles.tab, tab === t.key && { borderBottomColor: colors.accent }]}
             onPress={() => setTab(t.key)}
           >
-            <Text style={[
-              styles.tabText,
-              { color: tab === t.key ? colors.text : colors.textTertiary },
-              tab === t.key && { fontFamily: 'NotoSerifJP_500Medium' },
-            ]}>
+            <AppText variant="buttonLabel" weight={tab === t.key ? 'medium' : 'regular'} tone={tab === t.key ? 'primary' : 'tertiary'}>
               {t.label}
-            </Text>
+            </AppText>
           </TouchableOpacity>
         ))}
       </View>
@@ -215,7 +212,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   tabBar: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth },
   tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabText: { fontSize: 14, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular' },
   list: { padding: 16, paddingBottom: 24 },
   card: {
     borderRadius: 12,

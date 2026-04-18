@@ -24,6 +24,8 @@ import {
   View,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { AppButton } from '../components/AppButton';
+import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
@@ -784,7 +786,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
       <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>
         <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setMenuVisible(false)}>
           <View style={styles.menuSheet}>
-            <Text style={styles.menuTitle}>{isMenuForPost ? '歌' : '評'}</Text>
+            <AppText variant="caption" tone="tertiary" style={styles.menuTitle}>{isMenuForPost ? '歌' : '評'}</AppText>
 
             {/* 解題（自分の歌のみ、未解題の場合） */}
             {isMenuForPost && !post.revealedAuthorName && !menuCommentHogo && isSelf('post') && (
@@ -811,8 +813,8 @@ export default function TankaDetailScreen({ route, navigation }: any) {
                 ]);
               }}>
                 <MaterialCommunityIcons name="account-eye-outline" size={20} color={colors.text} />
-                <Text style={styles.menuItemText}>解題</Text>
-                <Text style={styles.menuItemHint}>名乗り出る</Text>
+                <AppText variant="bodyLg">解題</AppText>
+                <AppText variant="caption" tone="tertiary" style={styles.menuItemHint}>名乗り出る</AppText>
               </TouchableOpacity>
             )}
 
@@ -824,7 +826,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
                 else handleDeleteComment(menuTargetComment!);
               }}>
                 <MaterialCommunityIcons name="delete-outline" size={20} color={colors.destructive} />
-                <Text style={styles.menuItemTextDanger}>削除</Text>
+                <AppText variant="bodyLg" tone="destructive">削除</AppText>
               </TouchableOpacity>
             )}
 
@@ -836,16 +838,16 @@ export default function TankaDetailScreen({ route, navigation }: any) {
                   openReportModal(isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined);
                 }}>
                   <MaterialCommunityIcons name="flag-outline" size={20} color={colors.text} />
-                  <Text style={styles.menuItemText}>通報</Text>
-                  <Text style={styles.menuItemHint}>主宰が確認</Text>
+                  <AppText variant="bodyLg">通報</AppText>
+                  <AppText variant="caption" tone="tertiary" style={styles.menuItemHint}>主宰が確認</AppText>
                 </TouchableOpacity>
                 {!isBlocked(isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined) && (
                   <TouchableOpacity style={styles.menuItem} onPress={() => {
                     handleBlockAuthor(isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined);
                   }}>
                     <MaterialCommunityIcons name="account-cancel-outline" size={20} color={colors.text} />
-                    <Text style={styles.menuItemText}>この歌人をブロック</Text>
-                    <Text style={styles.menuItemHint}>以後非表示</Text>
+                    <AppText variant="bodyLg">この歌人をブロック</AppText>
+                    <AppText variant="caption" tone="tertiary" style={styles.menuItemHint}>以後非表示</AppText>
                   </TouchableOpacity>
                 )}
               </>
@@ -859,22 +861,22 @@ export default function TankaDetailScreen({ route, navigation }: any) {
                   openJudgmentModal('caution', isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined);
                 }}>
                   <Text style={styles.menuItemIcon}>🟡</Text>
-                  <Text style={styles.menuItemText}>戒告</Text>
-                  <Text style={styles.menuItemHint}>3回で破門</Text>
+                  <AppText variant="bodyLg">戒告</AppText>
+                  <AppText variant="caption" tone="tertiary" style={styles.menuItemHint}>3回で破門</AppText>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.menuItem} onPress={() => {
                   openJudgmentModal('ban', isMenuForPost ? 'post' : 'comment', menuTargetComment || undefined);
                 }}>
                   <Text style={styles.menuItemIcon}>🔴</Text>
-                  <Text style={styles.menuItemText}>破門</Text>
-                  <Text style={styles.menuItemHint}>即追放</Text>
+                  <AppText variant="bodyLg">破門</AppText>
+                  <AppText variant="caption" tone="tertiary" style={styles.menuItemHint}>即追放</AppText>
                 </TouchableOpacity>
               </>
             )}
 
             <View style={styles.menuDivider} />
             <TouchableOpacity style={styles.menuItem} onPress={() => setMenuVisible(false)}>
-              <Text style={styles.menuItemTextCancel}>やめる</Text>
+              <AppText variant="bodyLg" tone="secondary" style={styles.menuItemCancelText}>やめる</AppText>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -923,23 +925,21 @@ export default function TankaDetailScreen({ route, navigation }: any) {
             )}
 
             <View style={styles.judgmentButtons}>
-              <TouchableOpacity
-                style={styles.judgmentCancelBtn}
+              <AppButton
+                label="やめる"
+                variant="secondary"
                 onPress={() => { setReportModalVisible(false); setReportReason(null); setReportDetail(''); }}
                 disabled={reporting}
-              >
-                <Text style={styles.judgmentCancelText}>やめる</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.judgmentConfirmBtn,
-                  (!reportReason || reporting) && styles.judgmentConfirmBtnDisabled,
-                ]}
+                style={styles.judgmentBtnFlex}
+              />
+              <AppButton
+                label={reporting ? '送信中...' : '通報する'}
+                variant="caution"
                 onPress={handleReport}
                 disabled={!reportReason || reporting}
-              >
-                <Text style={styles.judgmentConfirmText}>{reporting ? '送信中...' : '通報する'}</Text>
-              </TouchableOpacity>
+                loading={reporting}
+                style={styles.judgmentBtnFlex}
+              />
             </View>
           </View>
         </View>
@@ -970,26 +970,21 @@ export default function TankaDetailScreen({ route, navigation }: any) {
             />
 
             <View style={styles.judgmentButtons}>
-              <TouchableOpacity
-                style={styles.judgmentCancelBtn}
+              <AppButton
+                label="やめる"
+                variant="secondary"
                 onPress={() => { setJudgmentModal(null); setJudgmentReason(''); }}
                 disabled={judging}
-              >
-                <Text style={styles.judgmentCancelText}>やめる</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.judgmentConfirmBtn,
-                  judgmentModal === 'ban' && styles.judgmentConfirmBtnBan,
-                  judging && styles.judgmentConfirmBtnDisabled,
-                ]}
+                style={styles.judgmentBtnFlex}
+              />
+              <AppButton
+                label={judging ? '処理中...' : judgmentModal === 'caution' ? '戒告する' : '破門する'}
+                variant={judgmentModal === 'ban' ? 'destructive' : 'caution'}
                 onPress={handleJudge}
                 disabled={judging}
-              >
-                <Text style={styles.judgmentConfirmText}>
-                  {judging ? '処理中...' : judgmentModal === 'caution' ? '戒告する' : '破門する'}
-                </Text>
-              </TouchableOpacity>
+                loading={judging}
+                style={styles.judgmentBtnFlex}
+              />
             </View>
           </View>
         </View>
@@ -1050,13 +1045,11 @@ function makeStyles(colors: ThemeColors) {
       backgroundColor: colors.surface, borderTopLeftRadius: 16, borderTopRightRadius: 16,
       padding: 20, paddingBottom: 36,
     },
-    menuTitle: { fontSize: 13, color: colors.textTertiary, textAlign: 'center', marginBottom: 12, fontFamily: 'NotoSerifJP_400Regular' },
-    menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
-    menuItemIcon: { fontSize: 18, width: 24, textAlign: 'center' },
-    menuItemText: { fontSize: 16, color: colors.text, fontFamily: 'NotoSerifJP_400Regular' },
-    menuItemTextDanger: { fontSize: 16, color: colors.destructive, fontFamily: 'NotoSerifJP_400Regular' },
-    menuItemTextCancel: { fontSize: 16, color: colors.textSecondary, fontFamily: 'NotoSerifJP_400Regular', textAlign: 'center', flex: 1 },
-    menuItemHint: { fontSize: 12, color: colors.textTertiary, marginLeft: 'auto', fontFamily: 'NotoSerifJP_400Regular' },
+    menuTitle: { textAlign: 'center', marginBottom: 12 },
+    menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, minHeight: 52 },
+    menuItemIcon: { fontSize: 18, width: 24, textAlign: 'center' as const },
+    menuItemCancelText: { textAlign: 'center' as const, flex: 1 },
+    menuItemHint: { marginLeft: 'auto' as const },
     menuDivider: { height: 1, backgroundColor: colors.border, marginVertical: 2 },
 
     // 裁き確認モーダル
@@ -1075,12 +1068,7 @@ function makeStyles(colors: ThemeColors) {
       fontFamily: 'NotoSerifJP_400Regular',
     },
     judgmentButtons: { flexDirection: 'row', gap: 12 },
-    judgmentCancelBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1, borderColor: colors.border },
-    judgmentCancelText: { color: colors.textSecondary, fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular' },
-    judgmentConfirmBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: colors.caution },
-    judgmentConfirmBtnBan: { backgroundColor: colors.destructive },
-    judgmentConfirmBtnDisabled: { opacity: 0.4 },
-    judgmentConfirmText: { color: '#FFFFFF', fontSize: 15, lineHeight: 20, fontWeight: '600', fontFamily: 'NotoSerifJP_500Medium' },
+    judgmentBtnFlex: { flex: 1, alignSelf: 'auto' as const },
     reportReasonBtn: {
       flexDirection: 'row', alignItems: 'center', gap: 10,
       paddingVertical: 10, paddingHorizontal: 12,

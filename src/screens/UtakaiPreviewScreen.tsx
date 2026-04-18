@@ -4,6 +4,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { AppButton } from '../components/AppButton';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
@@ -139,35 +140,45 @@ export default function UtakaiPreviewScreen({ navigation, route }: any) {
     if (!data) return null;
     if (data.alreadyMember) {
       return (
-        <TouchableOpacity
-          style={[styles.joinBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: StyleSheet.hairlineWidth }]}
+        <AppButton
+          label="歌会に入る"
+          variant="secondary"
+          size="lg"
+          fullWidth
           onPress={() => navigation.replace('Timeline', { groupId: data.group.id, groupName: data.group.name })}
-        >
-          <Text style={[styles.joinBtnText, { color: colors.text }]}>歌会に入る</Text>
-        </TouchableOpacity>
+        />
       );
     }
     if (data.banned) {
       return (
-        <View style={[styles.joinBtn, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.joinBtnText, { color: colors.textTertiary }]}>この歌会には参加できません</Text>
-        </View>
+        <AppButton
+          label="この歌会には参加できません"
+          variant="secondary"
+          size="lg"
+          fullWidth
+          disabled
+        />
       );
     }
     if (data.full) {
       return (
-        <View style={[styles.joinBtn, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.joinBtnText, { color: colors.textTertiary }]}>定員に達しています</Text>
-        </View>
+        <AppButton
+          label="定員に達しています"
+          variant="secondary"
+          size="lg"
+          fullWidth
+          disabled
+        />
       );
     }
     return (
-      <TouchableOpacity
-        style={[styles.joinBtn, { backgroundColor: colors.accent }]}
+      <AppButton
+        label="入会する"
+        variant="primary"
+        size="lg"
+        fullWidth
         onPress={() => { setDisplayName(''); setShowNameModal(true); }}
-      >
-        <Text style={[styles.joinBtnText, { color: colors.accentText }]}>入会する</Text>
-      </TouchableOpacity>
+      />
     );
   };
 
@@ -248,16 +259,18 @@ export default function UtakaiPreviewScreen({ navigation, route }: any) {
               autoFocus
             />
             <View style={styles.modalButtons}>
-              <TouchableOpacity onPress={() => setShowNameModal(false)}>
-                <Text style={[styles.cancelText, { color: colors.textSecondary }]}>やめる</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.confirmBtn, { backgroundColor: colors.accent }, (!displayName.trim() || joining) && { opacity: 0.4 }]}
+              <AppButton
+                label="やめる"
+                variant="ghost"
+                onPress={() => setShowNameModal(false)}
+              />
+              <AppButton
+                label="参加"
+                variant="primary"
                 onPress={handleJoinConfirm}
                 disabled={!displayName.trim() || joining}
-              >
-                <Text style={[styles.confirmText, { color: colors.accentText }]}>参加</Text>
-              </TouchableOpacity>
+                loading={joining}
+              />
             </View>
           </View>
         </View>
@@ -287,15 +300,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden', marginBottom: 8,
   },
   footer: { padding: 12, borderTopWidth: StyleSheet.hairlineWidth },
-  joinBtn: { paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
-  joinBtnText: { fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_500Medium' },
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   modal: { borderRadius: 16, padding: 20, width: '85%' },
   modalTitle: { fontSize: 18, fontWeight: '500', marginBottom: 6, fontFamily: 'NotoSerifJP_500Medium' },
   modalHint: { fontSize: 12, lineHeight: 18, marginBottom: 10 },
   input: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 14 },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 16, alignItems: 'center' },
-  cancelText: { fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular' },
-  confirmBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  confirmText: { fontSize: 16, lineHeight: 22, fontFamily: 'NotoSerifJP_500Medium' },
 });

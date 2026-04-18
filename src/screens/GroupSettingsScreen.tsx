@@ -11,6 +11,7 @@ import {
   Switch, Text, TextInput, TouchableOpacity,
   View,
 } from 'react-native';
+import { AppButton } from '../components/AppButton';
 import { useAlert } from '../components/CustomAlert';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
@@ -492,25 +493,20 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
             />
 
             <View style={styles.dissolveButtons}>
-              <TouchableOpacity
-                style={[styles.dissolveCancelBtn, { borderColor: colors.border }]}
+              <AppButton
+                label="やめる"
+                variant="secondary"
                 onPress={() => { setShowDissolve(false); setDissolveConfirmText(''); setDeleteAllPosts(false); }}
-              >
-                <Text style={[styles.dissolveCancelText, { color: colors.textSecondary }]}>やめる</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.dissolveConfirmBtn,
-                  { backgroundColor: colors.destructive },
-                  (dissolveConfirmText !== groupName || dissolving) && styles.dissolveConfirmBtnDisabled,
-                ]}
+                style={styles.dissolveBtnFlex}
+              />
+              <AppButton
+                label={dissolving ? '削除中...' : '完全に削除する'}
+                variant="destructive"
                 onPress={handleDissolve}
                 disabled={dissolveConfirmText !== groupName || dissolving}
-              >
-                <Text style={styles.dissolveConfirmText}>
-                  {dissolving ? '削除中...' : '完全に削除する'}
-                </Text>
-              </TouchableOpacity>
+                loading={dissolving}
+                style={styles.dissolveBtnFlex}
+              />
             </View>
           </View>
         </View>
@@ -583,8 +579,7 @@ const styles = StyleSheet.create({
     padding: 12, fontSize: 16, marginBottom: 20, textAlign: 'center',
   },
   dissolveButtons: { flexDirection: 'row', gap: 12 },
-  dissolveCancelBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8, borderWidth: 1 },
-  dissolveCancelText: { fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular' },
+  dissolveBtnFlex: { flex: 1, alignSelf: 'auto' },
   checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16, marginBottom: 20 },
   checkbox: {
     width: 22, height: 22, borderRadius: 4, borderWidth: 2,
@@ -592,9 +587,6 @@ const styles = StyleSheet.create({
   },
   checkmark: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
   checkboxLabel: { fontSize: 13, flex: 1 },
-  dissolveConfirmBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
-  dissolveConfirmBtnDisabled: { opacity: 0.3 },
-  dissolveConfirmText: { color: '#FFFFFF', fontSize: 15, lineHeight: 20, fontWeight: '600', fontFamily: 'NotoSerifJP_500Medium' },
   judgmentExplain: { fontSize: 13, lineHeight: 22 },
   purposeHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   publicBadge: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 },

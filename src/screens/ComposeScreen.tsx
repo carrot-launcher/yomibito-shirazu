@@ -3,6 +3,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { AppButton } from '../components/AppButton';
+import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
@@ -73,21 +75,17 @@ export default function ComposeScreen({ route, navigation }: any) {
     navigation.setOptions({
       headerRight: () => (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginRight: 8 }}>
-          <Text style={{ fontSize: 14, color: colors.textSecondary, fontFamily: 'NotoSerifJP_400Regular' }}>
+          <AppText variant="bodySm" tone="secondary">
             {body.length}/{MAX_CHARS}
-          </Text>
-          <TouchableOpacity
-            style={{
-              backgroundColor: submitting || body.trim().length < 2 ? colors.disabled : colors.accent,
-              borderRadius: 8, paddingHorizontal: 18, paddingVertical: 6,
-            }}
+          </AppText>
+          <AppButton
+            label="詠む"
+            variant="primary"
+            size="md"
             onPress={handleSubmit}
             disabled={submitting || body.trim().length < 2}
-          >
-            <Text style={{ color: colors.accentText, fontSize: 15, fontFamily: 'NotoSerifJP_500Medium' }}>
-              詠む
-            </Text>
-          </TouchableOpacity>
+            loading={submitting}
+          />
         </View>
       ),
     });

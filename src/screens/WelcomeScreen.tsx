@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, StyleSheet, Text, View } from 'react-native';
+import { AppButton } from '../components/AppButton';
 import GradientBackground from '../components/GradientBackground';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../theme/ThemeContext';
@@ -34,12 +35,7 @@ export default function WelcomeScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: colors.accent }]}
-          onPress={handleStart}
-        >
-          <Text style={[styles.buttonText, { color: colors.accentText }]}>はじめる</Text>
-        </TouchableOpacity>
+        <AppButton label="はじめる" variant="primary" size="lg" onPress={handleStart} style={styles.startBtn} />
       </Animated.View>
     </GradientBackground>
   );
@@ -57,11 +53,5 @@ const styles = StyleSheet.create({
     fontSize: 14, lineHeight: 24, textAlign: 'center',
     marginTop: 8, fontFamily: 'NotoSerifJP_400Regular',
   },
-  button: {
-    paddingHorizontal: 48, paddingVertical: 14,
-    borderRadius: 10,
-  },
-  buttonText: {
-    fontSize: 17, lineHeight: 22, fontFamily: 'NotoSerifJP_500Medium',
-  },
+  startBtn: { paddingHorizontal: 48 },
 });

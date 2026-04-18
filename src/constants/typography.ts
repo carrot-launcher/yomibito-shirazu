@@ -12,6 +12,7 @@ export type TextVariant =
   | 'sectionTitle'
   | 'bodyLg'
   | 'body'
+  | 'bodySm'
   | 'caption'
   | 'meta'
   | 'buttonLabelSm'
@@ -28,6 +29,7 @@ export const typographyVariants: Record<TextVariant, TextStyle> = {
   sectionTitle:  { ...baseAndroidFix, fontFamily: Fonts.medium,  fontSize: 17, lineHeight: 24 },
   bodyLg:        { ...baseAndroidFix, fontFamily: Fonts.regular, fontSize: 16, lineHeight: 22 },
   body:          { ...baseAndroidFix, fontFamily: Fonts.regular, fontSize: 15, lineHeight: 22 },
+  bodySm:        { ...baseAndroidFix, fontFamily: Fonts.regular, fontSize: 14, lineHeight: 20 },
   caption:       { ...baseAndroidFix, fontFamily: Fonts.regular, fontSize: 13, lineHeight: 18 },
   meta:          { ...baseAndroidFix, fontFamily: Fonts.regular, fontSize: 11, lineHeight: 15 },
   buttonLabelSm: { ...baseAndroidFix, fontFamily: Fonts.medium,  fontSize: 13, lineHeight: 18 },

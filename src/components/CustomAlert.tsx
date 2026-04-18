@@ -1,7 +1,9 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme/ThemeContext';
+import { AppButton } from './AppButton';
+import { AppText } from './AppText';
 
 type AlertButton = {
   text: string;
@@ -46,35 +48,11 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   const actionButtons = state.buttons.filter(b => b.style !== 'cancel');
 
   const dynamicStyles = useMemo(() => ({
-    overlay: {
-      backgroundColor: colors.overlay,
-    },
-    card: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-    },
-    title: {
-      color: colors.text,
-    },
-    message: {
-      color: colors.textSecondary,
-    },
-    cancelBtn: {
-      borderColor: colors.border,
-    },
-    cancelText: {
-      color: colors.textSecondary,
-    },
-    actionBtn: {
-      backgroundColor: colors.text,
-    },
-    actionText: {
-      color: colors.bg,
-    },
-    destructiveBtn: {
-      backgroundColor: colors.destructive,
-    },
+    overlay: { backgroundColor: colors.overlay },
+    card: { backgroundColor: colors.surface, borderColor: colors.border },
   }), [colors]);
+
+  const btnStyle = { flex: 1, alignSelf: 'auto' as const };
 
   return (
     <AlertContext.Provider value={{ alert }}>
@@ -82,24 +60,29 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
       <Modal visible={state.visible} transparent animationType="fade">
         <View style={[styles.overlay, dynamicStyles.overlay]}>
           <View style={[styles.card, dynamicStyles.card]}>
-            {state.title ? <Text style={[styles.title, dynamicStyles.title]}>{state.title}</Text> : null}
-            {state.message ? <Text style={[styles.message, dynamicStyles.message]}>{state.message}</Text> : null}
+            {state.title ? (
+              <AppText variant="sectionTitle" style={styles.title}>{state.title}</AppText>
+            ) : null}
+            {state.message ? (
+              <AppText variant="bodySm" tone="secondary" style={styles.message}>{state.message}</AppText>
+            ) : null}
             <View style={styles.buttonRow}>
               {cancelButton && (
-                <TouchableOpacity style={[styles.cancelBtn, dynamicStyles.cancelBtn]} onPress={() => handlePress(cancelButton)}>
-                  <Text style={[styles.cancelText, dynamicStyles.cancelText]}>{cancelButton.text}</Text>
-                </TouchableOpacity>
+                <AppButton
+                  label={cancelButton.text}
+                  variant="secondary"
+                  onPress={() => handlePress(cancelButton)}
+                  style={btnStyle}
+                />
               )}
               {actionButtons.map((btn, i) => (
-                <TouchableOpacity
+                <AppButton
                   key={i}
-                  style={[styles.actionBtn, dynamicStyles.actionBtn, btn.style === 'destructive' && dynamicStyles.destructiveBtn]}
+                  label={btn.text}
+                  variant={btn.style === 'destructive' ? 'destructive' : 'primary'}
                   onPress={() => handlePress(btn)}
-                >
-                  <Text style={[styles.actionText, dynamicStyles.actionText, btn.style === 'destructive' && styles.destructiveText]}>
-                    {btn.text}
-                  </Text>
-                </TouchableOpacity>
+                  style={btnStyle}
+                />
               ))}
             </View>
           </View>
@@ -110,36 +93,9 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  card: {
-    borderRadius: 16, padding: 28,
-    width: '82%', borderWidth: 1,
-  },
-  title: {
-    fontSize: 17, fontFamily: 'NotoSerifJP_500Medium',
-    textAlign: 'center', marginBottom: 8, lineHeight: 24,
-  },
-  message: {
-    fontSize: 14, textAlign: 'center',
-    lineHeight: 22, marginBottom: 4,
-    fontFamily: 'NotoSerifJP_400Regular',
-  },
-  buttonRow: {
-    flexDirection: 'row', justifyContent: 'center',
-    gap: 12, marginTop: 20,
-  },
-  cancelBtn: {
-    flex: 1, paddingVertical: 12, alignItems: 'center',
-    borderRadius: 10, borderWidth: 1,
-  },
-  cancelText: { fontSize: 15, lineHeight: 22, fontFamily: 'NotoSerifJP_400Regular' },
-  actionBtn: {
-    flex: 1, paddingVertical: 12, alignItems: 'center',
-    borderRadius: 10,
-  },
-  actionText: { fontSize: 15, lineHeight: 22, fontFamily: 'NotoSerifJP_500Medium' },
-  destructiveText: { color: '#FFFFFF' },
+  overlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  card: { borderRadius: 16, padding: 28, width: '82%', borderWidth: 1 },
+  title: { textAlign: 'center', marginBottom: 8 },
+  message: { textAlign: 'center', marginBottom: 4 },
+  buttonRow: { flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 20 },
 });

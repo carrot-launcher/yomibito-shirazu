@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
@@ -134,8 +135,6 @@ export default function TayoriScreen({ navigation }: any) {
   const dynamicStyles = useMemo(() => StyleSheet.create({
     segmentBar: { flexDirection: 'row', marginHorizontal: 16, marginTop: 8, marginBottom: 4, backgroundColor: colors.segmentBg, borderRadius: 8, padding: 3 },
     segmentActive: { backgroundColor: colors.segmentActive },
-    segmentText: { fontSize: 15, lineHeight: 20, color: colors.textSecondary, fontFamily: 'NotoSerifJP_400Regular' },
-    segmentTextActive: { color: colors.text, fontWeight: '500', fontFamily: 'NotoSerifJP_500Medium' },
     item: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -281,7 +280,7 @@ export default function TayoriScreen({ navigation }: any) {
             style={[styles.segment, filter === f.key && dynamicStyles.segmentActive]}
             onPress={() => setFilter(f.key)}
           >
-            <Text style={[dynamicStyles.segmentText, filter === f.key && dynamicStyles.segmentTextActive]}>{f.label}</Text>
+            <AppText variant="buttonLabel" weight={filter === f.key ? 'medium' : 'regular'} tone={filter === f.key ? 'primary' : 'secondary'}>{f.label}</AppText>
           </TouchableOpacity>
         ))}
       </View>

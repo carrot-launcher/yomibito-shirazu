@@ -11,6 +11,8 @@ import {
   Text, TextInput, TouchableOpacity,
   View,
 } from 'react-native';
+import { AppButton } from '../components/AppButton';
+import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { auth, db } from '../config/firebase';
@@ -97,11 +99,7 @@ export default function SettingsScreen({ navigation }: any) {
             style={[styles.segment, mode === t.key && { backgroundColor: colors.segmentActive }]}
             onPress={() => setMode(t.key)}
           >
-            <Text style={[
-              styles.segmentText,
-              { color: colors.textSecondary },
-              mode === t.key && { color: colors.text, fontWeight: '500', fontFamily: 'NotoSerifJP_500Medium' },
-            ]}>{t.label}</Text>
+            <AppText variant="buttonLabel" weight={mode === t.key ? 'medium' : 'regular'} tone={mode === t.key ? 'primary' : 'secondary'}>{t.label}</AppText>
           </TouchableOpacity>
         ))}
       </View>
@@ -224,20 +222,21 @@ export default function SettingsScreen({ navigation }: any) {
               maxLength={6}
             />
             <View style={styles.deleteButtons}>
-              <TouchableOpacity
-                style={[styles.deleteCancelBtn, { borderColor: colors.border }]}
+              <AppButton
+                label="やめる"
+                variant="secondary"
                 onPress={() => { setShowDeleteAccount(false); setDeleteConfirmCode(''); }}
                 disabled={deleting}
-              >
-                <Text style={[styles.deleteCancelText, { color: colors.textSecondary }]}>やめる</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.deleteConfirmBtn, { backgroundColor: colors.destructive }, (deleteConfirmCode !== userCode || deleting) && { opacity: 0.4 }]}
+                style={styles.deleteBtnFlex}
+              />
+              <AppButton
+                label={deleting ? '処理中...' : '削除する'}
+                variant="destructive"
                 onPress={handleDeleteAccount}
                 disabled={deleteConfirmCode !== userCode || deleting}
-              >
-                <Text style={styles.deleteConfirmText}>{deleting ? '処理中...' : '削除する'}</Text>
-              </TouchableOpacity>
+                loading={deleting}
+                style={styles.deleteBtnFlex}
+              />
             </View>
           </View>
         </View>
@@ -280,8 +279,5 @@ const styles = StyleSheet.create({
   deleteHint: { fontSize: 12, textAlign: 'center', marginBottom: 8 },
   deleteInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, fontSize: 20, textAlign: 'center', letterSpacing: 4, fontFamily: 'IBMPlexMono_600SemiBold' },
   deleteButtons: { flexDirection: 'row', gap: 12, marginTop: 20 },
-  deleteCancelBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, borderWidth: 1 },
-  deleteCancelText: { fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular' },
-  deleteConfirmBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10 },
-  deleteConfirmText: { color: '#FFFFFF', fontSize: 15, lineHeight: 20, fontWeight: '500', fontFamily: 'NotoSerifJP_500Medium' },
+  deleteBtnFlex: { flex: 1, alignSelf: 'auto' },
 });

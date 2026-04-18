@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Text, TouchableOpacity, StyleSheet, View } from 'react-native';
+import { AppText } from '../components/AppText';
 import GradientBackground from '../components/GradientBackground';
 import { collection, doc, getDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -76,15 +77,13 @@ export default function KashuScreen({ navigation }: any) {
     container: { flex: 1, backgroundColor: colors.bg },
     segmentBar: { flexDirection: 'row', marginHorizontal: 16, marginTop: 8, marginBottom: 4, backgroundColor: colors.segmentBg, borderRadius: 8, padding: 3 },
     segmentActive: { backgroundColor: colors.segmentActive },
-    segmentText: { fontSize: 15, lineHeight: 20, color: colors.textSecondary, fontFamily: 'NotoSerifJP_400Regular' },
-    segmentTextActive: { color: colors.text, fontWeight: '500', fontFamily: 'NotoSerifJP_500Medium' },
   }), [colors]);
 
   return (
     <GradientBackground style={dynamicStyles.container}>
       <View style={dynamicStyles.segmentBar}>
-        <TouchableOpacity style={[styles.segment, tab === 'myPosts' && dynamicStyles.segmentActive]} onPress={() => setTab('myPosts')}><Text style={[dynamicStyles.segmentText, tab === 'myPosts' && dynamicStyles.segmentTextActive]}>自分の詠草</Text></TouchableOpacity>
-        <TouchableOpacity style={[styles.segment, tab === 'bookmarks' && dynamicStyles.segmentActive]} onPress={() => setTab('bookmarks')}><Text style={[dynamicStyles.segmentText, tab === 'bookmarks' && dynamicStyles.segmentTextActive]}>栞</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.segment, tab === 'myPosts' && dynamicStyles.segmentActive]} onPress={() => setTab('myPosts')}><AppText variant="buttonLabel" weight={tab === 'myPosts' ? 'medium' : 'regular'} tone={tab === 'myPosts' ? 'primary' : 'secondary'}>自分の詠草</AppText></TouchableOpacity>
+        <TouchableOpacity style={[styles.segment, tab === 'bookmarks' && dynamicStyles.segmentActive]} onPress={() => setTab('bookmarks')}><AppText variant="buttonLabel" weight={tab === 'bookmarks' ? 'medium' : 'regular'} tone={tab === 'bookmarks' ? 'primary' : 'secondary'}>栞</AppText></TouchableOpacity>
       </View>
       <TankaScroll cards={tab === 'myPosts' ? myPosts : bookmarks} onTap={handleTap} mode={tab} />
     </GradientBackground>

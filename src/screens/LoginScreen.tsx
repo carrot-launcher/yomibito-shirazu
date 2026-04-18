@@ -4,6 +4,7 @@ import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import { AppButton } from '../components/AppButton';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { auth, WEB_CLIENT_ID } from '../config/firebase';
@@ -37,9 +38,6 @@ export default function LoginScreen() {
   const dynamicStyles = useMemo(() => StyleSheet.create({
     container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     title: { fontSize: 36, fontWeight: '300', color: colors.text, letterSpacing: 8, marginBottom: 48, fontFamily: 'NotoSerifJP_400Regular' },
-    button: { backgroundColor: colors.accent, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 8 },
-    buttonDisabled: { opacity: 0.35 },
-    buttonText: { color: colors.accentText, fontSize: 17, lineHeight: 24, letterSpacing: 1, fontFamily: 'NotoSerifJP_500Medium' },
     agreement: { marginTop: 32, paddingHorizontal: 32, alignItems: 'center', gap: 12 },
     checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
     checkboxLabel: { fontSize: 13, lineHeight: 20, color: colors.textSecondary, fontFamily: 'NotoSerifJP_400Regular' },
@@ -68,13 +66,14 @@ export default function LoginScreen() {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity
-        style={[dynamicStyles.button, !agreed && dynamicStyles.buttonDisabled, { marginTop: 24 }]}
+      <AppButton
+        label="Google でログイン"
+        variant="primary"
+        size="lg"
         onPress={handleGoogleSignIn}
         disabled={!agreed}
-      >
-        <Text style={dynamicStyles.buttonText}>Google でログイン</Text>
-      </TouchableOpacity>
+        style={{ marginTop: 24, paddingHorizontal: 32 }}
+      />
     </GradientBackground>
   );
 }
