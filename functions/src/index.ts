@@ -743,6 +743,9 @@ export const deletePost = onCall(
         });
       }
     }
+    // レートリミット (rateLimits/.../daily/*.postCount) は意図的に減算しない。
+    // 削除→再投稿で日次上限を回復できると abuse ループ（spam → 削除 → spam）を
+    // 許してしまうため、「創作行為のペース」は createしか累積しない設計。
     await batch.commit();
 
     const myPostsSnap = await db.collection(`users/${authorId}/myPosts`).where("postId", "==", postId).get();
@@ -770,14 +773,15 @@ export const deleteComment = onCall(
       throw new HttpsError("permission-denied", "自分の評のみ削除できます");
     }
 
+    // 原子的に削除＋表示カウンタ減算（batch は全成功か全失敗）。
+    // なお rateLimits/...daily.commentCount は意図的に減算しない（abuse 防止）。
     const batch = db.batch();
     batch.delete(db.doc(`posts/${postId}/comments/${commentId}/private/author`));
     batch.delete(db.doc(`posts/${postId}/comments/${commentId}`));
-    await batch.commit();
-
-    await db.doc(`posts/${postId}`).update({
+    batch.update(db.doc(`posts/${postId}`), {
       commentCount: admin.firestore.FieldValue.increment(-1),
     });
+    await batch.commit();
 
     return { success: true };
   }
