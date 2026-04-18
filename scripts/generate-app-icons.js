@@ -30,7 +30,7 @@ GlobalFonts.registerFromPath(FONT_PATH, 'KouzanSousho');
  *   - baselineY: 文字中心の Y 座標比率 (0.5 が中央だが草書は上寄りなので 0.56 前後)
  */
 function render(size, filename, opts) {
-  const { charRatio = 0.85, bg = '#F5F0E8', fg = '#2C2418', baselineY = 0.56 } = opts || {};
+  const { charRatio = 0.85, bg = '#F5F0E8', fg = '#2C2418', baselineY = 0.52 } = opts || {};
   const canvas = createCanvas(size, size);
   const ctx = canvas.getContext('2d');
 
@@ -68,6 +68,14 @@ render(1024, 'android-icon-foreground.png', { charRatio: 0.60, bg: null });
 
 // ===== Android monochrome icon (Android 13+ のテーマ化アイコン用) =====
 // システムが自動で色を置き換えるので、黒で描画しておけば OK。
+// ランチャー用は safe area (66%) に収める必要があるので charRatio は抑えめ。
 render(1024, 'android-icon-monochrome.png', { charRatio: 0.60, bg: null, fg: '#000000' });
+
+// ===== Android 通知アイコン (ステータスバー & 通知の横に出る小さいアイコン) =====
+// adaptive icon のような safe area 制約はないので、字面をキャンバスいっぱいに描画して
+// ステータスバーの 24dp 縮小後も読み取れる大きさを確保する。
+// Android は alpha チャネルしか使わないので、色は黒でも白でも結果は同じ（システムが塗る）。
+// なお草書は細い線が多く縮小時に消えがちなので、できるだけ大きく描く (~0.92) のが重要。
+render(256, 'notification-icon.png', { charRatio: 0.92, bg: null, fg: '#000000' });
 
 console.log('done.');

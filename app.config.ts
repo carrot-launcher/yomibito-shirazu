@@ -57,8 +57,8 @@ export default {
       [
         "expo-notifications",
         {
-          icon: "./assets/images/android-icon-monochrome.png",
-          color: "#2C2418",
+          icon: "./assets/images/notification-icon.png",
+          color: "#F5F0E8",
         },
       ],
       "@react-native-google-signin/google-signin",
