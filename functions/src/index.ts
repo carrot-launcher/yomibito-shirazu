@@ -42,17 +42,17 @@ async function createNotification(
     let channelId = "";
     switch (type) {
       case "new_post":
-        title = `${data.groupName}に新しい歌が詠まれました`;
+        title = `${data.groupName}で歌が詠まれました`;
         body = data.tankaBody;
         channelId = "new-tanka";
         break;
       case "reaction":
-        title = "あなたの歌に🌸が届きました";
+        title = `あなたの歌に${data.emoji || "🌸"}が贈られました`;
         body = data.tankaBody;
         channelId = "reactions";
         break;
       case "comment":
-        title = "あなたの歌に評が届きました";
+        title = "あなたの歌に評が寄せられました";
         body = truncate(data.commentBody || "", 50);
         channelId = "comments";
         break;

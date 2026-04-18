@@ -167,8 +167,10 @@ export default function TayoriScreen({ navigation }: any) {
     },
     body: {
       fontSize: 13,
+      lineHeight: 16,
       color: colors.textTertiary,
       marginTop: 2,
+      fontFamily: 'NotoSerifJP_400Regular',
     },
     time: {
       fontSize: 11,
@@ -190,31 +192,31 @@ export default function TayoriScreen({ navigation }: any) {
     switch (item.type) {
       case 'new_post':
         icon = 'pen';
-        title = `${item.groupName}に新しい歌`;
+        title = `${item.groupName}で歌が詠まれました`;
         body = stripRuby(item.tankaBody || '').replace(/[\n\r]+/g, '\u3000') || undefined;
         break;
       case 'reaction':
         icon = 'flower-tulip';
         title = item.reactionCount && item.reactionCount > 1
-          ? `あなたの歌に${item.emoji || '🌸'}が${item.reactionCount}件`
-          : `あなたの歌に${item.emoji || '🌸'}`;
+          ? `あなたの歌に${item.emoji || '🌸'}が${item.reactionCount}件贈られました`
+          : `あなたの歌に${item.emoji || '🌸'}が贈られました`;
         body = stripRuby(item.tankaBody || '').replace(/[\n\r]+/g, '\u3000') || undefined;
         break;
       case 'comment':
         icon = 'comment-text-outline';
-        title = 'あなたの歌に評';
+        title = 'あなたの歌に評が寄せられました';
         body = item.commentBody && item.commentBody.length > 50
           ? item.commentBody.slice(0, 50) + '…'
           : item.commentBody;
         break;
       case 'caution':
         icon = 'alert-outline';
-        title = `${item.groupName}で戒告（${item.cautionCount || '?'}/3）`;
+        title = `${item.groupName}で戒告されました（${item.cautionCount || '?'}/3）`;
         body = item.tankaBody ? stripRuby(item.tankaBody).replace(/[\n\r]+/g, '\u3000') : undefined;
         break;
       case 'ban':
         icon = 'account-remove-outline';
-        title = `${item.groupName}にて事変`;
+        title = `${item.groupName}にて事変が発生しました`;
         body = item.bannedUserName ? `${item.bannedUserName}が破門されました` : undefined;
         break;
       case 'dissolve':
@@ -223,7 +225,7 @@ export default function TayoriScreen({ navigation }: any) {
         break;
       case 'report':
         icon = 'flag-outline';
-        title = `${item.groupName}に通報`;
+        title = `${item.groupName}に通報が入りました`;
         body = '確認してください';
         break;
       default:
