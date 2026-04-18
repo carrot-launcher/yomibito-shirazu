@@ -21,6 +21,7 @@ export const lightColors = {
   destructiveBg: '#FAE5E3',
   warning: '#F0C800',
   warningBg: '#FFF8DC',
+  caution: '#D4A017',
   webViewBg: 'transparent',
   activeHighlight: '#F0E8D8',
 };
@@ -48,6 +49,7 @@ export const darkColors: typeof lightColors = {
   destructiveBg: '#3A2020',
   warning: '#F0C800',
   warningBg: '#3A3220',
+  caution: '#D4A824',
   webViewBg: 'transparent',
   activeHighlight: '#3A3228',
 };

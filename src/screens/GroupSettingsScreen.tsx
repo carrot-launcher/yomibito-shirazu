@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
   },
   dissolveButtons: { flexDirection: 'row', gap: 12 },
   dissolveCancelBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8, borderWidth: 1 },
-  dissolveCancelText: { fontSize: 15 },
+  dissolveCancelText: { fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular' },
   checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16, marginBottom: 20 },
   checkbox: {
     width: 22, height: 22, borderRadius: 4, borderWidth: 2,
@@ -594,7 +594,7 @@ const styles = StyleSheet.create({
   checkboxLabel: { fontSize: 13, flex: 1 },
   dissolveConfirmBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
   dissolveConfirmBtnDisabled: { opacity: 0.3 },
-  dissolveConfirmText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+  dissolveConfirmText: { color: '#FFFFFF', fontSize: 15, lineHeight: 20, fontWeight: '600', fontFamily: 'NotoSerifJP_500Medium' },
   judgmentExplain: { fontSize: 13, lineHeight: 22 },
   purposeHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   publicBadge: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 },

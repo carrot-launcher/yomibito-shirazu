@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
   deleteInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, fontSize: 20, textAlign: 'center', letterSpacing: 4, fontFamily: 'IBMPlexMono_600SemiBold' },
   deleteButtons: { flexDirection: 'row', gap: 12, marginTop: 20 },
   deleteCancelBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, borderWidth: 1 },
-  deleteCancelText: { fontSize: 15 },
+  deleteCancelText: { fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular' },
   deleteConfirmBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10 },
-  deleteConfirmText: { color: '#FFFFFF', fontSize: 15, fontWeight: '500' },
+  deleteConfirmText: { color: '#FFFFFF', fontSize: 15, lineHeight: 20, fontWeight: '500', fontFamily: 'NotoSerifJP_500Medium' },
 });

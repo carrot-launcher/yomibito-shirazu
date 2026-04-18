@@ -823,7 +823,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
                 if (isMenuForPost) handleDelete();
                 else handleDeleteComment(menuTargetComment!);
               }}>
-                <MaterialCommunityIcons name="delete-outline" size={20} color="#C53030" />
+                <MaterialCommunityIcons name="delete-outline" size={20} color={colors.destructive} />
                 <Text style={styles.menuItemTextDanger}>削除</Text>
               </TouchableOpacity>
             )}
@@ -1054,7 +1054,7 @@ function makeStyles(colors: ThemeColors) {
     menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
     menuItemIcon: { fontSize: 18, width: 24, textAlign: 'center' },
     menuItemText: { fontSize: 16, color: colors.text, fontFamily: 'NotoSerifJP_400Regular' },
-    menuItemTextDanger: { fontSize: 16, color: '#C53030', fontFamily: 'NotoSerifJP_400Regular' },
+    menuItemTextDanger: { fontSize: 16, color: colors.destructive, fontFamily: 'NotoSerifJP_400Regular' },
     menuItemTextCancel: { fontSize: 16, color: colors.textSecondary, fontFamily: 'NotoSerifJP_400Regular', textAlign: 'center', flex: 1 },
     menuItemHint: { fontSize: 12, color: colors.textTertiary, marginLeft: 'auto', fontFamily: 'NotoSerifJP_400Regular' },
     menuDivider: { height: 1, backgroundColor: colors.border, marginVertical: 2 },
@@ -1077,8 +1077,8 @@ function makeStyles(colors: ThemeColors) {
     judgmentButtons: { flexDirection: 'row', gap: 12 },
     judgmentCancelBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1, borderColor: colors.border },
     judgmentCancelText: { color: colors.textSecondary, fontSize: 15, lineHeight: 20, fontFamily: 'NotoSerifJP_400Regular' },
-    judgmentConfirmBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: '#D4A017' },
-    judgmentConfirmBtnBan: { backgroundColor: '#C53030' },
+    judgmentConfirmBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: colors.caution },
+    judgmentConfirmBtnBan: { backgroundColor: colors.destructive },
     judgmentConfirmBtnDisabled: { opacity: 0.4 },
     judgmentConfirmText: { color: '#FFFFFF', fontSize: 15, lineHeight: 20, fontWeight: '600', fontFamily: 'NotoSerifJP_500Medium' },
     reportReasonBtn: {
