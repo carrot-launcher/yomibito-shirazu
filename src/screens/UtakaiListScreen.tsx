@@ -333,18 +333,18 @@ export default function UtakaiListScreen({ navigation }: any) {
             </AppText>
             {item.isPublic && (
               <View style={[styles.publicBadge, { borderColor: colors.border }]}>
-                <AppText variant="meta" tone="tertiary">公開</AppText>
+                <AppText variant="caption" tone="tertiary">公開</AppText>
               </View>
             )}
           </View>
           <View style={styles.cardRowBottom}>
-            <AppText variant="meta" tone="tertiary">{item.memberCount}人</AppText>
-            <AppText variant="meta" tone="tertiary">・</AppText>
-            <AppText variant="meta" tone="tertiary">{postCount}首</AppText>
+            <AppText variant="caption" tone="tertiary">{item.memberCount}人</AppText>
+            <AppText variant="caption" tone="tertiary">・</AppText>
+            <AppText variant="caption" tone="tertiary">{postCount}首</AppText>
             {lastLabel ? (
               <>
-                <AppText variant="meta" tone="tertiary">・</AppText>
-                <AppText variant="meta" tone="tertiary">{lastLabel}</AppText>
+                <AppText variant="caption" tone="tertiary">・</AppText>
+                <AppText variant="caption" tone="tertiary">{lastLabel}</AppText>
               </>
             ) : null}
           </View>
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 14,
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 28,
     marginBottom: 12,
     borderLeftWidth: 4,
     flexDirection: 'column',
@@ -565,23 +565,23 @@ const styles = StyleSheet.create({
   cardRowBottom: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: 22,
     gap: 6,
   },
-  // 歌会名は画面サイズに応じてスケール
-  cardName: { fontSize: fs(18), flexShrink: 1 },
+  // 歌会名は画面サイズに応じてスケール。lineHeight も同比率で効かせる
+  cardName: { fontSize: fs(18), lineHeight: fs(25), flexShrink: 1 },
   cardBgCharWrap: {
     position: 'absolute',
     right: -10,
-    top: -30,
+    top: -20,
     bottom: -10,
     width: 180,
     justifyContent: 'center',
     alignItems: 'center',
   },
   cardBgChar: {
-    fontSize: 180,
-    lineHeight: 180,
+    fontSize: 170,
+    lineHeight: 170,
     fontFamily: 'KouzanSousho',
     opacity: 0.08,
     includeFontPadding: false,
