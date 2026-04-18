@@ -5,6 +5,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
+import messaging from '@react-native-firebase/messaging';
 import { auth, db } from '../config/firebase';
 
 async function registerForPushNotifications(uid: string) {
@@ -41,9 +42,26 @@ async function registerForPushNotifications(uid: string) {
     }
     if (finalStatus !== 'granted') return;
 
-    const token = await Notifications.getDevicePushTokenAsync();
-    await updateDoc(doc(db, 'users', uid), { fcmToken: token.data });
-  } catch {}
+    // iOS では APNs 登録を明示的に実行 (FCM が APNs 経由で配信するため)
+    if (Platform.OS === 'ios') {
+      try {
+        await messaging().registerDeviceForRemoteMessages();
+      } catch {
+        // 既に登録済みの場合は無視
+      }
+    }
+
+    // FCM トークン取得（iOS / Android 共通）
+    // expo-notifications の getDevicePushTokenAsync は iOS だと APNs トークンを返すため、
+    // Firebase Admin SDK の messaging.send() では使えない。@react-native-firebase/messaging
+    // の getToken() を使うと両プラットフォームで FCM レジストレーショントークンが得られる。
+    const fcmToken = await messaging().getToken();
+    if (fcmToken) {
+      await updateDoc(doc(db, 'users', uid), { fcmToken });
+    }
+  } catch (e) {
+    console.warn('[registerForPushNotifications] failed', e);
+  }
 }
 
 function generateUserCode(): string {

@@ -65,6 +65,7 @@ export default {
       "expo-sharing",
       "expo-web-browser",
       "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
       "@react-native-firebase/crashlytics",
       "./plugins/with-firebase-static-framework",
       // NOTE: useFrameworks: static を外している
