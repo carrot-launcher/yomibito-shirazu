@@ -92,6 +92,7 @@ async function createNotification(
     tankaBody: string;
     emoji?: string;
     commentBody?: string;
+    commentId?: string; // comment 通知の場合、削除検知用に保存
   }
 ) {
   const userSnap = await db.doc(`users/${targetUserId}`).get();
@@ -179,6 +180,122 @@ async function createNotification(
       ...data,
       createdAt: admin.firestore.Timestamp.now(),
     });
+  }
+}
+
+// ===== 通知の状態書き換え =====
+// 反故/削除が起きたとき、該当する投稿/評について既に配信済みの通知ドキュメントを
+// 「本文を見せない」状態に書き換える（履歴は残す）。
+// 対象タイプは new_post / reaction / comment のみ（caution/ban 等は残す）。
+
+type TargetState = "hogo" | "deleted";
+
+// 投稿（post）が反故/削除されたときに、歌を参照する通知（new_post / reaction）を書き換える。
+// comment 型通知の tankaBody は「評が付いた歌」を示すものなので、
+// ここでは触らない（評自体は独立に生存するため）。
+async function markNotificationsForPost(
+  postId: string,
+  state: TargetState,
+  hogoReason?: string
+) {
+  const snap = await db
+    .collectionGroup("notifications")
+    .where("postId", "==", postId)
+    .get();
+
+  const updates: Record<string, unknown> = {
+    targetState: state,
+    tankaBody: "",
+  };
+  if (state === "hogo") updates.targetHogoReason = hogoReason || "仔細あり";
+
+  const batchSize = 400;
+  for (let i = 0; i < snap.docs.length; i += batchSize) {
+    const batch = db.batch();
+    for (const d of snap.docs.slice(i, i + batchSize)) {
+      const t = d.data()?.type;
+      if (t !== "new_post" && t !== "reaction") continue;
+      batch.update(d.ref, updates);
+    }
+    await batch.commit();
+  }
+}
+
+// 評（comment）が反故/削除されたときに、comment 型通知の commentBody を書き換える。
+async function markNotificationsForComment(
+  commentId: string,
+  state: TargetState,
+  hogoReason?: string
+) {
+  const snap = await db
+    .collectionGroup("notifications")
+    .where("commentId", "==", commentId)
+    .get();
+
+  const updates: Record<string, unknown> = {
+    targetState: state,
+    commentBody: "",
+  };
+  if (state === "hogo") updates.targetHogoReason = hogoReason || "仔細あり";
+
+  const batchSize = 400;
+  for (let i = 0; i < snap.docs.length; i += batchSize) {
+    const batch = db.batch();
+    for (const d of snap.docs.slice(i, i + batchSize)) {
+      if (d.data()?.type !== "comment") continue;
+      batch.update(d.ref, updates);
+    }
+    await batch.commit();
+  }
+}
+
+// pending 解除時に通知の書き換えを戻す（tankaBody を復元＋状態フラグ削除）。
+async function unmarkNotificationsForPost(
+  postId: string,
+  restoredTankaBody: string
+) {
+  const snap = await db
+    .collectionGroup("notifications")
+    .where("postId", "==", postId)
+    .get();
+
+  const batchSize = 400;
+  for (let i = 0; i < snap.docs.length; i += batchSize) {
+    const batch = db.batch();
+    for (const d of snap.docs.slice(i, i + batchSize)) {
+      const t = d.data()?.type;
+      if (t !== "new_post" && t !== "reaction") continue;
+      batch.update(d.ref, {
+        tankaBody: restoredTankaBody,
+        targetState: admin.firestore.FieldValue.delete(),
+        targetHogoReason: admin.firestore.FieldValue.delete(),
+      });
+    }
+    await batch.commit();
+  }
+}
+
+async function unmarkNotificationsForComment(
+  commentId: string,
+  restoredCommentBody: string
+) {
+  const snap = await db
+    .collectionGroup("notifications")
+    .where("commentId", "==", commentId)
+    .get();
+
+  const batchSize = 400;
+  for (let i = 0; i < snap.docs.length; i += batchSize) {
+    const batch = db.batch();
+    for (const d of snap.docs.slice(i, i + batchSize)) {
+      if (d.data()?.type !== "comment") continue;
+      batch.update(d.ref, {
+        commentBody: restoredCommentBody,
+        targetState: admin.firestore.FieldValue.delete(),
+        targetHogoReason: admin.firestore.FieldValue.delete(),
+      });
+    }
+    await batch.commit();
   }
 }
 
@@ -671,6 +788,7 @@ export const onNewComment = onDocumentCreated(
 
     await createNotification(postAuthorId, "comment", {
       postId,
+      commentId,
       groupId: post.groupId,
       groupName,
       tankaBody: post.body,
@@ -732,7 +850,9 @@ export const deletePost = onCall(
       privateSnap.docs.forEach((doc) => batch.delete(doc.ref));
       batch.delete(commentDoc.ref);
     }
-    batch.delete(db.doc(`posts/${postId}/private/author`));
+    // private サブコレクション全体を削除（author + archivedBody 等、今後追加されるものも含む）
+    const postPrivateSnap = await db.collection(`posts/${postId}/private`).get();
+    postPrivateSnap.docs.forEach((doc) => batch.delete(doc.ref));
     batch.delete(db.doc(`posts/${postId}`));
     // 歌会の累計投稿数をデクリメント（歌会がまだ存在する場合のみ）
     if (groupId) {
@@ -747,6 +867,13 @@ export const deletePost = onCall(
     // 削除→再投稿で日次上限を回復できると abuse ループ（spam → 削除 → spam）を
     // 許してしまうため、「創作行為のペース」は createしか累積しない設計。
     await batch.commit();
+
+    // たより（通知）の本文を「削除済み」に書き換え（履歴は残す）
+    try {
+      await markNotificationsForPost(postId, "deleted");
+    } catch (e) {
+      console.error("[deletePost] mark notifications failed", e);
+    }
 
     const myPostsSnap = await db.collection(`users/${authorId}/myPosts`).where("postId", "==", postId).get();
     const batch2 = db.batch();
@@ -782,6 +909,13 @@ export const deleteComment = onCall(
       commentCount: admin.firestore.FieldValue.increment(-1),
     });
     await batch.commit();
+
+    // たより通知の本文を「削除済み」に書き換え
+    try {
+      await markNotificationsForComment(commentId, "deleted");
+    } catch (e) {
+      console.error("[deleteComment] mark notifications failed", e);
+    }
 
     return { success: true };
   }
@@ -1041,6 +1175,17 @@ export const judgeContent = onCall(
       hogoType: type, // 元の裁きタイプを記録
       body: "",
     });
+
+    // たより通知の本文を「反故」に書き換え
+    try {
+      if (isComment) {
+        await markNotificationsForComment(commentId!, "hogo", hogoReason);
+      } else {
+        await markNotificationsForPost(postId, "hogo", hogoReason);
+      }
+    } catch (e) {
+      console.error("[judgeContent] mark notifications failed", e);
+    }
 
     // 関連 reports を resolved にマーク（pending からの昇格ケースも含む）
     try {
@@ -1636,8 +1781,18 @@ export const reportContent = onCall(
       return shouldPending;
     });
 
-    // 閾値到達時、歌会オーナーに通知（ベストエフォート）
+    // 閾値到達時の後処理（通知書き換え + オーナー通知）
     if (willBecomePending) {
+      // たより通知の本文を「反故（確認中）」に書き換え
+      try {
+        if (commentId) {
+          await markNotificationsForComment(commentId, "hogo", "確認中");
+        } else {
+          await markNotificationsForPost(postId, "hogo", "確認中");
+        }
+      } catch (e) {
+        console.error("[reportContent] mark notifications failed", e);
+      }
       try {
         const ownerId = groupSnap.data()?.createdBy as string | undefined;
         if (ownerId) {
@@ -1839,6 +1994,17 @@ export const resolveReports = onCall(
       batch0.delete(archivedRef);
     }
     await batch0.commit();
+
+    // 反故化時に書き換えた通知を元に戻す
+    try {
+      if (commentId) {
+        await unmarkNotificationsForComment(commentId, restoredBody);
+      } else {
+        await unmarkNotificationsForPost(postId, restoredBody);
+      }
+    } catch (e) {
+      console.error("[resolveReports] unmark notifications failed", e);
+    }
 
     // 関連 reports を resolved にマーク
     const reportsSnap = await db

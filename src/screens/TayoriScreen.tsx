@@ -124,6 +124,8 @@ export default function TayoriScreen({ navigation }: any) {
   };
 
   const handleTap = (item: TayoriItem) => {
+    // 削除された投稿/評への通知はタップ不可（ナビゲーション先が存在しない）
+    if ((item as any).targetState === 'deleted') return;
     if (item.type === 'report' && item.groupId) {
       navigation.navigate('ReportReview', { groupId: item.groupId });
       return;
@@ -189,29 +191,42 @@ export default function TayoriScreen({ navigation }: any) {
 
   const renderItem = ({ item }: { item: TayoriItem }) => {
     const unread = isUnread(item);
+    const targetState = (item as any).targetState as 'hogo' | 'deleted' | undefined;
+    const hogoReason = (item as any).targetHogoReason as string | undefined;
     let icon: string;
     let title: string;
     let body: string | undefined;
+
+    // 対象が反故/削除されている場合、本文位置のプレビューを書き換える。
+    // 評タイプの通知は commentBody、歌タイプの通知は tankaBody を指す。
+    const buildHogoText = () => `反故——${hogoReason || '仔細あり'}`;
+    const buildDeletedText = (kind: '歌' | '評') => `この${kind}は削除されました`;
 
     switch (item.type) {
       case 'new_post':
         icon = 'pen';
         title = `${item.groupName}で歌が詠まれました`;
-        body = stripRuby(item.tankaBody || '').replace(/[\n\r]+/g, '\u3000') || undefined;
+        body = targetState === 'hogo' ? buildHogoText()
+             : targetState === 'deleted' ? buildDeletedText('歌')
+             : (stripRuby(item.tankaBody || '').replace(/[\n\r]+/g, '\u3000') || undefined);
         break;
       case 'reaction':
         icon = 'hand-heart';
         title = item.reactionCount && item.reactionCount > 1
           ? `あなたの歌に${item.emoji || '🌸'}が${item.reactionCount}件贈られました`
           : `あなたの歌に${item.emoji || '🌸'}が贈られました`;
-        body = stripRuby(item.tankaBody || '').replace(/[\n\r]+/g, '\u3000') || undefined;
+        body = targetState === 'hogo' ? buildHogoText()
+             : targetState === 'deleted' ? buildDeletedText('歌')
+             : (stripRuby(item.tankaBody || '').replace(/[\n\r]+/g, '\u3000') || undefined);
         break;
       case 'comment':
         icon = 'comment-text-outline';
         title = 'あなたの歌に評が寄せられました';
-        body = item.commentBody && item.commentBody.length > 50
-          ? item.commentBody.slice(0, 50) + '…'
-          : item.commentBody;
+        body = targetState === 'hogo' ? buildHogoText()
+             : targetState === 'deleted' ? buildDeletedText('評')
+             : (item.commentBody && item.commentBody.length > 50
+                 ? item.commentBody.slice(0, 50) + '…'
+                 : item.commentBody);
         break;
       case 'caution':
         icon = 'alert-outline';
