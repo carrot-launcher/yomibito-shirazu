@@ -176,27 +176,51 @@ function createCardEl(card, index) {
   el.className = isUnread ? "tanka-card unread" : "tanka-card";
   var fade = Math.max(0.6, 1 - (index / 8) * 0.7);
   el.style.opacity = fade;
-  // 評の長押しと同じパターン: 500ms 以上で長押し → postMenu。それ以外は短押しで navigate。
+  // タップ/長押し検出: 指が閾値以上動いたら「スクロール」と解釈し、短押しも長押しも発火しない。
+  // 500ms 以上静止で長押し → postMenu、動かず離したら短押しで navigate。
   var cardPressTimer = null;
   var cardLongPressed = false;
-  el.addEventListener('touchstart', function() {
+  var cardMoved = false;
+  var cardStartX = 0;
+  var cardStartY = 0;
+  var MOVE_THRESHOLD = 10;
+  el.addEventListener('touchstart', function(e) {
     cardLongPressed = false;
+    cardMoved = false;
+    if (e.touches && e.touches[0]) {
+      cardStartX = e.touches[0].clientX;
+      cardStartY = e.touches[0].clientY;
+    }
     cardPressTimer = setTimeout(function() {
+      if (cardMoved) return;
       cardLongPressed = true;
       var msg = { action: 'postMenu', postId: card.postId, groupId: card.groupId };
       if (mode === 'myPosts' && card.batchId) msg.batchId = card.batchId;
       window.ReactNativeWebView.postMessage(JSON.stringify(msg));
     }, 500);
   });
+  el.addEventListener('touchmove', function(e) {
+    if (!cardMoved && e.touches && e.touches[0]) {
+      var dx = Math.abs(e.touches[0].clientX - cardStartX);
+      var dy = Math.abs(e.touches[0].clientY - cardStartY);
+      if (dx > MOVE_THRESHOLD || dy > MOVE_THRESHOLD) {
+        cardMoved = true;
+        clearTimeout(cardPressTimer);
+      }
+    }
+  });
   el.addEventListener('touchend', function() {
     clearTimeout(cardPressTimer);
-    if (!cardLongPressed) {
+    if (!cardLongPressed && !cardMoved) {
       var msg = { postId: card.postId, groupId: card.groupId };
       if (mode === 'myPosts' && card.batchId) msg.batchId = card.batchId;
       window.ReactNativeWebView.postMessage(JSON.stringify(msg));
     }
   });
-  el.addEventListener('touchmove', function() { clearTimeout(cardPressTimer); });
+  el.addEventListener('touchcancel', function() {
+    clearTimeout(cardPressTimer);
+    cardMoved = true;
+  });
 
   var metaHtml = '';
   if (mode === 'timeline') {

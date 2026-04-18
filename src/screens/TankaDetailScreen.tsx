@@ -161,25 +161,49 @@ function buildDetailHtml(
 </div>
 <script>
 // 歌本体のタップハンドラ: 短押し→スクショ、長押し→メニュー（評の長押しと同じパターン）
+// 指が閾値以上動いた場合はスクロールとみなし、短押しも長押しも発火させない
 (function() {
   var tankaEl = document.getElementById("tanka-main");
   if (!tankaEl || ${isHogo ? 'true' : 'false'}) return;
   var pressTimer = null;
   var longPressed = false;
-  tankaEl.addEventListener('touchstart', function() {
+  var moved = false;
+  var startX = 0;
+  var startY = 0;
+  var MOVE_THRESHOLD = 10;
+  tankaEl.addEventListener('touchstart', function(e) {
     longPressed = false;
+    moved = false;
+    if (e.touches && e.touches[0]) {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    }
     pressTimer = setTimeout(function() {
+      if (moved) return;
       longPressed = true;
       window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'postMenu' }));
     }, 500);
   });
+  tankaEl.addEventListener('touchmove', function(e) {
+    if (!moved && e.touches && e.touches[0]) {
+      var dx = Math.abs(e.touches[0].clientX - startX);
+      var dy = Math.abs(e.touches[0].clientY - startY);
+      if (dx > MOVE_THRESHOLD || dy > MOVE_THRESHOLD) {
+        moved = true;
+        clearTimeout(pressTimer);
+      }
+    }
+  });
   tankaEl.addEventListener('touchend', function() {
     clearTimeout(pressTimer);
-    if (!longPressed) {
+    if (!longPressed && !moved) {
       window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'screenshot' }));
     }
   });
-  tankaEl.addEventListener('touchmove', function() { clearTimeout(pressTimer); });
+  tankaEl.addEventListener('touchcancel', function() {
+    clearTimeout(pressTimer);
+    moved = true;
+  });
 })();
 
 const comments = ${commentsJson};
@@ -214,21 +238,44 @@ if (comments.length === 0) {
 
     var pressTimer = null;
     var longPressed = false;
+    var moved = false;
+    var startX = 0;
+    var startY = 0;
+    var MOVE_THRESHOLD = 10;
     el.addEventListener('touchstart', function(e) {
       longPressed = false;
+      moved = false;
+      if (e.touches && e.touches[0]) {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      }
       pressTimer = setTimeout(function() {
+        if (moved) return;
         longPressed = true;
         window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'commentMenu', commentId: c.id }));
       }, 600);
     });
+    el.addEventListener('touchmove', function(e) {
+      if (!moved && e.touches && e.touches[0]) {
+        var dx = Math.abs(e.touches[0].clientX - startX);
+        var dy = Math.abs(e.touches[0].clientY - startY);
+        if (dx > MOVE_THRESHOLD || dy > MOVE_THRESHOLD) {
+          moved = true;
+          clearTimeout(pressTimer);
+        }
+      }
+    });
     el.addEventListener('touchend', function() {
       clearTimeout(pressTimer);
-      if (!longPressed && needsFold) {
+      if (!longPressed && !moved && needsFold) {
         expanded = !expanded;
         renderComment();
       }
     });
-    el.addEventListener('touchmove', function() { clearTimeout(pressTimer); });
+    el.addEventListener('touchcancel', function() {
+      clearTimeout(pressTimer);
+      moved = true;
+    });
     commentsEl.appendChild(el);
   });
 }
