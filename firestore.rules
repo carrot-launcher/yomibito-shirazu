@@ -80,15 +80,18 @@ service cloud.firestore {
 
     // ===== 投稿 =====
     match /posts/{postId} {
-      // メンバーか、歌会が解散済み（ドキュメント不在）なら閲覧可
+      // メンバーか、歌会が解散済み（ドキュメント不在）なら閲覧可。
+      // 反故(hogo)投稿は body が空文字化されてサーバー側で退避されるため、
+      // ドキュメント自体を読ませても情報漏洩しない。
       allow read: if isAuth() &&
                     (isGroupMember(resource.data.groupId)
                      || !exists(/databases/$(db)/documents/groups/$(resource.data.groupId)));
       // 作成はCloud Function経由のみ
       allow create: if false;
-      // reactionSummaryの更新のみ許可
+      // reactionSummaryの更新のみ許可。反故投稿へのリアクション更新は封じる。
       allow update: if isAuth()
                     && isGroupMember(resource.data.groupId)
+                    && resource.data.hogo != true
                     && request.resource.data.diff(resource.data).affectedKeys()
                          .hasOnly(['reactionSummary']);
 
@@ -109,6 +112,7 @@ service cloud.firestore {
 
       // 評
       match /comments/{commentId} {
+        // 反故(hogo)評も body はサーバー側で空文字化されているのでメンバー読み取り可
         allow read: if isAuth() &&
                     (isGroupMember(
                       get(/databases/$(db)/documents/posts/$(postId)).data.groupId

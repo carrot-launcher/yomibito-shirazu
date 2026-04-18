@@ -70,6 +70,8 @@ export default function ReportReviewScreen({ route, navigation }: any) {
         reportsByTarget.set(key, arr);
       }
 
+      const fns = getFunctions(undefined, 'asia-northeast1');
+      const getArchivedBody = httpsCallable(fns, 'getArchivedBody');
       const pending: PendingItem[] = [];
       for (const [targetId, reports] of reportsByTarget.entries()) {
         const r0 = reports[0];
@@ -81,12 +83,26 @@ export default function ReportReviewScreen({ route, navigation }: any) {
           if (!contentSnap.exists()) continue;
           const cdata = contentSnap.data() as any;
           if (cdata.hogoType !== 'pending') continue;
+
+          // 退避済み原文をオーナー権限で取得（メンバー向けには body は空になっている）
+          let originalBody = '';
+          try {
+            const res = await getArchivedBody({
+              groupId,
+              postId: r0.postId,
+              commentId: r0.targetType === 'comment' ? targetId : undefined,
+            });
+            originalBody = ((res.data as any)?.body as string) || '';
+          } catch {
+            originalBody = '';
+          }
+
           pending.push({
             targetType: r0.targetType,
             targetId,
             postId: r0.postId,
             commentId: r0.targetType === 'comment' ? targetId : undefined,
-            body: cdata.body || '（本文なし）',
+            body: originalBody || '（本文なし）',
             reports,
           });
         } catch {
@@ -99,12 +115,16 @@ export default function ReportReviewScreen({ route, navigation }: any) {
     return unsub;
   }, [user, groupId]);
 
-  // 解除時にクライアント側でも body を再取得（解除後は hogoType='pending' でなくなる）
+  // 裁き昇格の確認ダイアログでプレビューに使う原文を取得
   const refetchOriginalBody = async (postId: string, commentId?: string) => {
-    const path = commentId ? `posts/${postId}/comments/${commentId}` : `posts/${postId}`;
     try {
-      const snap = await getDoc(doc(db, path));
-      return snap.exists() ? ((snap.data() as any).body || '') : '';
+      const fns = getFunctions(undefined, 'asia-northeast1');
+      const res = await httpsCallable(fns, 'getArchivedBody')({
+        groupId,
+        postId,
+        commentId,
+      });
+      return ((res.data as any)?.body as string) || '';
     } catch {
       return '';
     }

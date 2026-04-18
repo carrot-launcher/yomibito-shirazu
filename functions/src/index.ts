@@ -11,6 +11,75 @@ function truncate(s: string, max: number): string {
   return s.length > max ? s.slice(0, max) + "…" : s;
 }
 
+// ===== 入力検証ヘルパー =====
+// callable 関数は TypeScript 型が実行時には効かない（any のデータが来る）ので、
+// 全パラメータを明示的に検証してからビジネスロジックに進める。
+
+function assertString(
+  val: unknown,
+  name: string,
+  opts?: { min?: number; max?: number; pattern?: RegExp }
+): string {
+  if (typeof val !== "string") {
+    throw new HttpsError("invalid-argument", `${name} は文字列で指定してください`);
+  }
+  if (opts?.min !== undefined && val.length < opts.min) {
+    throw new HttpsError("invalid-argument", `${name} は${opts.min}文字以上で入力してください`);
+  }
+  if (opts?.max !== undefined && val.length > opts.max) {
+    throw new HttpsError("invalid-argument", `${name} は${opts.max}文字以内で入力してください`);
+  }
+  if (opts?.pattern && !opts.pattern.test(val)) {
+    throw new HttpsError("invalid-argument", `${name} の形式が不正です`);
+  }
+  return val;
+}
+
+function assertOptionalString(
+  val: unknown,
+  name: string,
+  opts?: { max?: number; pattern?: RegExp }
+): string | undefined {
+  if (val === undefined || val === null) return undefined;
+  return assertString(val, name, opts);
+}
+
+function assertEnum<T extends string>(
+  val: unknown,
+  allowed: readonly T[],
+  name: string
+): T {
+  if (typeof val !== "string" || !(allowed as readonly string[]).includes(val)) {
+    throw new HttpsError(
+      "invalid-argument",
+      `${name} は ${allowed.join("/")} のいずれかで指定してください`
+    );
+  }
+  return val as T;
+}
+
+function assertOptionalBoolean(
+  val: unknown,
+  name: string,
+  defaultVal: boolean
+): boolean {
+  if (val === undefined || val === null) return defaultVal;
+  if (typeof val !== "boolean") {
+    throw new HttpsError("invalid-argument", `${name} は真偽値で指定してください`);
+  }
+  return val;
+}
+
+// Firestore ドキュメントID 用（安全な文字のみ、パストラバーサル対策）
+const DOC_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+function assertDocId(val: unknown, name: string): string {
+  return assertString(val, name, { min: 1, max: 128, pattern: DOC_ID_PATTERN });
+}
+function assertOptionalDocId(val: unknown, name: string): string | undefined {
+  if (val === undefined || val === null) return undefined;
+  return assertDocId(val, name);
+}
+
 // ===== 通知ヘルパー =====
 
 async function createNotification(
@@ -127,10 +196,13 @@ export const createPost = onCall(
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
-    const { groupId, body, batchId, convertHalfSpace, convertLineBreak } = request.data;
-    if (!groupId || typeof body !== "string") throw new HttpsError("invalid-argument", "groupId と body が必要です");
+    const groupId = assertDocId(request.data?.groupId, "groupId");
+    const body = assertString(request.data?.body, "body", { min: 2, max: 50 });
+    const batchId = assertOptionalString(request.data?.batchId, "batchId", { max: 64 });
+    const convertHalfSpace = assertOptionalBoolean(request.data?.convertHalfSpace, "convertHalfSpace", false);
+    const convertLineBreak = assertOptionalBoolean(request.data?.convertLineBreak, "convertLineBreak", false);
     const trimmed = body.trim();
-    if (trimmed.length < 2 || trimmed.length > 50) throw new HttpsError("invalid-argument", "歌は2〜50文字で入力してください");
+    if (trimmed.length < 2) throw new HttpsError("invalid-argument", "歌は2〜50文字で入力してください");
 
     // メンバーシップ確認
     const memberSnap = await db.doc(`groups/${groupId}/members/${uid}`).get();
@@ -217,10 +289,10 @@ export const createComment = onCall(
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
-    const { postId, body } = request.data;
-    if (!postId || typeof body !== "string") throw new HttpsError("invalid-argument", "postId と body が必要です");
+    const postId = assertDocId(request.data?.postId, "postId");
+    const body = assertString(request.data?.body, "body", { min: 1, max: 500 });
     const trimmed = body.trim();
-    if (trimmed.length < 1 || trimmed.length > 500) throw new HttpsError("invalid-argument", "評は1〜500文字で入力してください");
+    if (trimmed.length < 1) throw new HttpsError("invalid-argument", "評は1〜500文字で入力してください");
 
     // 投稿の存在とメンバーシップ確認
     const postSnap = await db.doc(`posts/${postId}`).get();
@@ -281,11 +353,11 @@ export const createGroup = onCall(
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
-    const { groupName, displayName, isPublic: isPublicInput, purpose } = request.data;
-    const isPublic = isPublicInput === true;
-    if (!groupName?.trim() || !displayName?.trim()) throw new HttpsError("invalid-argument", "歌会名と表示名が必要です");
-    if (groupName.trim().length > 16) throw new HttpsError("invalid-argument", "歌会名は16文字以内にしてください");
-    if (displayName.trim().length > 16) throw new HttpsError("invalid-argument", "表示名は16文字以内にしてください");
+    const groupName = assertString(request.data?.groupName, "groupName", { max: 16 });
+    const displayName = assertString(request.data?.displayName, "displayName", { max: 16 });
+    const isPublic = assertOptionalBoolean(request.data?.isPublic, "isPublic", false);
+    if (groupName.trim().length < 1) throw new HttpsError("invalid-argument", "歌会名を入力してください");
+    if (displayName.trim().length < 1) throw new HttpsError("invalid-argument", "表示名を入力してください");
 
     // 公開歌会固有のチェック
     let trimmedPurpose = "";
@@ -298,9 +370,9 @@ export const createGroup = onCall(
       }
 
       // 趣意書チェック
-      if (typeof purpose !== "string") throw new HttpsError("invalid-argument", "趣意書が必要です");
+      const purpose = assertString(request.data?.purpose, "purpose", { min: 10, max: 200 });
       trimmedPurpose = purpose.trim();
-      if (trimmedPurpose.length < 10 || trimmedPurpose.length > 200) {
+      if (trimmedPurpose.length < 10) {
         throw new HttpsError("invalid-argument", "趣意書は10〜200文字で入力してください");
       }
       // URL や HTML タグを含まない
@@ -377,8 +449,7 @@ export const getPublicGroupPreview = onCall(
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
-    const { groupId } = request.data;
-    if (!groupId || typeof groupId !== "string") throw new HttpsError("invalid-argument", "groupId が必要です");
+    const groupId = assertDocId(request.data?.groupId, "groupId");
 
     // Kill switch
     const cfgSnap = await db.doc("config/publicGroups").get();
@@ -463,11 +534,10 @@ export const updatePurpose = onCall(
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
-    const { groupId, purpose } = request.data;
-    if (!groupId || typeof groupId !== "string") throw new HttpsError("invalid-argument", "groupId が必要です");
-    if (typeof purpose !== "string") throw new HttpsError("invalid-argument", "趣意書が必要です");
+    const groupId = assertDocId(request.data?.groupId, "groupId");
+    const purpose = assertString(request.data?.purpose, "purpose", { min: 10, max: 200 });
     const trimmed = purpose.trim();
-    if (trimmed.length < 10 || trimmed.length > 200) {
+    if (trimmed.length < 10) {
       throw new HttpsError("invalid-argument", "趣意書は10〜200文字で入力してください");
     }
     if (/https?:\/\//i.test(trimmed) || /<[^>]+>/.test(trimmed)) {
@@ -616,8 +686,7 @@ export const getReactionDetails = onCall(
   { region: "asia-northeast1" },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
-    const { postId } = request.data;
-    if (!postId) throw new HttpsError("invalid-argument", "postId が必要です");
+    const postId = assertDocId(request.data?.postId, "postId");
 
     const authorSnap = await db.doc(`posts/${postId}/private/author`).get();
     if (!authorSnap.exists) throw new HttpsError("not-found", "投稿が見つかりません");
@@ -643,8 +712,7 @@ export const deletePost = onCall(
   { region: "asia-northeast1" },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
-    const { postId } = request.data;
-    if (!postId) throw new HttpsError("invalid-argument", "postId が必要です");
+    const postId = assertDocId(request.data?.postId, "postId");
 
     const authorSnap = await db.doc(`posts/${postId}/private/author`).get();
     if (!authorSnap.exists) throw new HttpsError("not-found", "投稿が見つかりません");
@@ -693,8 +761,8 @@ export const deleteComment = onCall(
   { region: "asia-northeast1" },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
-    const { postId, commentId } = request.data;
-    if (!postId || !commentId) throw new HttpsError("invalid-argument", "postId と commentId が必要です");
+    const postId = assertDocId(request.data?.postId, "postId");
+    const commentId = assertDocId(request.data?.commentId, "commentId");
 
     const authorSnap = await db.doc(`posts/${postId}/comments/${commentId}/private/author`).get();
     if (!authorSnap.exists) throw new HttpsError("not-found", "評が見つかりません");
@@ -723,8 +791,9 @@ export const dissolveGroup = onCall(
   { region: "asia-northeast1", timeoutSeconds: 300 },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
-    const { groupId, confirmName, deletePosts } = request.data;
-    if (!groupId) throw new HttpsError("invalid-argument", "groupId が必要です");
+    const groupId = assertDocId(request.data?.groupId, "groupId");
+    const confirmName = assertString(request.data?.confirmName, "confirmName", { max: 64 });
+    const deletePosts = assertOptionalBoolean(request.data?.deletePosts, "deletePosts", false);
 
     // オーナーか確認
     const memberSnap = await db.doc(`groups/${groupId}/members/${request.auth.uid}`).get();
@@ -845,8 +914,8 @@ export const kickMember = onCall(
   { region: "asia-northeast1" },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
-    const { groupId, targetUserId } = request.data;
-    if (!groupId || !targetUserId) throw new HttpsError("invalid-argument", "groupId と targetUserId が必要です");
+    const groupId = assertDocId(request.data?.groupId, "groupId");
+    const targetUserId = assertDocId(request.data?.targetUserId, "targetUserId");
 
     // オーナーか確認
     const callerSnap = await db.doc(`groups/${groupId}/members/${request.auth.uid}`).get();
@@ -891,14 +960,11 @@ export const judgeContent = onCall(
   { region: "asia-northeast1" },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
-    const { groupId, postId, commentId, type, reason } = request.data as {
-      groupId: string;
-      postId: string;
-      commentId?: string;
-      type: "caution" | "ban";
-      reason: string;
-    };
-    if (!groupId || !postId || !type) throw new HttpsError("invalid-argument", "必須パラメータが不足しています");
+    const groupId = assertDocId(request.data?.groupId, "groupId");
+    const postId = assertDocId(request.data?.postId, "postId");
+    const commentId = assertOptionalDocId(request.data?.commentId, "commentId");
+    const type = assertEnum(request.data?.type, ["caution", "ban"] as const, "type");
+    const reason = assertOptionalString(request.data?.reason, "reason", { max: 50 }) ?? "";
 
     // オーナーか確認
     const callerSnap = await db.doc(`groups/${groupId}/members/${request.auth.uid}`).get();
@@ -954,7 +1020,17 @@ export const judgeContent = onCall(
       }
     }
 
-    // コンテンツを反故にする（bodyを消去）
+    // コンテンツを反故にする（bodyを退避＋消去）
+    // 既に pending から昇格する場合は archivedBody が存在するはず。無ければ今作成。
+    const archivedRef = db.doc(`${contentPath}/private/archivedBody`);
+    const archivedSnap = await archivedRef.get();
+    if (!archivedSnap.exists) {
+      const currentBody = (contentData.body as string) || "";
+      await archivedRef.set({
+        body: currentBody,
+        archivedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
     await db.doc(contentPath).update({
       hogo: true,
       hogoReason,
@@ -1183,8 +1259,8 @@ export const unbanMember = onCall(
   { region: "asia-northeast1" },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
-    const { groupId, targetUserId } = request.data;
-    if (!groupId || !targetUserId) throw new HttpsError("invalid-argument", "groupId と targetUserId が必要です");
+    const groupId = assertDocId(request.data?.groupId, "groupId");
+    const targetUserId = assertDocId(request.data?.targetUserId, "targetUserId");
 
     // オーナーか確認
     const callerSnap = await db.doc(`groups/${groupId}/members/${request.auth.uid}`).get();
@@ -1207,8 +1283,7 @@ export const revealAuthor = onCall(
   { region: "asia-northeast1" },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
-    const { postId } = request.data;
-    if (!postId) throw new HttpsError("invalid-argument", "postId が必要です");
+    const postId = assertDocId(request.data?.postId, "postId");
 
     // 著者確認
     const authorSnap = await db.doc(`posts/${postId}/private/author`).get();
@@ -1431,7 +1506,6 @@ export const deleteAccount = onCall(
 // ===== 通報（全ユーザー開放） =====
 
 const REPORT_REASONS = ["inappropriate", "spam", "harassment", "other"] as const;
-type ReportReason = (typeof REPORT_REASONS)[number];
 const REPORT_DAILY_LIMIT = 20;
 const AUTO_PENDING_THRESHOLD = 2;
 
@@ -1447,17 +1521,11 @@ export const reportContent = onCall(
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
-    const { groupId, postId, commentId, reason, detail } = request.data as {
-      groupId: string;
-      postId: string;
-      commentId?: string;
-      reason: string;
-      detail?: string;
-    };
-    if (!groupId || !postId) throw new HttpsError("invalid-argument", "groupId と postId が必要です");
-    if (!REPORT_REASONS.includes(reason as ReportReason)) {
-      throw new HttpsError("invalid-argument", "理由を選択してください");
-    }
+    const groupId = assertDocId(request.data?.groupId, "groupId");
+    const postId = assertDocId(request.data?.postId, "postId");
+    const commentId = assertOptionalDocId(request.data?.commentId, "commentId");
+    const reason = assertEnum(request.data?.reason, REPORT_REASONS, "reason");
+    const detail = assertOptionalString(request.data?.detail, "detail", { max: 2000 });
 
     // メンバーシップ確認はしない（閲覧者も通報できる）が、歌会の存在だけは確認
     const groupSnap = await db.doc(`groups/${groupId}`).get();
@@ -1548,6 +1616,13 @@ export const reportContent = onCall(
         reportCount: newReportCount,
       };
       if (shouldPending) {
+        // body を原文として退避し、公開 body を空文字化（メンバーには反故プレースホルダのみ見える）
+        const originalBody = (contentNow.data()?.body as string) || "";
+        tx.set(db.doc(`${contentPath}/private/archivedBody`), {
+          body: originalBody,
+          archivedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        contentUpdate.body = "";
         contentUpdate.hogo = true;
         contentUpdate.hogoType = "pending";
         contentUpdate.hogoReason = "確認中";
@@ -1667,10 +1742,8 @@ export const blockAuthor = onCall(
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
-    const { handle, sampleBody } = request.data as { handle: string; sampleBody?: string };
-    if (!handle || typeof handle !== "string" || !/^[0-9a-f]{12}$/.test(handle)) {
-      throw new HttpsError("invalid-argument", "不正なハンドルです");
-    }
+    const handle = assertString(request.data?.handle, "handle", { pattern: /^[0-9a-f]{12}$/ });
+    const sampleBody = assertOptionalString(request.data?.sampleBody, "sampleBody", { max: 500 });
     if (handle === deriveAuthorHandle(uid)) {
       throw new HttpsError("failed-precondition", "自分自身はブロックできません");
     }
@@ -1707,10 +1780,7 @@ export const unblockAuthor = onCall(
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
-    const { handle } = request.data as { handle: string };
-    if (!handle || typeof handle !== "string") {
-      throw new HttpsError("invalid-argument", "handle が必要です");
-    }
+    const handle = assertString(request.data?.handle, "handle", { pattern: /^[0-9a-f]{12}$/ });
     await db.doc(`users/${uid}`).update({
       [`blockedHandles.${handle}`]: admin.firestore.FieldValue.delete(),
     });
@@ -1727,12 +1797,9 @@ export const resolveReports = onCall(
   { region: "asia-northeast1" },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
-    const { groupId, postId, commentId } = request.data as {
-      groupId: string;
-      postId: string;
-      commentId?: string;
-    };
-    if (!groupId || !postId) throw new HttpsError("invalid-argument", "groupId と postId が必要です");
+    const groupId = assertDocId(request.data?.groupId, "groupId");
+    const postId = assertDocId(request.data?.postId, "postId");
+    const commentId = assertOptionalDocId(request.data?.commentId, "commentId");
 
     // オーナーチェック
     const callerSnap = await db.doc(`groups/${groupId}/members/${request.auth.uid}`).get();
@@ -1752,12 +1819,22 @@ export const resolveReports = onCall(
       throw new HttpsError("failed-precondition", "仮非表示状態ではありません");
     }
 
-    // 仮非表示を解除
-    await db.doc(contentPath).update({
+    // 退避してあった原文 body を復元し、仮非表示を解除
+    const archivedRef = db.doc(`${contentPath}/private/archivedBody`);
+    const archivedSnap = await archivedRef.get();
+    const restoredBody = (archivedSnap.data()?.body as string | undefined) ?? "";
+
+    const batch0 = db.batch();
+    batch0.update(db.doc(contentPath), {
+      body: restoredBody,
       hogo: admin.firestore.FieldValue.delete(),
       hogoType: admin.firestore.FieldValue.delete(),
       hogoReason: admin.firestore.FieldValue.delete(),
     });
+    if (archivedSnap.exists) {
+      batch0.delete(archivedRef);
+    }
+    await batch0.commit();
 
     // 関連 reports を resolved にマーク
     const reportsSnap = await db
@@ -1770,5 +1847,38 @@ export const resolveReports = onCall(
     await batch.commit();
 
     return { success: true, resolvedCount: reportsSnap.size };
+  }
+);
+
+/**
+ * getArchivedBody — 反故投稿/評の退避済み原文を取得
+ *  - 歌会オーナーのみが呼び出せる（通報レビュー用）
+ *  - hogoType === 'pending' のコンテンツに限定
+ */
+export const getArchivedBody = onCall(
+  { region: "asia-northeast1" },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
+    const groupId = assertDocId(request.data?.groupId, "groupId");
+    const postId = assertDocId(request.data?.postId, "postId");
+    const commentId = assertOptionalDocId(request.data?.commentId, "commentId");
+
+    // オーナーチェック
+    const callerSnap = await db.doc(`groups/${groupId}/members/${request.auth.uid}`).get();
+    if (!callerSnap.exists || callerSnap.data()?.role !== "owner") {
+      throw new HttpsError("permission-denied", "オーナーのみ取得できます");
+    }
+
+    const contentPath = commentId
+      ? `posts/${postId}/comments/${commentId}`
+      : `posts/${postId}`;
+    const contentSnap = await db.doc(contentPath).get();
+    if (!contentSnap.exists) throw new HttpsError("not-found", "対象が見つかりません");
+    if (contentSnap.data()?.hogoType !== "pending") {
+      throw new HttpsError("failed-precondition", "仮非表示状態ではありません");
+    }
+
+    const archivedSnap = await db.doc(`${contentPath}/private/archivedBody`).get();
+    return { body: (archivedSnap.data()?.body as string | undefined) ?? "" };
   }
 );
