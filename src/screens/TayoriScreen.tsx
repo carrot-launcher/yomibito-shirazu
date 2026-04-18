@@ -200,7 +200,7 @@ export default function TayoriScreen({ navigation }: any) {
         body = stripRuby(item.tankaBody || '').replace(/[\n\r]+/g, '\u3000') || undefined;
         break;
       case 'reaction':
-        icon = 'flower-tulip';
+        icon = 'hand-heart';
         title = item.reactionCount && item.reactionCount > 1
           ? `あなたの歌に${item.emoji || '🌸'}が${item.reactionCount}件贈られました`
           : `あなたの歌に${item.emoji || '🌸'}が贈られました`;
