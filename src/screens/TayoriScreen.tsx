@@ -140,7 +140,7 @@ export default function TayoriScreen({ navigation }: any) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 16,
-      paddingVertical: 14,
+      paddingVertical: 16,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
@@ -158,8 +158,11 @@ export default function TayoriScreen({ navigation }: any) {
     },
     title: {
       fontSize: 15,
+      lineHeight: 20,
       color: colors.textSecondary,
       fontFamily: 'NotoSerifJP_400Regular',
+      includeFontPadding: false,
+      textAlignVertical: 'center',
     },
     titleUnread: {
       color: colors.text,
@@ -167,10 +170,12 @@ export default function TayoriScreen({ navigation }: any) {
     },
     body: {
       fontSize: 13,
-      lineHeight: 16,
+      lineHeight: 18,
       color: colors.textTertiary,
-      marginTop: 2,
+      marginTop: 4,
       fontFamily: 'NotoSerifJP_400Regular',
+      includeFontPadding: false,
+      textAlignVertical: 'center',
     },
     time: {
       fontSize: 11,
