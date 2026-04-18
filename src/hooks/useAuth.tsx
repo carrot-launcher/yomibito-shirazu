@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, runTransaction, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
@@ -101,31 +101,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (firebaseUser) {
         const userRef = doc(db, 'users', firebaseUser.uid);
-        const userSnap = await getDoc(userRef);
-        if (!userSnap.exists()) {
-          const code = generateUserCode();
-          await setDoc(userRef, {
-            userCode: code,
-            fcmToken: '',
-            joinedGroups: [],
-            notificationSettings: { newPost: true, reaction: true, comment: true },
-            createdAt: serverTimestamp(),
-            // LoginScreen のチェックボックスで同意した時点で作成されるので、同時に記録
-            termsAcceptedAt: serverTimestamp(),
-          });
-          setUserCode(code);
-          setOnboardingDoneState(false);
-        } else {
-          const data = userSnap.data();
-          if (!data.userCode) {
-            const code = generateUserCode();
-            await setDoc(userRef, { userCode: code }, { merge: true });
-            setUserCode(code);
-          } else {
-            setUserCode(data.userCode);
+        // 新規作成と userCode 補完をトランザクションで原子化する。
+        // 複数デバイスで同時サインインしても "読み込み → 作成" の隙間で
+        // userCode が上書きされることが無くなる（後勝ちの片方は no-op に落ちる）。
+        const codeIfNew = generateUserCode();
+        const result = await runTransaction(db, async (tx) => {
+          const snap = await tx.get(userRef);
+          if (!snap.exists()) {
+            tx.set(userRef, {
+              userCode: codeIfNew,
+              fcmToken: '',
+              joinedGroups: [],
+              notificationSettings: { newPost: true, reaction: true, comment: true },
+              createdAt: serverTimestamp(),
+              // LoginScreen のチェックボックスで同意した時点で作成されるので、同時に記録
+              termsAcceptedAt: serverTimestamp(),
+            });
+            return { userCode: codeIfNew, onboardingDone: false };
           }
-          setOnboardingDoneState(data.onboardingDone ?? true);
-        }
+          const data = snap.data() as any;
+          if (!data.userCode) {
+            // 既存 doc で userCode 欠落のレアケース: 補完
+            tx.update(userRef, { userCode: codeIfNew });
+            return { userCode: codeIfNew, onboardingDone: data.onboardingDone ?? true };
+          }
+          return { userCode: data.userCode as string, onboardingDone: data.onboardingDone ?? true };
+        });
+        setUserCode(result.userCode);
+        setOnboardingDoneState(result.onboardingDone);
 
         // blockedHandles をリアルタイム購読
         unsubUserDoc = onSnapshot(userRef, (snap) => {
