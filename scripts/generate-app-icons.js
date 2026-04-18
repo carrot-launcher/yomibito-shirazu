@@ -83,6 +83,6 @@ render(256, 'notification-icon.png', { charRatio: 0.92, bg: null, fg: '#000000' 
 // ===== ストア用アイコン (App Store / Play Store) =====
 // ストア表示はサムネイルで見られることが多く、小さく縮小されても字面が読める大きさにしたい。
 // safe area 制約は無いので草書の字面いっぱい（~0.95）に描く。
-render(512, 'icon.png', { charRatio: 0.95, outDir: STORE_ASSETS });
+render(512, 'icon.png', { charRatio: 0.92, outDir: STORE_ASSETS });
 
 console.log('done.');
