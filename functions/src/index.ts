@@ -709,8 +709,9 @@ export const onNewReaction = onDocumentCreated(
     const groupSnap = await db.doc(`groups/${post.groupId}`).get();
     const groupName = groupSnap.exists ? groupSnap.data()!.name || "" : "";
 
-    // ミュートチェック
+    // 歌会にまだ在籍しているか＆ミュートでないか
     const memberSnap = await db.doc(`groups/${post.groupId}/members/${authorId}`).get();
+    if (!memberSnap.exists) return; // 破門・追放・退会後は通知しない
     if (memberSnap.data()?.muted) return;
 
     await createNotification(authorId, "reaction", {
@@ -755,8 +756,9 @@ export const onNewComment = onDocumentCreated(
     const groupSnap = await db.doc(`groups/${post.groupId}`).get();
     const groupName = groupSnap.exists ? groupSnap.data()!.name || "" : "";
 
-    // ミュートチェック
+    // 歌会にまだ在籍しているか＆ミュートでないか
     const memberSnap = await db.doc(`groups/${post.groupId}/members/${postAuthorId}`).get();
+    if (!memberSnap.exists) return; // 破門・追放・退会後は通知しない
     if (memberSnap.data()?.muted) return;
 
     await createNotification(postAuthorId, "comment", {
@@ -1268,8 +1270,9 @@ async function createCautionNotification(
   targetUserId: string,
   data: { postId: string; groupId: string; groupName: string; tankaBody: string; cautionCount: number }
 ) {
-  // ミュートチェック
+  // 歌会にまだ在籍しているか＆ミュートでないか
   const memberSnap = await db.doc(`groups/${data.groupId}/members/${targetUserId}`).get();
+  if (!memberSnap.exists) return; // 破門・追放・退会後は通知しない
   if (memberSnap.data()?.muted) return;
 
   const userSnap = await db.doc(`users/${targetUserId}`).get();
