@@ -19,14 +19,19 @@ service cloud.firestore {
       return 'bannedUsers' in groupData && request.auth.uid in groupData.bannedUsers;
     }
     // post の作者を自分がブロック中、または作者が自分をブロック中か判定
-    // （双方向のブロック関係で reactions 等の干渉を遮断するため）
+    // （双方向のブロック関係で reactions 等の干渉を遮断するため）。
+    // どこか 1 ステップでも想定外だったらブロック関係なし扱いにして、ルール評価エラーで
+    // リアクション全体が落ちないようにする。
     function hasBlockRelation(postId) {
-      let postAuthorHandle = get(/databases/$(db)/documents/posts/$(postId)).data.authorHandle;
+      let postData = get(/databases/$(db)/documents/posts/$(postId)).data;
       let myDoc = get(/databases/$(db)/documents/users/$(request.auth.uid)).data;
-      // 自分がブロックしているか
-      return ('blockedHandles' in myDoc && postAuthorHandle in myDoc.blockedHandles)
-             // 相手が自分をブロックしているか（blockedByHandles に相手のハンドルが入っている）
-             || ('blockedByHandles' in myDoc && postAuthorHandle in myDoc.blockedByHandles);
+      let handle = postData.authorHandle;
+      let blocked = 'blockedHandles' in myDoc ? myDoc.blockedHandles : {};
+      let blockedBy = 'blockedByHandles' in myDoc ? myDoc.blockedByHandles : {};
+      return handle is string
+             && blocked is map
+             && blockedBy is map
+             && (handle in blocked || handle in blockedBy);
     }
 
     // ===== レートリミットカウンタ（サーバー専用） =====
@@ -98,10 +103,11 @@ service cloud.firestore {
                      || !exists(/databases/$(db)/documents/groups/$(resource.data.groupId)));
       // 作成はCloud Function経由のみ
       allow create: if false;
-      // reactionSummaryの更新のみ許可。反故投稿へのリアクション更新は封じる。
+      // リアクション時に reactionSummary を更新する。
+      // 反故投稿へのリアクションもあえて許可している（"いい歌だったのに" 等の反応を残せる
+      // ようにするため）。body 等の改ざんは affectedKeys で禁ずる。
       allow update: if isAuth()
                     && isGroupMember(resource.data.groupId)
-                    && resource.data.hogo != true
                     && request.resource.data.diff(resource.data).affectedKeys()
                          .hasOnly(['reactionSummary']);
 
