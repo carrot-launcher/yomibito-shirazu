@@ -10,11 +10,8 @@ import GradientBackground from '../components/GradientBackground';
 import { useTheme } from '../theme/ThemeContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const SCREEN_HEIGHT = Dimensions.get('window').height;
-// ヘッダ(56) + 下コントロール 1 行(約70) + 上下余白(32) + セーフエリア(約34)
-const MAX_CARD_HEIGHT = SCREEN_HEIGHT - 56 - 70 - 32 - 34;
-const MAX_CARD_WIDTH_FROM_HEIGHT = MAX_CARD_HEIGHT * (9 / 16);
-const CARD_WIDTH = Math.min(SCREEN_WIDTH - 32, MAX_CARD_WIDTH_FROM_HEIGHT);
+// 画面全体が ScrollView なので縦の制約は不要。常に画面幅いっぱい (16:9) で表示する。
+const CARD_WIDTH = SCREEN_WIDTH - 32;
 const CARD_HEIGHT = CARD_WIDTH * (16 / 9);
 // カード幅に応じた基準フォントサイズ
 const BASE_TANKA_FONT = Math.round(15 * (CARD_WIDTH / 320));
@@ -49,8 +46,9 @@ const FONT_MULTIPLIER: Record<FontSizeKey, number> = {
   medium: 1.0,
   large: 1.25,
 };
-// 「あ」をサイズ感ごとに可視化するためのピクセル値（UI 表示用、プレビュー用の本文サイズとは別）
+// 「小／中／大」のラベルとそのボタン上での見た目のサイズ（UI 表示用、プレビュー用の本文サイズとは別）
 const SIZE_VISUAL_PX: Record<FontSizeKey, number> = { small: 13, medium: 16, large: 20 };
+const SIZE_LABEL: Record<FontSizeKey, string> = { small: '小', medium: '中', large: '大' };
 
 function buildScreenshotHtml(
   body: string,
@@ -218,22 +216,30 @@ export default function ScreenshotScreen({ route, navigation }: any) {
 
   return (
     <GradientBackground style={styles.container}>
-      <View ref={captureContainerRef} collapsable={false} style={styles.cardWrapper}>
-        {mounted ? (
-          <WebView
-            source={{ html }}
-            style={styles.webview}
-            onLoadEnd={() => setReady(true)}
-            scrollEnabled={false}
-            javaScriptEnabled={true}
-            originWhitelist={['*']}
-            androidLayerType="software"
-          />
-        ) : (
-          <View style={[styles.webview, { backgroundColor: preset.bgTop }]} />
-        )}
-      </View>
+      {/* カードはスクロール可能領域に。コントロールはこの ScrollView の外で固定。 */}
+      <ScrollView
+        style={styles.cardScroll}
+        contentContainerStyle={styles.cardScrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View ref={captureContainerRef} collapsable={false} style={styles.cardWrapper}>
+          {mounted ? (
+            <WebView
+              source={{ html }}
+              style={styles.webview}
+              onLoadEnd={() => setReady(true)}
+              scrollEnabled={false}
+              javaScriptEnabled={true}
+              originWhitelist={['*']}
+              androidLayerType="software"
+            />
+          ) : (
+            <View style={[styles.webview, { backgroundColor: preset.bgTop }]} />
+          )}
+        </View>
+      </ScrollView>
 
+      {/* コントロールバーは画面下に常時固定（カードがどれだけスクロールしても見える） */}
       <View style={styles.controlRow}>
         <View style={styles.sizeGroup}>
           {(Object.keys(SIZE_VISUAL_PX) as FontSizeKey[]).map((k) => (
@@ -254,7 +260,7 @@ export default function ScreenshotScreen({ route, navigation }: any) {
                   includeFontPadding: false,
                 } as any}
               >
-                あ
+                {SIZE_LABEL[k]}
               </AppText>
             </TouchableOpacity>
           ))}
@@ -295,19 +301,29 @@ export default function ScreenshotScreen({ route, navigation }: any) {
 
 function makeStyles(colors: any) {
   return StyleSheet.create({
-    container: { flex: 1, alignItems: 'center' },
+    container: { flex: 1 },
+    cardScroll: { flex: 1 },
+    // コントロール行はフローティングなので、その分の余白を下に確保しておく。
+    cardScrollContent: { alignItems: 'center', paddingTop: 16, paddingBottom: 110 },
     cardWrapper: {
       width: CARD_WIDTH, height: CARD_HEIGHT,
-      borderRadius: 4, overflow: 'hidden', marginTop: 16,
+      borderRadius: 4, overflow: 'hidden',
     },
     webview: { flex: 1, backgroundColor: 'transparent' },
+    // コントロール行は画面下に absolute で重ねる。半透明背景で下のカードがうっすら見える。
     controlRow: {
-      width: '100%',
+      position: 'absolute',
+      left: 0, right: 0, bottom: 0,
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 16,
-      marginTop: 16,
+      paddingVertical: 12,
+      paddingBottom: 28,
       gap: 10,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      // RRGGBBAA の最後 2 桁がアルファ（99 ≒ 60% 不透明）。下のカードが結構透ける。
+      backgroundColor: `${colors.gradientBottom}99`,
     },
     sizeGroup: { flexDirection: 'row', gap: 4 },
     sizeBtn: {
