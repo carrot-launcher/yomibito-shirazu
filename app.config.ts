@@ -2,7 +2,7 @@ import "dotenv/config";
 
 export default {
   expo: {
-    name: "詠み人知らず",
+    name: "よみ人しらず",
     slug: "yomibito-shirazu",
     version: "1.0.0",
     orientation: "portrait",

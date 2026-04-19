@@ -841,7 +841,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
       } else if (data.action === 'rendered') {
         markAsRendered();
       } else if (data.action === 'screenshot') {
-        navigation.navigate('Screenshot', { body: displayBody, revealedAuthorName: post?.revealedAuthorName || '詠み人知らず' });
+        navigation.navigate('Screenshot', { body: displayBody, revealedAuthorName: post?.revealedAuthorName || 'よみ人しらず' });
       } else if (data.action === 'commentMenu') {
         openCommentMenu(data.commentId);
       } else if (data.action === 'postMenu') {

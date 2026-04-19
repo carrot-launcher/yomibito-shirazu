@@ -48,7 +48,7 @@ export default function LoginScreen() {
 
   return (
     <GradientBackground style={dynamicStyles.container}>
-      <Text style={dynamicStyles.title}>詠み人知らず</Text>
+      <Text style={dynamicStyles.title}>よみ人しらず</Text>
 
       <View style={dynamicStyles.agreement}>
         <AppText variant="caption" tone="tertiary" style={dynamicStyles.agreementText}>
