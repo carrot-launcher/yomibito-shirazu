@@ -75,40 +75,33 @@ export default function ComposeScreen({ route, navigation }: any) {
   useEffect(() => {
     const canSubmit = !submitting && body.trim().length >= 2;
     navigation.setOptions({
-      headerRight: () => (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <AppText variant="bodySm" tone="secondary">
-            {body.length}/{MAX_CHARS}
-          </AppText>
-          {/* iOS はシステムの Liquid Glass ピルがヘッダー要素を囲むので、プレーンなテキストで
-              十分「ボタン」として認識される。Android は囲みが無いので AppButton（secondary）で
-              アプリ共通のボタン見た目に統一する。 */}
-          {Platform.OS === 'android' ? (
-            <AppButton
-              label="詠む"
-              variant="secondary"
-              size="xs"
-              onPress={handleSubmit}
-              disabled={!canSubmit}
-              loading={submitting}
-            />
-          ) : (
-            <TouchableOpacity
-              onPress={handleSubmit}
-              disabled={!canSubmit}
-              hitSlop={8}
-              style={{ paddingHorizontal: 12, paddingVertical: 6 }}
-              activeOpacity={0.5}
-            >
-              <AppText variant="buttonLabel" weight="medium" tone={canSubmit ? 'primary' : 'tertiary'}>
-                詠む
-              </AppText>
-            </TouchableOpacity>
-          )}
-        </View>
-      ),
+      // 文字数カウンタは iOS の Liquid Glass ピル内に入るのを避けるため、画面本体側
+      // （入力欄の上）に配置している。ヘッダー右はボタンのみ。
+      headerRight: () =>
+        Platform.OS === 'android' ? (
+          <AppButton
+            label="詠む"
+            variant="secondary"
+            size="xs"
+            onPress={handleSubmit}
+            disabled={!canSubmit}
+            loading={submitting}
+          />
+        ) : (
+          <TouchableOpacity
+            onPress={handleSubmit}
+            disabled={!canSubmit}
+            hitSlop={8}
+            style={{ paddingHorizontal: 12, paddingVertical: 6 }}
+            activeOpacity={0.5}
+          >
+            <AppText variant="buttonLabel" weight="medium" tone={canSubmit ? 'primary' : 'tertiary'}>
+              詠む
+            </AppText>
+          </TouchableOpacity>
+        ),
     });
-  }, [body, submitting, handleSubmit, colors]);
+  }, [submitting, handleSubmit, body, colors]);
 
   const hintParts: string[] = [];
   if (convertLineBreak) hintParts.push('改行');
@@ -145,6 +138,9 @@ export default function ComposeScreen({ route, navigation }: any) {
       </View>
 
       <View style={styles.inputArea}>
+        <AppText variant="meta" tone="tertiary" style={styles.counter}>
+          {body.length}/{MAX_CHARS}
+        </AppText>
         <TextInput
           style={dynamicStyles.tankaInput}
           value={body}
@@ -168,4 +164,5 @@ const styles = StyleSheet.create({
   topBar: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
   groupList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   inputArea: { flex: 1, marginHorizontal: 16, marginTop: 8, paddingTop: 8 },
+  counter: { textAlign: 'right', marginBottom: 4 },
 });
