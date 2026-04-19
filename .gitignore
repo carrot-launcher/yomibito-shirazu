@@ -21,3 +21,4 @@ scripts/node_modules/
 .claude
 android/
 ios/
+private/

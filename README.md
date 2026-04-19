@@ -7,9 +7,10 @@
 ## 技術スタック
 
 - **フロントエンド**: React Native (Expo) + TypeScript
-- **バックエンド**: Firebase (Firestore, Cloud Functions, Authentication, Analytics)
+- **バックエンド**: Firebase (Firestore, Cloud Functions, Authentication, Analytics, Crashlytics)
 - **認証**: Google Sign-In
 - **通知**: Firebase Cloud Messaging
+- **モデレーション**: OpenAI Moderation API（投稿前のフィルタリング、別途セットアップが必要
 
 ## セットアップ
 
