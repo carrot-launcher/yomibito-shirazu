@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppButton } from '../components/AppButton';
 import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
@@ -32,6 +33,7 @@ export default function TimelineScreen({ route, navigation }: any) {
   const visibleNewArrivals = useMemo(() => filterBlocked(newArrivals), [newArrivals, filterBlocked]);
   const visibleChangedCards = useMemo(() => filterBlocked(changedCards), [changedCards, filterBlocked]);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [unreadSince, setUnreadSince] = useState<Date | null>(null);
   const [isPublic, setIsPublic] = useState(false);
   const [purpose, setPurpose] = useState('');
@@ -64,11 +66,13 @@ export default function TimelineScreen({ route, navigation }: any) {
       });
     };
     updateHeader();
-    refresh().catch((error: any) => {
+    refresh().then(() => setRefreshError(null)).catch((error: any) => {
       if (error?.code === 'permission-denied') {
         alert('この歌会にアクセスできません', '追放されたか、歌会が解散された可能性があります。', [
           { text: 'OK', onPress: () => navigation.popToTop() },
         ]);
+      } else {
+        setRefreshError('詠草を読み込めませんでした。通信環境をご確認ください。');
       }
     });
     // focus 時は refresh しない（スクロール位置維持のため）
@@ -79,8 +83,16 @@ export default function TimelineScreen({ route, navigation }: any) {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refresh();
-    setRefreshing(false);
+    try {
+      await refresh();
+      setRefreshError(null);
+    } catch (error: any) {
+      if (error?.code !== 'permission-denied') {
+        setRefreshError('詠草を読み込めませんでした。通信環境をご確認ください。');
+      }
+    } finally {
+      setRefreshing(false);
+    }
   }, [refresh]);
 
   // 未読管理:
@@ -166,20 +178,53 @@ export default function TimelineScreen({ route, navigation }: any) {
             ) : null}
           </TouchableOpacity>
         )}
-        <TankaScroll
-          cards={visibleCards}
-          onTap={(postId, gId) => navigation.navigate('TankaDetail', { postId, groupId: gId })}
-          onLongPress={(postId, gId) => navigation.navigate('TankaDetail', { postId, groupId: gId, openPostMenu: true })}
-          mode="timeline"
-          onLoadMore={hasMore && !loading ? loadMore : undefined}
-          generation={generation}
-          newArrivals={visibleNewArrivals}
-          arrivalGen={arrivalGen}
-          unreadSince={unreadSince}
-          changedCards={visibleChangedCards}
-          removedIds={removedIds}
-          updateGen={updateGen}
-        />
+        {refreshError && visibleCards.length === 0 ? (
+          <View style={[styles.errorCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <AppText variant="body" tone="secondary" style={styles.errorText}>
+              {refreshError}
+            </AppText>
+            <AppButton
+              label="再試行"
+              variant="secondary"
+              size="sm"
+              onPress={onRefresh}
+              loading={refreshing}
+              disabled={refreshing}
+            />
+          </View>
+        ) : (
+          <>
+            {refreshError && (
+              <TouchableOpacity
+                onPress={onRefresh}
+                disabled={refreshing}
+                activeOpacity={0.7}
+                style={[styles.errorBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}
+              >
+                <AppText variant="meta" tone="secondary" style={{ flex: 1 }}>
+                  {refreshError}
+                </AppText>
+                <AppText variant="meta" tone="primary">
+                  {refreshing ? '読み込み中…' : 'タップで再試行'}
+                </AppText>
+              </TouchableOpacity>
+            )}
+            <TankaScroll
+              cards={visibleCards}
+              onTap={(postId, gId) => navigation.navigate('TankaDetail', { postId, groupId: gId })}
+              onLongPress={(postId, gId) => navigation.navigate('TankaDetail', { postId, groupId: gId, openPostMenu: true })}
+              mode="timeline"
+              onLoadMore={hasMore && !loading ? loadMore : undefined}
+              generation={generation}
+              newArrivals={visibleNewArrivals}
+              arrivalGen={arrivalGen}
+              unreadSince={unreadSince}
+              changedCards={visibleChangedCards}
+              removedIds={removedIds}
+              updateGen={updateGen}
+            />
+          </>
+        )}
       </ScrollView>
     </GradientBackground>
   );
@@ -199,4 +244,21 @@ const styles = StyleSheet.create({
   publicBadge: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 },
   publicBadgeText: { fontSize: 9, lineHeight: 13, fontFamily: 'NotoSerifJP_500Medium', letterSpacing: 1 },
   purposeText: { flex: 1 },
+  errorCard: {
+    margin: 16,
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    gap: 16,
+  },
+  errorText: { textAlign: 'center', lineHeight: 22 },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
 });
