@@ -22,6 +22,9 @@ export interface GroupDoc {
   memberCount: number;
   createdBy: string;
   bannedUsers?: Record<string, { displayName: string; userCode: string }>;
+  // 退会者。追放者（bannedUsers）とは別管理で、再入会は可能。
+  // 退会後もこれに載っている限り、本人は過去に詠んだ歌にアクセスできる。
+  pastMembers?: Record<string, { displayName: string; userCode: string; leftAt: Timestamp }>;
   createdAt: Timestamp;
   lastPostAt?: Timestamp;
   // 投稿者ハンドルごとの最終投稿時刻。未読判定でブロック関係の相手を除外して

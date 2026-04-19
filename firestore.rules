@@ -18,6 +18,25 @@ service cloud.firestore {
       let groupData = get(/databases/$(db)/documents/groups/$(groupId)).data;
       return 'bannedUsers' in groupData && request.auth.uid in groupData.bannedUsers;
     }
+    // 過去にその歌会のメンバーだった（退会者）。追放者は bannedUsers に入るだけで
+    // ここには載せない設計（leaveGroup のみが pastMembers を追加する）。
+    function wasGroupMember(groupId) {
+      let groupData = get(/databases/$(db)/documents/groups/$(groupId)).data;
+      return 'pastMembers' in groupData && request.auth.uid in groupData.pastMembers;
+    }
+    function isGroupPublic(groupId) {
+      let groupData = get(/databases/$(db)/documents/groups/$(groupId)).data;
+      return groupData.get('isPublic', false) == true;
+    }
+    // 自分の歌か（myPosts の doc ID は postId と一致している前提）。
+    // 退会・追放後でも自分の歌を読み取り／削除ルートに乗せるための判定。
+    function isOwnPost(postId) {
+      return exists(/databases/$(db)/documents/users/$(request.auth.uid)/myPosts/$(postId));
+    }
+    // 歌会が解散済み＝groupドキュメント不在。
+    function isGroupDissolved(groupId) {
+      return !exists(/databases/$(db)/documents/groups/$(groupId));
+    }
     // post の作者を自分がブロック中、または作者が自分をブロック中か判定
     // （双方向のブロック関係で reactions 等の干渉を遮断するため）。
     // どこか 1 ステップでも想定外だったらブロック関係なし扱いにして、ルール評価エラーで
@@ -95,12 +114,20 @@ service cloud.firestore {
 
     // ===== 投稿 =====
     match /posts/{postId} {
-      // メンバーか、歌会が解散済み（ドキュメント不在）なら閲覧可。
+      // 閲覧可の条件（いずれか）:
+      //  - 歌会の現メンバー
+      //  - 歌会の退会者（pastMembers）※追放者は bannedUsers にのみ載るので除外される
+      //  - 公開歌会
+      //  - 自分の歌（追放・退会後でも自分の歌にはアクセスできるようにするため）
+      //  - 歌会が解散済み（ドキュメント不在）
       // 反故(hogo)投稿は body が空文字化されてサーバー側で退避されるため、
       // ドキュメント自体を読ませても情報漏洩しない。
       allow read: if isAuth() &&
                     (isGroupMember(resource.data.groupId)
-                     || !exists(/databases/$(db)/documents/groups/$(resource.data.groupId)));
+                     || wasGroupMember(resource.data.groupId)
+                     || isGroupPublic(resource.data.groupId)
+                     || isOwnPost(postId)
+                     || isGroupDissolved(resource.data.groupId));
       // 作成はCloud Function経由のみ
       allow create: if false;
       // リアクション時に reactionSummary を更新する。
@@ -130,14 +157,22 @@ service cloud.firestore {
 
       // 評
       match /comments/{commentId} {
-        // 反故(hogo)評も body はサーバー側で空文字化されているのでメンバー読み取り可
+        // 反故(hogo)評も body はサーバー側で空文字化されているのでメンバー読み取り可。
+        // posts の read と同じアクセス条件（現メンバー／退会者／公開歌会／自分の歌／解散済み）。
         allow read: if isAuth() &&
                     (isGroupMember(
                       get(/databases/$(db)/documents/posts/$(postId)).data.groupId
                     )
-                    || !exists(/databases/$(db)/documents/groups/$(
+                    || wasGroupMember(
                       get(/databases/$(db)/documents/posts/$(postId)).data.groupId
-                    )));
+                    )
+                    || isGroupPublic(
+                      get(/databases/$(db)/documents/posts/$(postId)).data.groupId
+                    )
+                    || isOwnPost(postId)
+                    || isGroupDissolved(
+                      get(/databases/$(db)/documents/posts/$(postId)).data.groupId
+                    ));
         // 作成はCloud Function経由のみ
         allow create: if false;
 

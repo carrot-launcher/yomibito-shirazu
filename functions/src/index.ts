@@ -317,7 +317,9 @@ export const createPost = onCall(
         authorHandle,
       });
       tx.set(db.doc(`posts/${postRef.id}/private/author`), { authorId: uid });
-      tx.set(db.collection(`users/${uid}/myPosts`).doc(), {
+      // myPosts の doc ID は postId と一致させる（退会・追放後も「自分の歌」を
+      // Firestore ルールから exists() で判定できるようにするため）。
+      tx.set(db.collection(`users/${uid}/myPosts`).doc(postRef.id), {
         postId: postRef.id, groupId, groupName,
         tankaBody: trimmed, batchId: batchId || null,
         convertHalfSpace: convertHalfSpace ?? true,
@@ -1377,6 +1379,52 @@ async function createBanNotification(
     createdAt: admin.firestore.Timestamp.now(),
   });
 }
+
+/**
+ * leaveGroup — 自分の意思で歌会を退会する。
+ *
+ * 追放（kickMember / 破門）との違い:
+ *  - bannedUsers には載らない → 招待コードで再入会できる
+ *  - pastMembers に載る → 退会後も自分の過去の歌を読める（歌集・たより経由）
+ *
+ * オーナーは解散 UI を使う必要があるためここでは退会不可。
+ */
+export const leaveGroup = onCall(
+  { region: "asia-northeast1" },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
+    const uid = request.auth.uid;
+    const groupId = assertDocId(request.data?.groupId, "groupId");
+
+    const memberRef = db.doc(`groups/${groupId}/members/${uid}`);
+    const memberSnap = await memberRef.get();
+    if (!memberSnap.exists) {
+      // 既に退会済み等。冪等に成功を返す。
+      return { success: true };
+    }
+    if (memberSnap.data()?.role === "owner") {
+      throw new HttpsError("failed-precondition", "オーナーは退会できません。解散してください。");
+    }
+
+    const displayName = memberSnap.data()?.displayName || "";
+    const userCode = memberSnap.data()?.userCode || "";
+
+    await memberRef.delete();
+    await db.doc(`groups/${groupId}`).update({
+      memberCount: admin.firestore.FieldValue.increment(-1),
+      [`pastMembers.${uid}`]: {
+        displayName,
+        userCode,
+        leftAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+    });
+    await db.doc(`users/${uid}`).update({
+      joinedGroups: admin.firestore.FieldValue.arrayRemove(groupId),
+    });
+
+    return { success: true };
+  }
+);
 
 /**
  * unbanMember — 追放解除（オーナーのみ）

@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { arrayRemove, collection, deleteDoc, doc, getDoc, getDocs, increment, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, updateDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useRef, useState } from 'react';
 import GradientBackground from '../components/GradientBackground';
@@ -433,10 +433,10 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
                 onPress: () => {
                   if (!user) return;
                   navigation.popToTop();
-                  deleteDoc(doc(db, 'groups', groupId, 'members', user.uid))
-                    .then(() => updateDoc(doc(db, 'groups', groupId), { memberCount: increment(-1) }))
-                    .then(() => updateDoc(doc(db, 'users', user.uid), { joinedGroups: arrayRemove(groupId) }))
-                    .catch(() => {});
+                  // 退会処理は pastMembers への追加を含むので Cloud Function 経由。
+                  // 失敗は無視（破棄済みの画面に alert を出しても意味がないため）。
+                  const fns = getFunctions(undefined, 'asia-northeast1');
+                  httpsCallable(fns, 'leaveGroup')({ groupId }).catch(() => {});
                 },
               },
             ]);
