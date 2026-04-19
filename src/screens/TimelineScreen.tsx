@@ -117,15 +117,26 @@ export default function TimelineScreen({ route, navigation }: any) {
     }).catch(() => {});
   }, [arrivalGen, user, groupId]);
 
-  // 詳細画面でブロックされたとき等、明示的な更新要求があれば refresh を呼ぶ
-  const lastHandledRefreshAt = useRef<number | undefined>(undefined);
+  // ブロック関係（双方向）の集合が変わったらタイムラインを refresh する。
+  // TankaScroll の WebView は generation 変化時にしか HTML を再生成しないため、
+  // React 側で visibleCards をフィルタしただけでは描画されたカードが消えない。
+  // refresh() で generation を進めて WebView を再構築する。
+  const blockedSetKey = useMemo(
+    () => `${Object.keys(blockedHandles).sort().join(',')}|${Object.keys(blockedByHandles).sort().join(',')}`,
+    [blockedHandles, blockedByHandles],
+  );
+  const prevBlockedSetKey = useRef<string | null>(null);
   useEffect(() => {
-    const at = route.params?.refreshAt as number | undefined;
-    if (at && at !== lastHandledRefreshAt.current) {
-      lastHandledRefreshAt.current = at;
+    // 初回 useAuth 購読時の値反映は skip（マウント直後の不要な refresh を避ける）
+    if (prevBlockedSetKey.current === null) {
+      prevBlockedSetKey.current = blockedSetKey;
+      return;
+    }
+    if (prevBlockedSetKey.current !== blockedSetKey) {
+      prevBlockedSetKey.current = blockedSetKey;
       refresh().catch(() => {});
     }
-  }, [route.params?.refreshAt, refresh]);
+  }, [blockedSetKey, refresh]);
 
   return (
     <GradientBackground>
