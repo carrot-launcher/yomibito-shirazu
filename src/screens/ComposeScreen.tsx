@@ -5,10 +5,10 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { AppButton } from '../components/AppButton';
 import { AppText } from '../components/AppText';
-import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
+import { useModalAlert } from '../hooks/useModalAlert';
 import { useTheme } from '../theme/ThemeContext';
 
 const MAX_CHARS = 50;
@@ -22,7 +22,8 @@ export default function ComposeScreen({ route, navigation }: any) {
   const [submitting, setSubmitting] = useState(false);
   const [convertHalfSpace, setConvertHalfSpace] = useState(true);
   const [convertLineBreak, setConvertLineBreak] = useState(true);
-  const { alert } = useAlert();
+  // ComposeScreen は presentation:'modal' なので useModalAlert を使う。
+  const alert = useModalAlert();
 
   useEffect(() => {
     if (!user) return;

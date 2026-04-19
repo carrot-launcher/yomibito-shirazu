@@ -5,8 +5,8 @@ import { captureRef } from 'react-native-view-shot';
 import { WebView } from 'react-native-webview';
 import { AppButton } from '../components/AppButton';
 import { AppText } from '../components/AppText';
-import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
+import { useModalAlert } from '../hooks/useModalAlert';
 import { useTheme } from '../theme/ThemeContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -126,7 +126,8 @@ function buildScreenshotHtml(
 export default function ScreenshotScreen({ route, navigation }: any) {
   const { body, revealedAuthorName } = route.params;
   const captureContainerRef = useRef<View>(null);
-  const { alert } = useAlert();
+  // ScreenshotScreen は presentation:'modal' なので useModalAlert を使う。
+  const showAlert = useModalAlert();
   const { colors } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [ready, setReady] = useState(false);
@@ -168,15 +169,15 @@ export default function ScreenshotScreen({ route, navigation }: any) {
       });
       const { status } = await MediaLibrary.requestPermissionsAsync(true);
       if (status !== 'granted') {
-        alert('写真への保存権限が必要です');
+        showAlert('写真への保存権限が必要です');
         return;
       }
       await MediaLibrary.saveToLibraryAsync(uri);
-      alert('保存しました', '画像をギャラリーに保存しました');
+      showAlert('保存しました', '画像をギャラリーに保存しました');
     } catch (e: any) {
-      alert('エラー', e?.message || '保存に失敗しました');
+      showAlert('エラー', e?.message || '保存に失敗しました');
     }
-  }, [alert]);
+  }, [showAlert]);
 
   // 保存ボタンをヘッダー右側に配置。
   // iOS はシステムの Liquid Glass ピルがヘッダー要素を囲むのでプレーンテキストで充分。
