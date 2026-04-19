@@ -229,6 +229,9 @@ function buildDetailHtml(
 
 const comments = ${commentsJson};
 const commentsEl = document.getElementById("comments");
+// scroll-wrap / container への参照をスクリプト全体で共有（renderComment などで layout 強制再計算に使う）
+var scrollEl = document.getElementById('scroll-wrap');
+var containerEl = document.getElementById('container');
 if (comments.length === 0) {
   commentsEl.innerHTML = '<div class="no-comments">まだ評がありません</div>';
 } else {
@@ -290,8 +293,30 @@ if (comments.length === 0) {
     el.addEventListener('touchend', function() {
       clearTimeout(pressTimer);
       if (!longPressed && !moved && needsFold) {
+        // 事前に scroll 位置と container 幅を記録。
+        var savedScrollLeft = scrollEl ? scrollEl.scrollLeft : 0;
+        var oldScrollWidth = scrollEl ? scrollEl.scrollWidth : 0;
+
         expanded = !expanded;
         renderComment();
+
+        if (scrollEl && containerEl) {
+          // 評の innerHTML 変更で container の幅が広がる／縮むが、Android WebView は
+          // この変化を検知せず scroll-wrap の scrollWidth を古いままにすることがある
+          // （壁現象）。display:none → 戻すことで完全な layout pass を強制する。
+          // 同期で処理するため瞬きは発生しない。
+          containerEl.style.display = 'none';
+          void containerEl.offsetHeight;
+          containerEl.style.display = '';
+
+          // container は scroll-wrap の左端原点で右に伸びるため、inline-flex + row-reverse
+          // では items が右にシフトする見た目になる（= 左固定で右に開く）。歌詳細画面は
+          // 右側がベース（歌が右）なので、scrollLeft を growth 分だけ進めて、ユーザーの
+          // 視点では右端が静止して左方向に開く感覚を作る。
+          var newScrollWidth = scrollEl.scrollWidth;
+          var delta = newScrollWidth - oldScrollWidth;
+          scrollEl.scrollLeft = savedScrollLeft + delta;
+        }
       }
     });
     el.addEventListener('touchcancel', function() {
