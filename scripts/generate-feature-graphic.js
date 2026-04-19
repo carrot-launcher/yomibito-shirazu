@@ -28,7 +28,7 @@ const TEXT = 'よみ人しらず';
 // テキストが横幅のこの比率以内に収まるように font-size を自動調整
 const TARGET_WIDTH_RATIO = 0.90;
 // 上下方向の中心は草書の字面が上寄りがちなのでやや下に寄せる
-const BASELINE_Y_RATIO = 0.56;
+const BASELINE_Y_RATIO = 0.51;
 
 const canvas = createCanvas(WIDTH, HEIGHT);
 const ctx = canvas.getContext('2d');
