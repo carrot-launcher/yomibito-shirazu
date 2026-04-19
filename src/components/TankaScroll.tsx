@@ -51,10 +51,19 @@ function buildHtml(cards: TankaCard[], mode: string, hasLoadMore: boolean, color
     height: 100%;
     background: ${colors.webViewBg};
     font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho Pro", serif;
-    overflow-x: auto;
-    overflow-y: hidden;
+    /* overflow は body ではなく内側の .scroll-wrap に持たせる。body に overflow-x を
+       設定すると Android WebView で動的コンテンツ追加時に scrollWidth 更新が
+       行われないことがある（Chromium issue 41088772 系）。 */
+    overflow: hidden;
   }
   body { visibility: hidden; }
+  .scroll-wrap {
+    height: 100%;
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
   .container {
     display: inline-flex;
     flex-direction: row-reverse;
@@ -133,12 +142,15 @@ function buildHtml(cards: TankaCard[], mode: string, hasLoadMore: boolean, color
 </style>
 </head>
 <body>
-<div class="container" id="container"></div>
+<div class="scroll-wrap" id="scroll-wrap">
+  <div class="container" id="container"></div>
+</div>
 <script>
 var cards = ${cardsJson};
 var mode = "${mode}";
 var hasLoadMore = ${hasLoadMore};
 var unreadSinceMs = null;
+var scrollEl = document.getElementById("scroll-wrap");
 var container = document.getElementById("container");
 var cardCount = 0;
 var loadMoreRequested = false;
@@ -312,10 +324,15 @@ if (cards.length === 0) {
 
 // Scroll edge detection for loading more (左端 = 古い投稿側)
 if (hasLoadMore) {
-  document.body.addEventListener('scroll', function() {
-    if (document.body.scrollLeft < 300 && !loadMoreRequested) {
+  scrollEl.addEventListener('scroll', function() {
+    if (scrollEl.scrollLeft < 300 && !loadMoreRequested) {
       loadMoreRequested = true;
       window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'loadMore' }));
+      // 安全弁: appendCards が一定時間内に呼ばれなかった場合（React 側で loadMore が
+      // ネットワーク失敗した、hasMore=false で onLoadMore が undefined になっていた、等）
+      // フラグが立ちっぱなしになると以降 loadMore が一切走らず左端で「壁」になる。
+      // 3 秒で自動解除してリトライ可能にする。
+      setTimeout(function() { loadMoreRequested = false; }, 3000);
     }
   });
 }
@@ -323,16 +340,16 @@ if (hasLoadMore) {
 // 古い履歴を左端に追加（loadMore）
 // row-reverse + appendChild では既存カードが右にシフトするため scrollLeft 補正が必要
 window.appendCards = function(newCards) {
-  var oldScrollLeft = document.body.scrollLeft;
-  var oldScrollWidth = document.body.scrollWidth;
+  var oldScrollLeft = scrollEl.scrollLeft;
+  var oldScrollWidth = scrollEl.scrollWidth;
 
   newCards.forEach(function(card) {
     container.appendChild(createCardEl(card, cardCount));
     cardCount++;
   });
 
-  var delta = document.body.scrollWidth - oldScrollWidth;
-  document.body.scrollLeft = oldScrollLeft + delta;
+  var delta = scrollEl.scrollWidth - oldScrollWidth;
+  scrollEl.scrollLeft = oldScrollLeft + delta;
 
   loadMoreRequested = false;
 };
@@ -379,7 +396,7 @@ window.removeCards = function(postIds) {
 // row-reverse + insertBefore では既存カードのピクセル位置が変わらない
 // ユーザーが右端にいた場合のみ追従して新着を見せる
 window.prependCards = function(newCards) {
-  var atRightEdge = (document.body.scrollLeft + document.body.clientWidth >= document.body.scrollWidth - 10);
+  var atRightEdge = (scrollEl.scrollLeft + scrollEl.clientWidth >= scrollEl.scrollWidth - 10);
 
   var fragment = document.createDocumentFragment();
   newCards.forEach(function(card) {
@@ -390,14 +407,14 @@ window.prependCards = function(newCards) {
 
   if (atRightEdge) {
     requestAnimationFrame(function() {
-      document.body.scrollLeft = document.body.scrollWidth;
+      scrollEl.scrollLeft = scrollEl.scrollWidth;
     });
   }
 };
 
 // 初期スクロール: カード生成完了後、右端にスクロール（visibility は onLoadEnd 側で visible に）
 requestAnimationFrame(function() {
-  document.body.scrollLeft = document.body.scrollWidth;
+  scrollEl.scrollLeft = scrollEl.scrollWidth;
 });
 </script>
 </body>
@@ -489,7 +506,14 @@ export default function TankaScroll({ cards, onTap, onLongPress, mode, onLoadMor
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.action === 'loadMore') {
-        onLoadMore?.();
+        if (onLoadMore) {
+          onLoadMore();
+        } else {
+          // onLoadMore が undefined（hasMore=false 等）の場合、appendCards は呼ばれず
+          // WebView 側の loadMoreRequested が詰まるので即時解除して次回のスクロールで
+          // 再度 fire できるようにする。
+          webViewRef.current?.injectJavaScript('loadMoreRequested = false; true;');
+        }
         return;
       }
       if (data.action === 'postMenu') {
@@ -516,7 +540,10 @@ export default function TankaScroll({ cards, onTap, onLongPress, mode, onLoadMor
             ? `window.applyUnread && window.applyUnread(${unreadSinceMs});`
             : '';
           const js = `
-            document.body.scrollLeft = document.body.scrollWidth;
+            (function() {
+              var el = document.getElementById('scroll-wrap');
+              if (el) el.scrollLeft = el.scrollWidth;
+            })();
             ${applyUnreadJs}
             document.body.style.visibility = 'visible';
             true;
