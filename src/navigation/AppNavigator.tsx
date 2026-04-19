@@ -5,7 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { getAnalytics, logEvent } from '@react-native-firebase/analytics';
 import * as Notifications from 'expo-notifications';
 import React, { useEffect, useMemo } from 'react';
-import { Text } from 'react-native';
+import { AppState, Text } from 'react-native';
 
 import { useAuth } from '../hooks/useAuth';
 import { useTayoriUnread } from '../hooks/useTayoriUnread';
@@ -147,6 +147,20 @@ export default function AppNavigator() {
       } else {
         // postIdがない通知（解散など）はたよりタブを開くだけ
         (navigationRef as any).navigate('TayoriTab');
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
+  // アプリが前面に出たタイミングで OS の通知トレイをクリアする。
+  // 初回マウント（コールドスタート）時にも一度クリア。
+  // アプリを開いた時点で「通知経由で気づいた」は達成されているので OS 側に
+  // 残し続ける意義は薄い、という判断。
+  useEffect(() => {
+    Notifications.dismissAllNotificationsAsync().catch(() => {});
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        Notifications.dismissAllNotificationsAsync().catch(() => {});
       }
     });
     return () => sub.remove();
