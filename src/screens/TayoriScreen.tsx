@@ -178,10 +178,6 @@ export default function TayoriScreen({ navigation }: any) {
       includeFontPadding: false,
       textAlignVertical: 'center',
     },
-    time: {
-      fontSize: 11,
-      color: colors.textTertiary,
-    },
     emptyText: {
       fontSize: 17,
       color: colors.textTertiary,
@@ -267,7 +263,7 @@ export default function TayoriScreen({ navigation }: any) {
           <Text style={[dynamicStyles.title, unread && dynamicStyles.titleUnread]} numberOfLines={1}>{title}</Text>
           {body ? <Text style={dynamicStyles.body} numberOfLines={1}>{body}</Text> : null}
         </View>
-        {createdAt && <Text style={dynamicStyles.time}>{timeAgo(createdAt)}</Text>}
+        {createdAt && <AppText variant="meta" tone="tertiary">{timeAgo(createdAt)}</AppText>}
       </TouchableOpacity>
     );
   };

@@ -137,9 +137,9 @@ export default function ComposeScreen({ route, navigation }: any) {
           autoFocus
         />
         <View style={{ height: 20 }} />
-        {hintText ? <Text style={dynamicStyles.hint}>{hintText}</Text> : null}
-        <Text style={dynamicStyles.hint}>変換設定は「設定」タブから変更できます</Text>
-        <Text style={dynamicStyles.hint}>ルビは波括弧で{'{漢字|よみ}'}と書くと振れます</Text>
+        {hintText ? <AppText variant="meta" tone="tertiary" style={dynamicStyles.hint}>{hintText}</AppText> : null}
+        <AppText variant="meta" tone="tertiary" style={dynamicStyles.hint}>変換設定は「設定」タブから変更できます</AppText>
+        <AppText variant="meta" tone="tertiary" style={dynamicStyles.hint}>ルビは波括弧で{'{漢字|よみ}'}と書くと振れます</AppText>
       </View>
     </GradientBackground>
   );
