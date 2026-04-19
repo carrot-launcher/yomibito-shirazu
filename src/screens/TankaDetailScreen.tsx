@@ -378,6 +378,9 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   // `webViewKey` を更新して WebView を remount する（上限 2 回）。
   const [contentPhase, setContentPhase] = useState<'placeholder' | 'real'>('placeholder');
   const [webViewKey, setWebViewKey] = useState(0);
+  // 本物 HTML から 'rendered' を受け取ったかどうか。WebView 上にかぶせる
+  // 「読み込み中…」オーバーレイの表示可否に使う。
+  const [hasRendered, setHasRendered] = useState(false);
   const twoPhaseAppliedRef = useRef(false);
   const healthTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const remountAttemptsRef = useRef(0);
@@ -393,6 +396,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   // 2.5 秒以内に本物から 'rendered' が来なければ remount 再試行。
   useEffect(() => {
     setContentPhase('placeholder');
+    setHasRendered(false);
     twoPhaseAppliedRef.current = false;
     if (healthTimerRef.current) clearTimeout(healthTimerRef.current);
     healthTimerRef.current = setTimeout(() => {
@@ -411,6 +415,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
       clearTimeout(healthTimerRef.current);
       healthTimerRef.current = null;
     }
+    setHasRendered(true);
   }, []);
 
   // 三点リーダメニュー
@@ -970,18 +975,28 @@ export default function TankaDetailScreen({ route, navigation }: any) {
         )}
       </View>
 
-      <WebView
-        key={webViewKey}
-        ref={webViewRef}
-        source={webViewSource}
-        style={[styles.webview, { backgroundColor: colors.webViewBg }]}
-        onMessage={handleWebViewMessage}
-        scrollEnabled={true}
-        showsHorizontalScrollIndicator={false}
-        javaScriptEnabled={true}
-        originWhitelist={['*']}
-        androidLayerType="software"
-      />
+      <View style={styles.webviewContainer}>
+        <WebView
+          key={webViewKey}
+          ref={webViewRef}
+          source={webViewSource}
+          style={[styles.webview, { backgroundColor: colors.webViewBg }]}
+          onMessage={handleWebViewMessage}
+          scrollEnabled={true}
+          showsHorizontalScrollIndicator={false}
+          javaScriptEnabled={true}
+          originWhitelist={['*']}
+          androidLayerType="software"
+        />
+        {!hasRendered && (
+          <View
+            style={[styles.webviewLoadingOverlay, { backgroundColor: colors.webViewBg }]}
+            pointerEvents="none"
+          >
+            <AppText variant="body" tone="secondary">読み込み中...</AppText>
+          </View>
+        )}
+      </View>
 
       {/* アクションメニューモーダル */}
       <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>
@@ -1234,6 +1249,11 @@ function makeStyles(colors: ThemeColors) {
     },
     charCount: { textAlign: 'right', marginTop: 4 },
     webview: { flex: 1 },
+    webviewContainer: { flex: 1 },
+    webviewLoadingOverlay: {
+      position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+      justifyContent: 'center', alignItems: 'center',
+    },
     deletedArea: { alignItems: 'center', marginTop: 80 },
     deletedText: { marginBottom: 20 },
 
