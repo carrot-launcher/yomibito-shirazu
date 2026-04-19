@@ -85,10 +85,19 @@ function buildDetailHtml(
     height: 100%;
     background: ${colors.webViewBg};
     font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho Pro", serif;
-    overflow-x: auto;
-    overflow-y: hidden;
+    /* overflow は body ではなく内側の .scroll-wrap に持たせる。body に overflow-x を
+       設定すると Android WebView で動的コンテンツ追加時に scrollWidth 更新が
+       行われないことがある（Chromium issue 41088772 系）。 */
+    overflow: hidden;
   }
   body { visibility: hidden; }
+  .scroll-wrap {
+    height: 100%;
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
   .container {
     display: inline-flex;
     flex-direction: row-reverse;
@@ -164,10 +173,12 @@ function buildDetailHtml(
 </style>
 </head>
 <body>
-<div class="container" id="container">
-  <div class="tanka-section" id="tanka-main">${tankaContent}</div>
-  <div class="divider"></div>
-  <div class="comments-section" id="comments"></div>
+<div class="scroll-wrap" id="scroll-wrap">
+  <div class="container" id="container">
+    <div class="tanka-section" id="tanka-main">${tankaContent}</div>
+    <div class="divider"></div>
+    <div class="comments-section" id="comments"></div>
+  </div>
 </div>
 <script>
 // 歌本体のタップハンドラ: 短押し→スクショ、長押し→メニュー（評の長押しと同じパターン）
@@ -294,7 +305,8 @@ if (comments.length === 0) {
 // 初期スクロール: コンテンツ生成完了後、右端にスクロール → 表示。
 // その後 React 側に 'rendered' を送り、健全性チェックのタイマーを止めてもらう。
 requestAnimationFrame(function() {
-  document.body.scrollLeft = document.body.scrollWidth;
+  var scrollEl = document.getElementById('scroll-wrap');
+  if (scrollEl) scrollEl.scrollLeft = scrollEl.scrollWidth;
   document.body.style.visibility = 'visible';
   requestAnimationFrame(function() {
     try {
