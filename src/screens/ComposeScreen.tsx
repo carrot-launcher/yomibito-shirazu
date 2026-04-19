@@ -2,7 +2,7 @@ import * as Crypto from 'expo-crypto';
 import { doc, getDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { AppButton } from '../components/AppButton';
 import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
@@ -72,20 +72,38 @@ export default function ComposeScreen({ route, navigation }: any) {
   }, [user, body, groups, alert, navigation, convertHalfSpace, convertLineBreak]);
 
   useEffect(() => {
+    const canSubmit = !submitting && body.trim().length >= 2;
     navigation.setOptions({
       headerRight: () => (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginRight: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <AppText variant="bodySm" tone="secondary">
             {body.length}/{MAX_CHARS}
           </AppText>
-          <AppButton
-            label="詠む"
-            variant="primary"
-            size="md"
-            onPress={handleSubmit}
-            disabled={submitting || body.trim().length < 2}
-            loading={submitting}
-          />
+          {/* iOS はシステムの Liquid Glass ピルがヘッダー要素を囲むので、プレーンなテキストで
+              十分「ボタン」として認識される。Android は囲みが無いので AppButton（secondary）で
+              アプリ共通のボタン見た目に統一する。 */}
+          {Platform.OS === 'android' ? (
+            <AppButton
+              label="詠む"
+              variant="secondary"
+              size="xs"
+              onPress={handleSubmit}
+              disabled={!canSubmit}
+              loading={submitting}
+            />
+          ) : (
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={!canSubmit}
+              hitSlop={8}
+              style={{ paddingHorizontal: 12, paddingVertical: 6 }}
+              activeOpacity={0.5}
+            >
+              <AppText variant="buttonLabel" weight="medium" tone={canSubmit ? 'primary' : 'tertiary'}>
+                詠む
+              </AppText>
+            </TouchableOpacity>
+          )}
         </View>
       ),
     });

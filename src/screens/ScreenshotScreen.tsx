@@ -1,8 +1,9 @@
 import * as MediaLibrary from 'expo-media-library';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Dimensions, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import { WebView } from 'react-native-webview';
+import { AppButton } from '../components/AppButton';
 import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
@@ -179,26 +180,37 @@ export default function ScreenshotScreen({ route, navigation }: any) {
     }
   }, [alert]);
 
-  // 保存ボタンをヘッダー右側に配置
+  // 保存ボタンをヘッダー右側に配置。
+  // iOS はシステムの Liquid Glass ピルがヘッダー要素を囲むのでプレーンテキストで充分。
+  // Android は囲みが無いので AppButton（secondary）でアプリ共通のボタン見た目に統一する。
   useEffect(() => {
     navigation.setOptions({
-      headerRight: () => (
-        <TouchableOpacity
-          onPress={handleCapture}
-          disabled={!ready}
-          hitSlop={8}
-          style={{ paddingHorizontal: 12, paddingVertical: 6 }}
-          activeOpacity={0.5}
-        >
-          <AppText
-            variant="buttonLabel"
-            weight="medium"
-            tone={ready ? 'primary' : 'tertiary'}
+      headerRight: () =>
+        Platform.OS === 'android' ? (
+          <AppButton
+            label="保存"
+            variant="secondary"
+            size="xs"
+            onPress={handleCapture}
+            disabled={!ready}
+          />
+        ) : (
+          <TouchableOpacity
+            onPress={handleCapture}
+            disabled={!ready}
+            hitSlop={8}
+            style={{ paddingHorizontal: 12, paddingVertical: 6 }}
+            activeOpacity={0.5}
           >
-            保存
-          </AppText>
-        </TouchableOpacity>
-      ),
+            <AppText
+              variant="buttonLabel"
+              weight="medium"
+              tone={ready ? 'primary' : 'tertiary'}
+            >
+              保存
+            </AppText>
+          </TouchableOpacity>
+        ),
     });
   }, [navigation, ready, handleCapture]);
 
