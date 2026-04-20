@@ -959,7 +959,10 @@ export const dissolveGroup = onCall(
     }
 
     // 1. メンバー全員の joinedGroups から削除（先に実行し、ゾンビ化を防ぐ）
-    for (const memberDoc of membersSnap.docs) {
+    // 各 member が異なるドキュメントパスを触るので並列化可能。シリアルだと
+    // member 数 × RTT 分遅延して、オーナー端末でも自分の joinedGroups が
+    // 書き換わるまで数秒カードが残る現象が起きていた。
+    await Promise.all(membersSnap.docs.map(async (memberDoc) => {
       const userId = memberDoc.id;
       await db.doc(`users/${userId}`).update({
         joinedGroups: admin.firestore.FieldValue.arrayRemove(groupId),
@@ -974,7 +977,7 @@ export const dissolveGroup = onCall(
         if (bookmarksSnap.size > 0) await batchB.commit();
       }
       await memberDoc.ref.delete();
-    }
+    }));
 
     // 2. 歌会本体を削除
     await db.doc(`groups/${groupId}`).delete();
