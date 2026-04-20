@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import { moderate, OPENAI_API_KEY } from "./moderation/openaiModeration";
 import { deriveAuthorHandle, AUTHOR_HANDLE_SALT } from "./moderation/authorHandle";
 import {
@@ -2238,5 +2239,86 @@ export const getArchivedBody = onCall(
 
     const archivedSnap = await db.doc(`${contentPath}/private/archivedBody`).get();
     return { body: (archivedSnap.data()?.body as string | undefined) ?? "" };
+  }
+);
+
+/**
+ * cleanupNotifications — たより通知の定期掃除
+ *  - 毎日 03:00 JST に起動
+ *  - 2 つの掃除を兼ねる:
+ *    (a) users/{uid}.tayoriClearedAt より古い通知を削除
+ *        （ユーザーが「全て削除」ボタンを押した以前の通知の実削除）
+ *    (b) 1 ユーザーあたりの保持件数上限を超えた分を削除
+ *        （古い通知は見ないので無限に溜めても無駄、という前提）
+ *
+ *  注意: 全ユーザーを走査するため、ユーザー数が大きくなると実行時間が伸びる。
+ *        現在のユーザー規模（数百人）なら余裕だが、数万人になったら
+ *        "前回掃除から一定時間経過した users のみ" のような間引きが必要。
+ */
+const NOTIFICATION_RETENTION_LIMIT = 200;
+
+export const cleanupNotifications = onSchedule(
+  {
+    schedule: "0 3 * * *",
+    timeZone: "Asia/Tokyo",
+    region: "asia-northeast1",
+    timeoutSeconds: 540,
+    memory: "512MiB",
+  },
+  async () => {
+    const usersSnap = await db.collection("users").get();
+    let totalDeleted = 0;
+    let processedUsers = 0;
+    let failedUsers = 0;
+
+    for (const userDoc of usersSnap.docs) {
+      const uid = userDoc.id;
+      const clearedAtMillis = userDoc.data()?.tayoriClearedAt?.toMillis?.() ?? null;
+
+      try {
+        // createdAt 降順で全件取得（通常は数十件〜数百件程度の想定）
+        const notifSnap = await db
+          .collection(`users/${uid}/notifications`)
+          .orderBy("createdAt", "desc")
+          .get();
+
+        const toDelete: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+        notifSnap.docs.forEach((d, idx) => {
+          // (b) 上限超過分
+          if (idx >= NOTIFICATION_RETENTION_LIMIT) {
+            toDelete.push(d);
+            return;
+          }
+          // (a) cutoff より古いもの
+          if (clearedAtMillis !== null) {
+            const createdMillis = d.data()?.createdAt?.toMillis?.();
+            if (createdMillis !== undefined && createdMillis <= clearedAtMillis) {
+              toDelete.push(d);
+            }
+          }
+        });
+
+        // 400 件ずつバッチ削除（Firestore の 500 ops 上限に対するマージン込み）
+        const BATCH = 400;
+        for (let i = 0; i < toDelete.length; i += BATCH) {
+          const batch = db.batch();
+          for (const d of toDelete.slice(i, i + BATCH)) {
+            batch.delete(d.ref);
+          }
+          await batch.commit();
+        }
+
+        totalDeleted += toDelete.length;
+        processedUsers += 1;
+      } catch (e) {
+        // 個別ユーザーの失敗は止めず続行（次回実行でやり直される）
+        failedUsers += 1;
+        console.error(`[cleanupNotifications] uid=${uid} failed`, e);
+      }
+    }
+
+    console.log(
+      `[cleanupNotifications] done: users=${processedUsers} failed=${failedUsers} deleted=${totalDeleted}`
+    );
   }
 );
