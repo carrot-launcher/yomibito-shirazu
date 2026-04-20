@@ -199,6 +199,81 @@ async function markNotificationsForComment(
   }
 }
 
+// bulk 版。歌会解散（deletePosts=true）や退会時に大量の投稿を一括処理するとき用。
+// collectionGroup クエリを postId 30 個ずつの 'in' クエリで束ね、投稿数 N に対して
+// クエリ回数を N → ceil(N/30) に削減する。単発版をループで呼ぶと 300 秒タイムアウトに
+// 当たりやすいため、bulk 処理ではこちらを使う。
+async function markNotificationsForPostsBulk(
+  postIds: string[],
+  state: TargetState,
+  hogoReason?: string
+) {
+  if (postIds.length === 0) return;
+  const IN_CHUNK = 30; // Firestore 'in' クエリの上限
+  const BATCH_CHUNK = 400;
+
+  const matched: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+  for (let i = 0; i < postIds.length; i += IN_CHUNK) {
+    const chunk = postIds.slice(i, i + IN_CHUNK);
+    const snap = await db
+      .collectionGroup("notifications")
+      .where("postId", "in", chunk)
+      .get();
+    matched.push(...snap.docs);
+  }
+
+  const updates: Record<string, unknown> = {
+    targetState: state,
+    tankaBody: "",
+  };
+  if (state === "hogo") updates.targetHogoReason = hogoReason || "仔細あり";
+
+  for (let i = 0; i < matched.length; i += BATCH_CHUNK) {
+    const batch = db.batch();
+    for (const d of matched.slice(i, i + BATCH_CHUNK)) {
+      const t = d.data()?.type;
+      if (t !== "new_post" && t !== "reaction") continue;
+      batch.update(d.ref, updates);
+    }
+    await batch.commit();
+  }
+}
+
+async function markNotificationsForCommentsBulk(
+  commentIds: string[],
+  state: TargetState,
+  hogoReason?: string
+) {
+  if (commentIds.length === 0) return;
+  const IN_CHUNK = 30;
+  const BATCH_CHUNK = 400;
+
+  const matched: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+  for (let i = 0; i < commentIds.length; i += IN_CHUNK) {
+    const chunk = commentIds.slice(i, i + IN_CHUNK);
+    const snap = await db
+      .collectionGroup("notifications")
+      .where("commentId", "in", chunk)
+      .get();
+    matched.push(...snap.docs);
+  }
+
+  const updates: Record<string, unknown> = {
+    targetState: state,
+    commentBody: "",
+  };
+  if (state === "hogo") updates.targetHogoReason = hogoReason || "仔細あり";
+
+  for (let i = 0; i < matched.length; i += BATCH_CHUNK) {
+    const batch = db.batch();
+    for (const d of matched.slice(i, i + BATCH_CHUNK)) {
+      if (d.data()?.type !== "comment") continue;
+      batch.update(d.ref, updates);
+    }
+    await batch.commit();
+  }
+}
+
 // pending 解除時に通知の書き換えを戻す（tankaBody を復元＋状態フラグ削除）。
 async function unmarkNotificationsForPost(
   postId: string,
@@ -994,6 +1069,10 @@ export const dissolveGroup = onCall(
     } catch {}
 
     // 3. 投稿を削除（個別にtry/catchし、1件の失敗で全体が止まらないように）
+    // 削除が成功した postId / commentId を集めて、後でまとめて他ユーザーの
+    // たより通知の本文を「削除済み」に書き換える（単発版 deletePost と同じ挙動）。
+    const deletedPostIds: string[] = [];
+    const deletedCommentIds: string[] = [];
     if (deletePosts) {
       const postsSnap = await db.collection("posts").where("groupId", "==", groupId).get();
       for (const postDoc of postsSnap.docs) {
@@ -1011,14 +1090,24 @@ export const dissolveGroup = onCall(
             privSnap.docs.forEach((d) => batchC.delete(d.ref));
             batchC.delete(commentDoc.ref);
             await batchC.commit();
+            deletedCommentIds.push(commentDoc.id);
           }
 
           const authorSnap = await db.doc(`posts/${postId}/private/author`).get();
           if (authorSnap.exists) await authorSnap.ref.delete();
           await postDoc.ref.delete();
+          deletedPostIds.push(postId);
         } catch {
           // 個別の投稿削除失敗は無視して続行
         }
+      }
+
+      // 3b. 他ユーザーのたより通知を「削除済み」にマーク。
+      try {
+        await markNotificationsForPostsBulk(deletedPostIds, "deleted");
+        await markNotificationsForCommentsBulk(deletedCommentIds, "deleted");
+      } catch (e) {
+        console.error("[dissolveGroup] mark notifications failed", e);
       }
     }
 
@@ -1547,6 +1636,9 @@ export const deleteAccount = onCall(
     // 3. ユーザーの投稿を全削除
     const myPostsSnap = await db.collection(`users/${uid}/myPosts`).get();
     const deletedPostIds = new Set<string>();
+    // 他ユーザーのたより通知マーキング用に、削除した post / comment の ID を収集する
+    // （step 4 の他人の投稿への評も後でまとめて加える）。
+    const deletedCommentIds: string[] = [];
     const deletionsByGroup = new Map<string, number>(); // groupId -> 削除件数
     for (const myPost of myPostsSnap.docs) {
       const postId = myPost.data().postId;
@@ -1568,6 +1660,7 @@ export const deleteAccount = onCall(
           privSnap.docs.forEach((d) => cBatch.delete(d.ref));
           cBatch.delete(commentDoc.ref);
           await cBatch.commit();
+          deletedCommentIds.push(commentDoc.id);
         }
 
         // 投稿本体削除
@@ -1612,12 +1705,23 @@ export const deleteAccount = onCall(
           await db.doc(`posts/${postId}`).update({
             commentCount: admin.firestore.FieldValue.increment(-1),
           }).catch(() => {});
+          deletedCommentIds.push(commentId);
         } catch {
           // 個別の評削除失敗は続行
         }
       }
     } catch {
       // collectionGroupクエリ失敗は続行
+    }
+
+    // 4b. 他ユーザーのたより通知を「削除済み」にマーク
+    //     （単発 deletePost / deleteComment と同じ扱いに揃える）。
+    //     step 6 で自分の notifications も削除されるので、それより前に実行する。
+    try {
+      await markNotificationsForPostsBulk([...deletedPostIds], "deleted");
+      await markNotificationsForCommentsBulk(deletedCommentIds, "deleted");
+    } catch (e) {
+      console.error("[deleteAccount] mark notifications failed", e);
     }
 
     // 5. 他ユーザーの投稿へのリアクション削除
