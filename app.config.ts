@@ -13,6 +13,8 @@ export default {
       icon: "./assets/images/icon-ios.png",
       bundleIdentifier: "com.yomibito.shirazu",
       googleServicesFile: process.env.GOOGLE_SERVICES_INFO_PLIST ?? './GoogleService-Info.plist',
+      // Sign in with Apple の entitlement を付与（App Review Guideline 4.8 対応）
+      usesAppleSignIn: true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryAddUsageDescription": "詠んだ歌のスクリーンショット画像を端末の写真ライブラリに保存するために使用します。",

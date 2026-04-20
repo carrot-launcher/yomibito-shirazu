@@ -1,8 +1,10 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { GoogleAuthProvider, OAuthProvider, signInWithCredential } from 'firebase/auth';
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
 import { AppButton } from '../components/AppButton';
 import { AppText } from '../components/AppText';
@@ -18,7 +20,7 @@ const PRIVACY_URL = 'https://carrot-launcher.github.io/yomibito-shirazu/privacy-
 
 export default function LoginScreen() {
   const { alert } = useAlert();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const [agreed, setAgreed] = useState(false);
 
   const handleGoogleSignIn = async () => {
@@ -36,6 +38,42 @@ export default function LoginScreen() {
     }
   };
 
+  // Sign in with Apple — App Review Guideline 4.8 対応（iOS 限定表示）
+  // Firebase Auth は nonce を要求する。生の nonce と SHA256 ハッシュの両方を用意し、
+  // Apple には hash を渡し Firebase には raw を渡すことで、中間者攻撃を防ぐ。
+  const handleAppleSignIn = async () => {
+    if (!agreed) return;
+    try {
+      const rawNonce = [...Array(32)]
+        .map(() => Math.floor(Math.random() * 36).toString(36))
+        .join('');
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce
+      );
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        ],
+        nonce: hashedNonce,
+      });
+      if (!credential.identityToken) {
+        alert('ログインエラー', 'Apple IDトークンが取得できませんでした');
+        return;
+      }
+      const fbCred = new OAuthProvider('apple.com').credential({
+        idToken: credential.identityToken,
+        rawNonce,
+      });
+      await signInWithCredential(auth, fbCred);
+    } catch (error: any) {
+      // ユーザーがキャンセルしただけの場合は黙る
+      if (error.code === 'ERR_REQUEST_CANCELED') return;
+      alert('ログインエラー', `${error.code || ''}: ${error.message}`);
+    }
+  };
+
   const dynamicStyles = useMemo(() => StyleSheet.create({
     container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     // ロゴ的扱いの大きなタイトル — 専用のフォントウェイト（300）と字間
@@ -44,6 +82,7 @@ export default function LoginScreen() {
     checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
     agreementText: { textAlign: 'center' as const, lineHeight: 20 },
     agreementLink: { textDecorationLine: 'underline' as const },
+    appleButton: { width: 240, height: 48, marginTop: 24 },
   }), [colors]);
 
   return (
@@ -67,13 +106,26 @@ export default function LoginScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Apple HIG: Sign in with Apple は他ログイン手段と同等以上に目立つ位置に置く */}
+      {Platform.OS === 'ios' && (
+        <AppleAuthentication.AppleAuthenticationButton
+          buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+          buttonStyle={isDark
+            ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+            : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+          cornerRadius={10}
+          style={dynamicStyles.appleButton}
+          onPress={agreed ? handleAppleSignIn : () => {}}
+        />
+      )}
+
       <AppButton
         label="Google でログイン"
         variant="primary"
         size="lg"
         onPress={handleGoogleSignIn}
         disabled={!agreed}
-        style={{ marginTop: 24, paddingHorizontal: 32 }}
+        style={{ marginTop: Platform.OS === 'ios' ? 12 : 24, paddingHorizontal: 32 }}
       />
     </GradientBackground>
   );

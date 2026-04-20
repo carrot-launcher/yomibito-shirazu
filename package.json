@@ -26,6 +26,7 @@
     "@react-navigation/native-stack": "^7.14.10",
     "dotenv": "^17.4.1",
     "expo": "~55.0.15",
+    "expo-apple-authentication": "~55.0.13",
     "expo-auth-session": "~55.0.14",
     "expo-build-properties": "~55.0.13",
     "expo-clipboard": "~55.0.13",
