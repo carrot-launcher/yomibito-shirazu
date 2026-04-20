@@ -15,7 +15,11 @@ export default {
       googleServicesFile: process.env.GOOGLE_SERVICES_INFO_PLIST ?? './GoogleService-Info.plist',
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSPhotoLibraryAddUsageDescription": "詠んだ歌のスクリーンショット画像を端末の写真ライブラリに保存するために使用します。"
+        "NSPhotoLibraryAddUsageDescription": "詠んだ歌のスクリーンショット画像を端末の写真ライブラリに保存するために使用します。",
+        // 日本語を主言語として明示。未指定だと iOS は en をデフォルトと見なし、
+        // App Store / TestFlight 上で主言語が英語として表示されてしまう。
+        "CFBundleDevelopmentRegion": "ja",
+        "CFBundleLocalizations": ["ja"]
       },
     },
     android: {
@@ -68,6 +72,7 @@ export default {
       "@react-native-firebase/messaging",
       "@react-native-firebase/crashlytics",
       "./plugins/with-firebase-static-framework",
+      "./plugins/with-android-japanese-locale",
       // NOTE: useFrameworks: static を外している
       //   @react-native-firebase v24 + Expo SDK 55 では static framework にすると
       //   RNFBApp と React-Core のモジュール干渉で iOS ビルドが失敗する。
