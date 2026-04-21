@@ -3,9 +3,9 @@
 // キーのパスは環境変数 GOOGLE_APPLICATION_CREDENTIALS で渡す。
 //
 // 使い方:
-//   node scripts/monitor.js latest [N]
-//   node scripts/monitor.js watch
-//   node scripts/monitor.js hogo
+//   node scripts/monitor.js latest [TYPE] [N]        TYPE: posts(既定) | comments | all
+//   node scripts/monitor.js watch [TYPE]
+//   node scripts/monitor.js hogo [TYPE]
 //   node scripts/monitor.js group <groupId> [N]
 //   node scripts/monitor.js public
 //   node scripts/monitor.js reports [N]
@@ -14,6 +14,7 @@
 //   node scripts/monitor.js suspend <uid> <reason> [--yes]
 //   node scripts/monitor.js unsuspend <uid> [--yes]
 //   node scripts/monitor.js purge <uid> <reason> [--yes] [--dry-run]
+//   node scripts/monitor.js orphans [--yes] [--dry-run]
 const admin = require('firebase-admin');
 const readline = require('readline');
 
@@ -50,13 +51,20 @@ function fmtTime(ts) {
   return d.toLocaleString('ja-JP', { hour12: false });
 }
 
-const groupNameCache = new Map();
-async function getGroupName(groupId) {
-  if (groupNameCache.has(groupId)) return groupNameCache.get(groupId);
+// group doc 自体を丸ごとキャッシュする（pastMembers / bannedUsers 参照にも使う）。
+const groupDocCache = new Map();
+async function getGroupDoc(groupId) {
+  if (!groupId) return null;
+  if (groupDocCache.has(groupId)) return groupDocCache.get(groupId);
   const snap = await db.doc(`groups/${groupId}`).get();
-  const name = snap.exists ? snap.data().name || '?' : '(解散済み)';
-  groupNameCache.set(groupId, name);
-  return name;
+  const d = snap.exists ? snap.data() : null;
+  groupDocCache.set(groupId, d);
+  return d;
+}
+
+async function getGroupName(groupId) {
+  const d = await getGroupDoc(groupId);
+  return d ? (d.name || '?') : '(解散済み)';
 }
 
 // JST の当日キー（functions/src/validation.ts の todayKey と同一フォーマット）
@@ -82,63 +90,268 @@ async function getContentAuthorId({ targetType, targetId, postId }) {
   }
 }
 
-function renderPost(p, gName) {
+// 歌会内でのユーザー表示情報（displayName + userCode）を取る。
+// displayName は歌会ごとに異なるので (gid, uid) の組でキャッシュする。
+// 現メンバーでなければ group doc の pastMembers / bannedUsers からフォールバック。
+const authorInfoCache = new Map();
+async function getAuthorInfo(gid, uid) {
+  if (!gid || !uid) return null;
+  const key = `${gid}:${uid}`;
+  if (authorInfoCache.has(key)) return authorInfoCache.get(key);
+
+  let info = null;
+  try {
+    const memberSnap = await db.doc(`groups/${gid}/members/${uid}`).get();
+    if (memberSnap.exists) {
+      const d = memberSnap.data();
+      info = {
+        displayName: d.displayName || '(名無し)',
+        userCode: d.userCode || '------',
+      };
+    }
+  } catch {}
+
+  if (!info) {
+    const g = await getGroupDoc(gid);
+    const past = g?.pastMembers?.[uid];
+    const banned = g?.bannedUsers?.[uid];
+    if (past) {
+      info = {
+        displayName: `${past.displayName || '(名無し)'} [離脱済み]`,
+        userCode: past.userCode || '------',
+      };
+    } else if (banned) {
+      info = {
+        displayName: `${banned.displayName || '(名無し)'} [追放済み]`,
+        userCode: banned.userCode || '------',
+      };
+    }
+  }
+
+  // 最終フォールバック: users/{uid}.userCode だけでも拾う
+  if (!info) {
+    try {
+      const userSnap = await db.doc(`users/${uid}`).get();
+      if (userSnap.exists) {
+        const d = userSnap.data();
+        info = { displayName: '(歌会外)', userCode: d.userCode || '------' };
+      }
+    } catch {}
+  }
+
+  authorInfoCache.set(key, info);
+  return info;
+}
+
+// 歌会の文脈がない場面（user / suspend / ratelimits など）で使う代表ラベル。
+// users/{uid} には displayName が無いので、joinedGroups の先頭の歌会から拾う。
+async function getUserPrimaryLabel(uid) {
+  try {
+    const userSnap = await db.doc(`users/${uid}`).get();
+    if (!userSnap.exists) {
+      return { displayName: '(存在しない)', userCode: '------', userCodeFromUser: '------' };
+    }
+    const u = userSnap.data();
+    const userCode = u.userCode || '------';
+    const joined = u.joinedGroups || [];
+    if (joined.length > 0) {
+      const info = await getAuthorInfo(joined[0], uid);
+      if (info) {
+        return {
+          displayName: info.displayName,
+          userCode: info.userCode || userCode,
+          userCodeFromUser: userCode,
+          multiGroup: joined.length > 1,
+        };
+      }
+    }
+    return { displayName: '(歌会未参加)', userCode, userCodeFromUser: userCode };
+  } catch {
+    return { displayName: '(取得不可)', userCode: '------', userCodeFromUser: '------' };
+  }
+}
+
+// post doc を renderPost が使える形に整える（author 情報も resolve する）。
+async function enrichPost(postDoc) {
+  const p = postDoc.data();
+  const [gName, authorId] = await Promise.all([
+    getGroupName(p.groupId),
+    getContentAuthorId({ targetType: 'post', targetId: postDoc.id }),
+  ]);
+  const authorInfo = authorId ? await getAuthorInfo(p.groupId, authorId) : null;
+  return {
+    p,
+    postId: postDoc.id,
+    gId: p.groupId,
+    gName,
+    uid: authorId,
+    authorInfo,
+  };
+}
+
+function renderPost({ p, gId, gName, uid, authorInfo }) {
   const flags = [];
-  if (p.hogo) flags.push(`裁き:${p.hogoType || '?'}`);
+  if (p.hogo) {
+    flags.push(`裁き:${p.hogoType || '?'}${p.hogoReason ? `(${p.hogoReason})` : ''}`);
+  }
   if (p.revealedAuthorName) flags.push(`解題:${p.revealedAuthorName}#${p.revealedAuthorCode || ''}`);
   const flagStr = flags.length ? ` [${flags.join(' / ')}]` : '';
-  return `[${fmtTime(p.createdAt)}] [${gName}]${flagStr} ${p.body || '(反故)'}`;
+  const groupPart = `[${gName} / ${gId || '?'}]`;
+  const authorPart = uid
+    ? ` [${authorInfo?.displayName || '(名無し)'}#${authorInfo?.userCode || '------'} / ${uid}]`
+    : ' [作者不明]';
+  return `[${fmtTime(p.createdAt)}] 歌 ${groupPart}${authorPart}${flagStr} ${p.body || '(反故)'}`;
 }
 
-async function cmdLatest(n) {
-  const snap = await db.collection('posts').orderBy('createdAt', 'desc').limit(n).get();
-  for (const doc of snap.docs) {
-    const p = doc.data();
-    const gName = await getGroupName(p.groupId);
-    console.log(renderPost(p, gName));
+// 評 (comment) を enrich する。comment は posts/{postId}/comments/{commentId} に
+// ぶら下がるので、postId → post → groupId → groupName の連鎖を解決する。
+async function enrichComment(commentDoc) {
+  const c = commentDoc.data();
+  const postId = commentDoc.ref.parent.parent?.id;
+  if (!postId) return null;
+  const [postSnap, authorId] = await Promise.all([
+    db.doc(`posts/${postId}`).get(),
+    getContentAuthorId({ targetType: 'comment', targetId: commentDoc.id, postId }),
+  ]);
+  const p = postSnap.exists ? postSnap.data() : null;
+  const gId = p?.groupId || null;
+  const gName = gId ? await getGroupName(gId) : '(投稿欠損)';
+  const authorInfo = authorId && gId ? await getAuthorInfo(gId, authorId) : null;
+  return {
+    c,
+    commentId: commentDoc.id,
+    postId,
+    postBody: p?.body || null,
+    gId,
+    gName,
+    uid: authorId,
+    authorInfo,
+  };
+}
+
+function renderComment({ c, postBody, gId, gName, uid, authorInfo }) {
+  const flags = [];
+  if (c.hogo) {
+    flags.push(`裁き:${c.hogoType || '?'}${c.hogoReason ? `(${c.hogoReason})` : ''}`);
   }
+  const flagStr = flags.length ? ` [${flags.join(' / ')}]` : '';
+  const groupPart = `[${gName} / ${gId || '?'}]`;
+  const authorPart = uid
+    ? ` [${authorInfo?.displayName || '(名無し)'}#${authorInfo?.userCode || '------'} / ${uid}]`
+    : ' [作者不明]';
+  const postRef = postBody ? `→[${truncate(postBody, 20)}] ` : '→[投稿欠損] ';
+  return `[${fmtTime(c.createdAt)}] 評 ${groupPart}${authorPart}${flagStr} ${postRef}${c.body || '(反故)'}`;
 }
 
-async function cmdWatch() {
-  console.log('監視中... (Ctrl+C で終了)\n');
-  // 最新20件を初期バッファに。既存分は表示せず、あとから来たものだけ表示する。
-  let initialized = false;
-  const seen = new Set();
-  db.collection('posts').orderBy('createdAt', 'desc').limit(20).onSnapshot(async (snap) => {
-    if (!initialized) {
-      for (const doc of snap.docs) seen.add(doc.id);
-      initialized = true;
-      return;
-    }
-    for (const change of snap.docChanges()) {
-      if (change.type !== 'added') continue;
-      if (seen.has(change.doc.id)) continue;
-      seen.add(change.doc.id);
-      const p = change.doc.data();
-      const gName = await getGroupName(p.groupId);
-      console.log(renderPost(p, gName));
-    }
-  }, (err) => {
-    console.error('watch error:', err.message);
-    process.exit(1);
-  });
-}
-
-async function cmdHogo() {
-  const snap = await db.collection('posts')
-    .where('hogo', '==', true)
-    .orderBy('createdAt', 'desc')
-    .limit(100)
-    .get();
-  if (snap.empty) {
-    console.log('裁き済みの投稿はありません。');
+async function cmdLatest(type, n) {
+  if (type === 'comments') {
+    const snap = await db.collectionGroup('comments')
+      .orderBy('createdAt', 'desc').limit(n).get();
+    const enriched = await Promise.all(snap.docs.map(enrichComment));
+    for (const e of enriched) if (e) console.log(renderComment(e));
     return;
   }
-  for (const doc of snap.docs) {
-    const p = doc.data();
-    const gName = await getGroupName(p.groupId);
-    console.log(`[${fmtTime(p.createdAt)}] [${gName}] 裁き:${p.hogoType || '?'} 理由:${p.hogoReason || '(なし)'}`);
+  if (type === 'all') {
+    // 歌 + 評を時系列でマージ。各コレクションから N 件ずつ取り、全体を時刻順にソート。
+    const [postsSnap, commentsSnap] = await Promise.all([
+      db.collection('posts').orderBy('createdAt', 'desc').limit(n).get(),
+      db.collectionGroup('comments').orderBy('createdAt', 'desc').limit(n).get(),
+    ]);
+    const items = [];
+    for (const doc of postsSnap.docs) items.push({ kind: 'post', doc });
+    for (const doc of commentsSnap.docs) items.push({ kind: 'comment', doc });
+    items.sort((a, b) => {
+      const aT = a.doc.data()?.createdAt?.toMillis?.() || 0;
+      const bT = b.doc.data()?.createdAt?.toMillis?.() || 0;
+      return bT - aT;
+    });
+    const top = items.slice(0, n);
+    for (const item of top) {
+      if (item.kind === 'post') {
+        const e = await enrichPost(item.doc);
+        console.log(renderPost(e));
+      } else {
+        const e = await enrichComment(item.doc);
+        if (e) console.log(renderComment(e));
+      }
+    }
+    return;
   }
+  // 既定: posts
+  const snap = await db.collection('posts').orderBy('createdAt', 'desc').limit(n).get();
+  const enriched = await Promise.all(snap.docs.map(enrichPost));
+  for (const e of enriched) console.log(renderPost(e));
+}
+
+async function cmdWatch(type) {
+  console.log(`監視中 (${type})... (Ctrl+C で終了)\n`);
+  const subscribePosts = () => {
+    let initialized = false;
+    const seen = new Set();
+    db.collection('posts').orderBy('createdAt', 'desc').limit(20).onSnapshot(async (snap) => {
+      if (!initialized) {
+        for (const doc of snap.docs) seen.add(doc.id);
+        initialized = true;
+        return;
+      }
+      for (const change of snap.docChanges()) {
+        if (change.type !== 'added') continue;
+        if (seen.has(change.doc.id)) continue;
+        seen.add(change.doc.id);
+        const e = await enrichPost(change.doc);
+        console.log(renderPost(e));
+      }
+    }, (err) => {
+      console.error('watch posts error:', err.message);
+      process.exit(1);
+    });
+  };
+  const subscribeComments = () => {
+    let initialized = false;
+    const seen = new Set();
+    db.collectionGroup('comments').orderBy('createdAt', 'desc').limit(20).onSnapshot(async (snap) => {
+      if (!initialized) {
+        for (const doc of snap.docs) seen.add(doc.id);
+        initialized = true;
+        return;
+      }
+      for (const change of snap.docChanges()) {
+        if (change.type !== 'added') continue;
+        if (seen.has(change.doc.id)) continue;
+        seen.add(change.doc.id);
+        const e = await enrichComment(change.doc);
+        if (e) console.log(renderComment(e));
+      }
+    }, (err) => {
+      console.error('watch comments error:', err.message);
+      process.exit(1);
+    });
+  };
+  if (type !== 'comments') subscribePosts();
+  if (type !== 'posts') subscribeComments();
+}
+
+async function cmdHogo(type) {
+  const doPosts = async () => {
+    const snap = await db.collection('posts')
+      .where('hogo', '==', true)
+      .orderBy('createdAt', 'desc').limit(100).get();
+    const enriched = await Promise.all(snap.docs.map(enrichPost));
+    for (const e of enriched) console.log(renderPost(e));
+    return snap.size;
+  };
+  const doComments = async () => {
+    const snap = await db.collectionGroup('comments')
+      .where('hogo', '==', true)
+      .orderBy('createdAt', 'desc').limit(100).get();
+    const enriched = await Promise.all(snap.docs.map(enrichComment));
+    for (const e of enriched) if (e) console.log(renderComment(e));
+    return snap.size;
+  };
+  let total = 0;
+  if (type !== 'comments') total += await doPosts();
+  if (type !== 'posts') total += await doComments();
+  if (total === 0) console.log('裁き済みのコンテンツはありません。');
 }
 
 async function cmdGroup(groupId, n) {
@@ -163,10 +376,8 @@ async function cmdGroup(groupId, n) {
     .orderBy('createdAt', 'desc')
     .limit(n)
     .get();
-  for (const doc of postsSnap.docs) {
-    const p = doc.data();
-    console.log(renderPost(p, ''));
-  }
+  const enriched = await Promise.all(postsSnap.docs.map(enrichPost));
+  for (const e of enriched) console.log(renderPost(e));
 }
 
 async function cmdPublic() {
@@ -252,12 +463,18 @@ async function cmdUser(uid, n) {
     return;
   }
   const u = userSnap.data();
-  console.log(`=== ${u.displayName || '(名無し)'} #${u.userCode || '------'} (${uid}) ===`);
+  const primary = await getUserPrimaryLabel(uid);
+  const multiMark = primary.multiGroup ? ' ※歌会ごとに別名あり' : '';
+  console.log(`=== ${primary.displayName}#${primary.userCode} (${uid})${multiMark} ===`);
   if (u.suspended) console.log(`  ⚠ suspended: ${u.suspendedReason || '(理由なし)'} @ ${fmtTime(u.suspendedAt)}`);
   console.log(`  参加歌会: ${(u.joinedGroups || []).length}件`);
   for (const gid of u.joinedGroups || []) {
-    const gName = await getGroupName(gid);
-    console.log(`    - ${gName} (${gid})`);
+    const [gName, info] = await Promise.all([
+      getGroupName(gid),
+      getAuthorInfo(gid, uid),
+    ]);
+    const nameInGroup = info ? ` [${info.displayName}#${info.userCode}]` : '';
+    console.log(`    - ${gName} (${gid})${nameInGroup}`);
   }
   const blockedCount = Object.keys(u.blockedHandles || {}).length;
   const blockedByCount = Object.keys(u.blockedByHandles || {}).length;
@@ -340,13 +557,15 @@ async function cmdRatelimits(dateKey, n) {
 
   console.log(`=== rateLimits ${key} (${userRows.length}人) ===\n`);
 
-  const displayNameCache = new Map();
+  const labelCache = new Map();
   async function labelFor(uid) {
-    if (displayNameCache.has(uid)) return displayNameCache.get(uid);
-    const s = await db.doc(`users/${uid}`).get();
-    const d = s.exists ? s.data() : {};
-    const label = `${d.displayName || '(名無し)'} #${d.userCode || '------'}${d.suspended ? ' [SUSP]' : ''}`;
-    displayNameCache.set(uid, label);
+    if (labelCache.has(uid)) return labelCache.get(uid);
+    const primary = await getUserPrimaryLabel(uid);
+    // suspended 状態は users/{uid} を別途見る（getUserPrimaryLabel は参照してない）
+    const userSnap = await db.doc(`users/${uid}`).get();
+    const susp = userSnap.exists && userSnap.data()?.suspended ? ' [SUSP]' : '';
+    const label = `${primary.displayName}#${primary.userCode}${susp}`;
+    labelCache.set(uid, label);
     return label;
   }
 
@@ -388,7 +607,8 @@ async function cmdSuspend(uid, reason) {
   // 2. Firestore プロフィールを引いて現状表示
   const userSnap = await db.doc(`users/${uid}`).get();
   const u = userSnap.exists ? userSnap.data() : {};
-  const label = `${u.displayName || authUser.displayName || '(名無し)'} #${u.userCode || '------'}`;
+  const primary = await getUserPrimaryLabel(uid);
+  const label = `${primary.displayName}#${primary.userCode}${primary.multiGroup ? ' (歌会ごとに別名あり)' : ''}`;
   console.log(`=== suspend 対象 ===`);
   console.log(`  uid: ${uid}`);
   console.log(`  name: ${label}`);
@@ -435,9 +655,10 @@ async function cmdUnsuspend(uid) {
   }
   const userSnap = await db.doc(`users/${uid}`).get();
   const u = userSnap.exists ? userSnap.data() : {};
+  const primary = await getUserPrimaryLabel(uid);
   console.log(`=== unsuspend 対象 ===`);
   console.log(`  uid: ${uid}`);
-  console.log(`  name: ${u.displayName || '(名無し)'} #${u.userCode || '------'}`);
+  console.log(`  name: ${primary.displayName}#${primary.userCode}${primary.multiGroup ? ' (歌会ごとに別名あり)' : ''}`);
   console.log(`  Firebase Auth disabled: ${authUser.disabled}`);
   console.log(`  Firestore suspended: ${u.suspended ? `true (${u.suspendedReason || ''} @ ${fmtTime(u.suspendedAt)})` : 'false'}`);
   console.log('');
@@ -476,9 +697,10 @@ async function cmdPurge(uid, reason) {
     process.exit(1);
   }
   const u = userSnap.data();
+  const primary = await getUserPrimaryLabel(uid);
   console.log(`=== purge 対象 ===`);
   console.log(`  uid: ${uid}`);
-  console.log(`  name: ${u.displayName || '(名無し)'} #${u.userCode || '------'}`);
+  console.log(`  name: ${primary.displayName}#${primary.userCode}${primary.multiGroup ? ' (歌会ごとに別名あり)' : ''}`);
   console.log(`  suspended: ${u.suspended ? 'true' : 'false'}`);
   console.log(`  理由: ${reason}`);
   console.log(`  mode: ${dryRun ? 'DRY-RUN (書き込みなし)' : '本番実行'}`);
@@ -565,19 +787,119 @@ async function cmdPurge(uid, reason) {
   console.log(`✓ ${processed}件の投稿を反故化しました。`);
 }
 
+// latest / watch / hogo の第 1 引数が `posts` | `comments` | `all` なら type として扱う。
+// 数値や省略時は既存互換で type=posts。N は常にその次の引数 or 単独の数値として解釈。
+function parseTypeAndN(rawArgs, defaultN) {
+  const a0 = rawArgs[0];
+  if (a0 === 'posts' || a0 === 'comments' || a0 === 'all') {
+    return { type: a0, n: parseInt(rawArgs[1]) || defaultN };
+  }
+  return { type: 'posts', n: parseInt(a0) || defaultN };
+}
+
+async function cmdOrphans() {
+  const dryRun = flags.has('--dry-run');
+  console.log(`=== orphan 評スキャン (${dryRun ? 'DRY-RUN' : '本番実行'}) ===`);
+  console.log('全ての評を走査し、作者 users/{authorId} が存在しないものを列挙します。');
+  console.log('');
+
+  // データ構造: posts/{postId}/comments/{commentId}/private/author
+  // コレクション名は `private`（`author` はドキュメント ID）なので
+  // collectionGroup('private') で走査する。
+  const privateSnap = await db.collectionGroup('private').get();
+  console.log(`private サブコレクション ドキュメント総数: ${privateSnap.size}`);
+
+  // 評の author ドキュメントのみ抽出（authorId フィールドを持ち、パスに /comments/ を含む）
+  const commentAuthors = privateSnap.docs.filter((d) =>
+    d.ref.path.includes('/comments/') && d.data()?.authorId
+  );
+  console.log(`評の author: ${commentAuthors.length}`);
+
+  // 作者別にグルーピング（同一作者の複数評を一括判定）
+  const byAuthor = new Map();
+  for (const d of commentAuthors) {
+    const uid = d.data()?.authorId;
+    if (!uid) continue;
+    if (!byAuthor.has(uid)) byAuthor.set(uid, []);
+    byAuthor.get(uid).push(d);
+  }
+  console.log(`ユニーク作者数: ${byAuthor.size}`);
+  console.log('');
+
+  // 各作者の users doc を確認
+  const orphans = [];
+  for (const [uid, docs] of byAuthor) {
+    const userSnap = await db.doc(`users/${uid}`).get();
+    if (!userSnap.exists) {
+      orphans.push({ uid, docs });
+    }
+  }
+
+  if (orphans.length === 0) {
+    console.log('orphan 評はありません。');
+    return;
+  }
+
+  const totalOrphanComments = orphans.reduce((sum, o) => sum + o.docs.length, 0);
+  console.log(`── orphan 作者: ${orphans.length}人 / orphan 評: ${totalOrphanComments}件 ──`);
+  for (const { uid, docs } of orphans) {
+    console.log(`  ${uid}  評${docs.length}件`);
+  }
+  console.log('');
+
+  if (dryRun) {
+    console.log('DRY-RUN モードのため削除しません。');
+    return;
+  }
+
+  const ok = await confirm(`${totalOrphanComments}件の orphan 評を削除しますか？`);
+  if (!ok) {
+    console.log('中止しました。');
+    return;
+  }
+
+  let processed = 0;
+  for (const { docs } of orphans) {
+    for (const authorDoc of docs) {
+      const path = authorDoc.ref.path;
+      try {
+        const parts = path.split('/');
+        const postId = parts[1];
+        const commentId = parts[3];
+        await authorDoc.ref.delete();
+        await db.doc(`posts/${postId}/comments/${commentId}`).delete();
+        // commentCount をデクリメント（post が存在する場合のみ）
+        await db.doc(`posts/${postId}`).update({
+          commentCount: admin.firestore.FieldValue.increment(-1),
+        }).catch(() => {});
+        processed++;
+      } catch (e) {
+        console.error(`  failed: ${path}`, e.message);
+      }
+    }
+  }
+  console.log(`✓ ${processed}/${totalOrphanComments} 件の orphan 評を削除しました。`);
+}
+
 async function main() {
   try {
     switch (cmd) {
-      case 'latest':
-        await cmdLatest(parseInt(args[0]) || 50);
+      case 'latest': {
+        const { type, n } = parseTypeAndN(args, 50);
+        await cmdLatest(type, n);
         process.exit(0);
-      case 'watch':
-        await cmdWatch();
+      }
+      case 'watch': {
+        const { type } = parseTypeAndN(args, 0);
+        await cmdWatch(type);
         // watch は onSnapshot で常駐
         break;
-      case 'hogo':
-        await cmdHogo();
+      }
+      case 'hogo': {
+        const { type } = parseTypeAndN(args, 0);
+        await cmdHogo(type);
         process.exit(0);
+      }
       case 'group':
         await cmdGroup(args[0], parseInt(args[1]) || 30);
         process.exit(0);
@@ -609,12 +931,16 @@ async function main() {
       case 'purge':
         await cmdPurge(args[0], args.slice(1).join(' '));
         process.exit(0);
+      case 'orphans':
+        await cmdOrphans();
+        process.exit(0);
       default:
         console.error('使い方: node scripts/monitor.js <command> [args]');
         console.error('');
-        console.error('  latest [N]                   最新N件（デフォルト50）を全歌会から表示');
-        console.error('  watch                        新着投稿をリアルタイム表示（Ctrl+C で終了）');
-        console.error('  hogo                         裁き済み投稿の一覧');
+        console.error('  latest [TYPE] [N]            最新N件（デフォルト50）を全歌会から表示');
+        console.error('                                TYPE: posts(既定) | comments | all');
+        console.error('  watch [TYPE]                 新着をリアルタイム表示（Ctrl+C で終了、TYPEは上に同じ）');
+        console.error('  hogo [TYPE]                  裁き済みコンテンツの一覧（TYPEは上に同じ）');
         console.error('  group <groupId> [N]          指定歌会の最近N件（デフォルト30）');
         console.error('  public                       公開歌会の一覧（趣意書つき）');
         console.error('  reports [N]                  未処理通報の一覧（デフォルト50）+ 複数通報作者サマリ');
@@ -623,13 +949,19 @@ async function main() {
         console.error('  suspend <uid> <reason>       ユーザーを凍結: Auth disabled + refresh token revoke + users/{uid}.suspended 記録');
         console.error('  unsuspend <uid>              凍結解除');
         console.error('  purge <uid> <reason>         指定ユーザーの過去投稿を一括反故化（原文は archivedBody に退避）');
+        console.error('  orphans                      作者 users/{authorId} が存在しない評を検出・削除');
         console.error('');
         console.error('  共通: --yes で確認プロンプトをスキップ');
-        console.error('  purge: --dry-run で書き込みなしプレビューのみ');
+        console.error('  purge / orphans: --dry-run で書き込みなしプレビューのみ');
         process.exit(1);
     }
   } catch (e) {
-    console.error('Error:', e.message);
+    // Firestore の index 不足エラーなどは e.details や e.metadata に
+    // 作成用 URL が入っていることがあるので、あるだけ全部出す。
+    console.error('Error:', e.message || '(no message)');
+    if (e.code !== undefined) console.error('  code:', e.code);
+    if (e.details) console.error('  details:', e.details);
+    if (e.stack) console.error(e.stack);
     process.exit(1);
   }
 }

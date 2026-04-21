@@ -1688,9 +1688,16 @@ export const deleteAccount = onCall(
       } catch { /* 歌会が既に消えているなど */ }
     }
 
-    // 4. ユーザーの評を全削除（collectionGroupでauthor検索）
+    // 4. ユーザーの評を全削除（collectionGroupでprivate/author検索）
+    // NOTE: データ構造は posts/{postId}/comments/{commentId}/private/author なので、
+    // コレクション名は `private`（`author` はドキュメント ID）。
+    // 以前は `collectionGroup("author")` としていたが常に 0 件だったため、
+    // 全ユーザーの評が orphan 化していた。
+    // `collectionGroup('private').where('authorId', '==', uid)` には
+    // `private.authorId` の COLLECTION_GROUP fieldOverride インデックスが必要。
+    // 失敗は握り潰さず console.error に残して再発を検知できるようにする。
     try {
-      const authorSnap = await db.collectionGroup("author")
+      const authorSnap = await db.collectionGroup("private")
         .where("authorId", "==", uid).get();
       for (const authorDoc of authorSnap.docs) {
         const path = authorDoc.ref.path;
@@ -1707,12 +1714,12 @@ export const deleteAccount = onCall(
             commentCount: admin.firestore.FieldValue.increment(-1),
           }).catch(() => {});
           deletedCommentIds.push(commentId);
-        } catch {
-          // 個別の評削除失敗は続行
+        } catch (e) {
+          console.error(`[deleteAccount] comment delete failed path=${path}`, e);
         }
       }
-    } catch {
-      // collectionGroupクエリ失敗は続行
+    } catch (e) {
+      console.error("[deleteAccount] collectionGroup('author') query failed — comments may be orphaned. uid=", uid, e);
     }
 
     // 4b. 他ユーザーのたより通知を「削除済み」にマーク

@@ -14,6 +14,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import crashlytics from '@react-native-firebase/crashlytics';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
@@ -498,7 +499,12 @@ export default function TankaDetailScreen({ route, navigation }: any) {
             (b.createdAt?.toDate?.()?.getTime() || 0) - (a.createdAt?.toDate?.()?.getTime() || 0)
           );
         });
-      }, () => {});
+      }, (err) => {
+        // 評の購読失敗はインデックス不整合や rules 変更など潜在的に重要な兆候。
+        // 黙殺せず Crashlytics にも載せる。
+        console.error('[TankaDetail] comments onSnapshot failed', pid, err);
+        try { crashlytics().recordError(err); } catch {}
+      });
     });
     return () => unsubs.forEach(u => u());
   }, [batchPostIds]);
