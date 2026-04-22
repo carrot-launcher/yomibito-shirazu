@@ -1153,7 +1153,13 @@ export const dissolveGroup = onCall(
             deletedCommentIds.push(commentDoc.id);
           }
 
+          // 著者の myPosts エントリも掃除。残すとゴミデータ（tankaBody のコピーが
+          // 誰からも読まれず Firestore に滞留する）になる。
           const authorSnap = await db.doc(`posts/${postId}/private/author`).get();
+          const authorId = authorSnap.exists ? authorSnap.data()?.authorId : null;
+          if (authorId) {
+            await db.doc(`users/${authorId}/myPosts/${postId}`).delete().catch(() => {});
+          }
           if (authorSnap.exists) await authorSnap.ref.delete();
           await postDoc.ref.delete();
           deletedPostIds.push(postId);
