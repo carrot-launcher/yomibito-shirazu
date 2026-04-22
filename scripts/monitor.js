@@ -51,6 +51,28 @@ function fmtTime(ts) {
   return d.toLocaleString('ja-JP', { hour12: false });
 }
 
+// ANSI カラー。NO_COLOR / FORCE_COLOR 環境変数と TTY 判定に従う。
+const useColor = process.env.NO_COLOR
+  ? false
+  : process.env.FORCE_COLOR
+    ? true
+    : !!process.stdout.isTTY;
+
+const C = useColor
+  ? {
+      reset: '\x1b[0m',
+      bold: '\x1b[1m',
+      dim: '\x1b[2m',
+      red: '\x1b[31m',
+      green: '\x1b[32m',
+      yellow: '\x1b[33m',
+      blue: '\x1b[34m',
+      magenta: '\x1b[35m',
+      cyan: '\x1b[36m',
+      gray: '\x1b[90m',
+    }
+  : { reset: '', bold: '', dim: '', red: '', green: '', yellow: '', blue: '', magenta: '', cyan: '', gray: '' };
+
 // group doc 自体を丸ごとキャッシュする（pastMembers / bannedUsers 参照にも使う）。
 const groupDocCache = new Map();
 async function getGroupDoc(groupId) {
@@ -195,12 +217,18 @@ function renderPost({ p, gId, gName, uid, authorInfo }) {
     flags.push(`裁き:${p.hogoType || '?'}${p.hogoReason ? `(${p.hogoReason})` : ''}`);
   }
   if (p.revealedAuthorName) flags.push(`解題:${p.revealedAuthorName}#${p.revealedAuthorCode || ''}`);
-  const flagStr = flags.length ? ` [${flags.join(' / ')}]` : '';
-  const groupPart = `[${gName} / ${gId || '?'}]`;
+  const flagStr = flags.length ? ` ${C.yellow}[${flags.join(' / ')}]${C.reset}` : '';
+
+  const groupPart = `[${gName}${C.dim} / ${gId || '?'}${C.reset}]`;
   const authorPart = uid
-    ? ` [${authorInfo?.displayName || '(名無し)'}#${authorInfo?.userCode || '------'} / ${uid}]`
-    : ' [作者不明]';
-  return `[${fmtTime(p.createdAt)}] 歌 ${groupPart}${authorPart}${flagStr} ${p.body || '(反故)'}`;
+    ? ` [${authorInfo?.displayName || '(名無し)'}#${authorInfo?.userCode || '------'}${C.dim} / ${uid}${C.reset}]`
+    : ` ${C.dim}[作者不明]${C.reset}`;
+  const bodyStr = p.body
+    ? `${C.bold}${p.body}${C.reset}`
+    : `${C.red}(反故)${C.reset}`;
+  const typeMarker = `${C.cyan}${C.bold}歌${C.reset}`;
+  const timeStr = `${C.dim}[${fmtTime(p.createdAt)}]${C.reset}`;
+  return `${timeStr} ${typeMarker} ${groupPart}${authorPart}${flagStr} ${bodyStr}`;
 }
 
 // 評 (comment) を enrich する。comment は posts/{postId}/comments/{commentId} に
@@ -234,13 +262,19 @@ function renderComment({ c, postBody, gId, gName, uid, authorInfo }) {
   if (c.hogo) {
     flags.push(`裁き:${c.hogoType || '?'}${c.hogoReason ? `(${c.hogoReason})` : ''}`);
   }
-  const flagStr = flags.length ? ` [${flags.join(' / ')}]` : '';
-  const groupPart = `[${gName} / ${gId || '?'}]`;
+  const flagStr = flags.length ? ` ${C.yellow}[${flags.join(' / ')}]${C.reset}` : '';
+
+  const groupPart = `[${gName}${C.dim} / ${gId || '?'}${C.reset}]`;
   const authorPart = uid
-    ? ` [${authorInfo?.displayName || '(名無し)'}#${authorInfo?.userCode || '------'} / ${uid}]`
-    : ' [作者不明]';
-  const postRef = postBody ? `→[${truncate(postBody, 20)}] ` : '→[投稿欠損] ';
-  return `[${fmtTime(c.createdAt)}] 評 ${groupPart}${authorPart}${flagStr} ${postRef}${c.body || '(反故)'}`;
+    ? ` [${authorInfo?.displayName || '(名無し)'}#${authorInfo?.userCode || '------'}${C.dim} / ${uid}${C.reset}]`
+    : ` ${C.dim}[作者不明]${C.reset}`;
+  const postRef = `${C.dim}→[${postBody ? truncate(postBody, 20) : '投稿欠損'}]${C.reset} `;
+  const bodyStr = c.body
+    ? `${C.bold}${c.body}${C.reset}`
+    : `${C.red}(反故)${C.reset}`;
+  const typeMarker = `${C.magenta}${C.bold}評${C.reset}`;
+  const timeStr = `${C.dim}[${fmtTime(c.createdAt)}]${C.reset}`;
+  return `${timeStr} ${typeMarker} ${groupPart}${authorPart}${flagStr} ${postRef}${bodyStr}`;
 }
 
 async function cmdLatest(type, n) {
@@ -284,7 +318,7 @@ async function cmdLatest(type, n) {
 }
 
 async function cmdWatch(type) {
-  console.log(`監視中 (${type})... (Ctrl+C で終了)\n`);
+  console.log(`${C.green}監視中${C.reset} (${C.cyan}${type}${C.reset})... ${C.dim}(Ctrl+C で終了)${C.reset}\n`);
   const subscribePosts = () => {
     let initialized = false;
     const seen = new Set();
@@ -365,11 +399,11 @@ async function cmdGroup(groupId, n) {
     return;
   }
   const g = groupSnap.data();
-  console.log(`=== ${g.name} (${groupId}) ===`);
-  console.log(`  種類: ${g.isPublic ? '公開' : '非公開'}`);
-  console.log(`  主宰: ${g.ownerDisplayName || '?'} #${g.ownerUserCode || '?'}`);
-  console.log(`  メンバー数: ${g.memberCount || 0} / 投稿数: ${g.postCount || 0}`);
-  if (g.purpose) console.log(`  趣意: ${g.purpose}`);
+  console.log(`${C.cyan}${C.bold}=== ${g.name}${C.reset}${C.dim} (${groupId})${C.reset} ${C.cyan}${C.bold}===${C.reset}`);
+  console.log(`  ${C.dim}種類:${C.reset} ${g.isPublic ? C.green + '公開' + C.reset : '非公開'}`);
+  console.log(`  ${C.dim}主宰:${C.reset} ${g.ownerDisplayName || '?'} #${g.ownerUserCode || '?'}`);
+  console.log(`  ${C.dim}メンバー数:${C.reset} ${g.memberCount || 0} ${C.dim}/${C.reset} ${C.dim}投稿数:${C.reset} ${g.postCount || 0}`);
+  if (g.purpose) console.log(`  ${C.dim}趣意:${C.reset} ${g.purpose}`);
   console.log('');
   const postsSnap = await db.collection('posts')
     .where('groupId', '==', groupId)
@@ -391,10 +425,10 @@ async function cmdPublic() {
   }
   for (const doc of snap.docs) {
     const g = doc.data();
-    console.log(`── ${g.name} (${doc.id})`);
-    console.log(`   主宰: ${g.ownerDisplayName || '?'} #${g.ownerUserCode || '?'}`);
-    console.log(`   ${g.memberCount || 0}人 / ${g.postCount || 0}首`);
-    if (g.purpose) console.log(`   趣意: ${g.purpose}`);
+    console.log(`${C.cyan}${C.bold}── ${g.name}${C.reset} ${C.dim}(${doc.id})${C.reset}`);
+    console.log(`   ${C.dim}主宰:${C.reset} ${g.ownerDisplayName || '?'} #${g.ownerUserCode || '?'}`);
+    console.log(`   ${g.memberCount || 0}${C.dim}人 / ${C.reset}${g.postCount || 0}${C.dim}首${C.reset}`);
+    if (g.purpose) console.log(`   ${C.dim}趣意:${C.reset} ${g.purpose}`);
     console.log('');
   }
 }
@@ -427,13 +461,22 @@ async function cmdReports(n) {
   for (const { id, r, gName, authorId, content } of enriched) {
     const body = content?.body || '(反故)';
     const reportCount = content?.reportCount ?? '?';
-    const hogo = content?.hogo ? ` 裁き:${content.hogoType || '?'}` : '';
-    console.log(`[${fmtTime(r.createdAt)}] [${gName}] ${r.targetType}${hogo}`);
-    console.log(`  通報理由: ${r.reason}${r.detail ? ` / ${truncate(r.detail, 60)}` : ''}`);
-    console.log(`  対象: ${truncate(body, 60)} (通報数:${reportCount})`);
-    console.log(`  作者uid: ${authorId || '(取得不可)'}`);
-    console.log(`  通報者uid: ${r.reporterId}`);
-    console.log(`  reportId: ${id}`);
+    const hogo = content?.hogo ? ` ${C.yellow}裁き:${content.hogoType || '?'}${C.reset}` : '';
+    const typeMarker = r.targetType === 'comment'
+      ? `${C.magenta}${C.bold}評${C.reset}`
+      : `${C.cyan}${C.bold}歌${C.reset}`;
+    const countColored = typeof reportCount === 'number'
+      ? (reportCount >= 3 ? `${C.red}${reportCount}${C.reset}` : `${C.yellow}${reportCount}${C.reset}`)
+      : reportCount;
+    const bodyStr = content?.body
+      ? `${C.bold}${truncate(body, 60)}${C.reset}`
+      : `${C.red}${body}${C.reset}`;
+    console.log(`${C.dim}[${fmtTime(r.createdAt)}]${C.reset} [${gName}] ${typeMarker}${hogo}`);
+    console.log(`  ${C.dim}通報理由:${C.reset} ${C.yellow}${r.reason}${C.reset}${r.detail ? ` / ${truncate(r.detail, 60)}` : ''}`);
+    console.log(`  ${C.dim}対象:${C.reset} ${bodyStr} ${C.dim}(通報数:${C.reset}${countColored}${C.dim})${C.reset}`);
+    console.log(`  ${C.dim}作者uid:${C.reset} ${authorId || C.dim + '(取得不可)' + C.reset}`);
+    console.log(`  ${C.dim}通報者uid: ${r.reporterId}${C.reset}`);
+    console.log(`  ${C.dim}reportId: ${id}${C.reset}`);
     console.log('');
   }
 
@@ -445,9 +488,9 @@ async function cmdReports(n) {
   }
   const multi = [...byAuthor.entries()].filter(([, c]) => c >= 2).sort((a, b) => b[1] - a[1]);
   if (multi.length) {
-    console.log('── 複数通報されている作者 ──');
+    console.log(`${C.yellow}── 複数通報されている作者 ──${C.reset}`);
     for (const [uid, count] of multi) {
-      console.log(`  ${uid}  (${count}件)`);
+      console.log(`  ${uid}  ${C.red}(${count}件)${C.reset}`);
     }
   }
 }
@@ -464,21 +507,23 @@ async function cmdUser(uid, n) {
   }
   const u = userSnap.data();
   const primary = await getUserPrimaryLabel(uid);
-  const multiMark = primary.multiGroup ? ' ※歌会ごとに別名あり' : '';
-  console.log(`=== ${primary.displayName}#${primary.userCode} (${uid})${multiMark} ===`);
-  if (u.suspended) console.log(`  ⚠ suspended: ${u.suspendedReason || '(理由なし)'} @ ${fmtTime(u.suspendedAt)}`);
-  console.log(`  参加歌会: ${(u.joinedGroups || []).length}件`);
+  const multiMark = primary.multiGroup ? ` ${C.dim}※歌会ごとに別名あり${C.reset}` : '';
+  console.log(`${C.cyan}${C.bold}=== ${primary.displayName}#${primary.userCode}${C.reset}${C.dim} (${uid})${C.reset}${multiMark} ${C.cyan}${C.bold}===${C.reset}`);
+  if (u.suspended) {
+    console.log(`  ${C.red}${C.bold}⚠ suspended:${C.reset} ${C.red}${u.suspendedReason || '(理由なし)'}${C.reset} ${C.dim}@ ${fmtTime(u.suspendedAt)}${C.reset}`);
+  }
+  console.log(`  ${C.dim}参加歌会:${C.reset} ${(u.joinedGroups || []).length}件`);
   for (const gid of u.joinedGroups || []) {
     const [gName, info] = await Promise.all([
       getGroupName(gid),
       getAuthorInfo(gid, uid),
     ]);
-    const nameInGroup = info ? ` [${info.displayName}#${info.userCode}]` : '';
-    console.log(`    - ${gName} (${gid})${nameInGroup}`);
+    const nameInGroup = info ? ` ${C.dim}[${info.displayName}#${info.userCode}]${C.reset}` : '';
+    console.log(`    - ${gName} ${C.dim}(${gid})${C.reset}${nameInGroup}`);
   }
   const blockedCount = Object.keys(u.blockedHandles || {}).length;
   const blockedByCount = Object.keys(u.blockedByHandles || {}).length;
-  console.log(`  ブロック: 自分が${blockedCount}人 / 自分が${blockedByCount}人に`);
+  console.log(`  ${C.dim}ブロック:${C.reset} 自分が${blockedCount}人 ${C.dim}/${C.reset} 自分が${blockedByCount}人に`);
   console.log('');
 
   // 直近 N 件の自分の歌
@@ -486,17 +531,20 @@ async function cmdUser(uid, n) {
     .orderBy('createdAt', 'desc')
     .limit(n)
     .get();
-  console.log(`── 直近の歌 (${postsSnap.size}件) ──`);
+  console.log(`${C.gray}── 直近の歌 (${postsSnap.size}件) ──${C.reset}`);
   for (const d of postsSnap.docs) {
     const my = d.data();
     const postSnap = await db.doc(`posts/${my.postId}`).get();
     const p = postSnap.exists ? postSnap.data() : null;
     const status = !postSnap.exists
-      ? '(削除済み)'
+      ? `${C.dim}(削除済み)${C.reset}`
       : p.hogo
-        ? `裁き:${p.hogoType || '?'} 通報数:${p.reportCount || 0}`
-        : `通報数:${p.reportCount || 0}`;
-    console.log(`  [${fmtTime(my.createdAt)}] [${my.groupName || '?'}] ${status} ${truncate(my.tankaBody || '', 50)}`);
+        ? `${C.yellow}裁き:${p.hogoType || '?'}${C.reset} ${C.dim}通報数:${p.reportCount || 0}${C.reset}`
+        : `${C.dim}通報数:${p.reportCount || 0}${C.reset}`;
+    const bodyStr = my.tankaBody
+      ? `${C.bold}${truncate(my.tankaBody, 50)}${C.reset}`
+      : `${C.dim}(空)${C.reset}`;
+    console.log(`  ${C.dim}[${fmtTime(my.createdAt)}]${C.reset} [${my.groupName || '?'}] ${status} ${bodyStr}`);
   }
   console.log('');
 
@@ -504,9 +552,9 @@ async function cmdUser(uid, n) {
   // document ID（YYYY-MM-DD）でしかソートできず、降順は Firestore がインデックス要求してくるため
   // 全件取ってクライアント側で降順ソートする。1ユーザーあたり高々数十件なので問題なし。
   const dailySnap = await db.collection(`rateLimits/${uid}/daily`).get();
-  console.log(`── 直近の rateLimits (最大7日) ──`);
+  console.log(`${C.gray}── 直近の rateLimits (最大7日) ──${C.reset}`);
   if (dailySnap.empty) {
-    console.log('  (データなし)');
+    console.log(`  ${C.dim}(データなし)${C.reset}`);
   } else {
     const sorted = dailySnap.docs
       .slice()
@@ -514,7 +562,7 @@ async function cmdUser(uid, n) {
       .slice(0, 7);
     for (const d of sorted) {
       const r = d.data();
-      console.log(`  ${d.id}  投稿:${r.postCount || 0} 評:${r.commentCount || 0} 通報発信:${r.reportCount || 0}`);
+      console.log(`  ${C.dim}${d.id}${C.reset}  投稿:${r.postCount || 0} 評:${r.commentCount || 0} 通報発信:${r.reportCount || 0}`);
     }
   }
   console.log('');
@@ -525,13 +573,15 @@ async function cmdUser(uid, n) {
     .orderBy('createdAt', 'desc')
     .limit(10)
     .get();
-  console.log(`── 本人が発した通報 (直近10件) ──`);
+  console.log(`${C.gray}── 本人が発した通報 (直近10件) ──${C.reset}`);
   if (filedSnap.empty) {
-    console.log('  (なし)');
+    console.log(`  ${C.dim}(なし)${C.reset}`);
   } else {
     for (const d of filedSnap.docs) {
       const r = d.data();
-      console.log(`  [${fmtTime(r.createdAt)}] status:${r.status} ${r.targetType} 理由:${r.reason}`);
+      const statusColored = r.status === 'pending' ? `${C.yellow}${r.status}${C.reset}` : `${C.green}${r.status}${C.reset}`;
+      const typeMarker = r.targetType === 'comment' ? `${C.magenta}評${C.reset}` : `${C.cyan}歌${C.reset}`;
+      console.log(`  ${C.dim}[${fmtTime(r.createdAt)}]${C.reset} status:${statusColored} ${typeMarker} ${C.dim}理由:${C.reset}${C.yellow}${r.reason}${C.reset}`);
     }
   }
 }
@@ -555,7 +605,7 @@ async function cmdRatelimits(dateKey, n) {
     return;
   }
 
-  console.log(`=== rateLimits ${key} (${userRows.length}人) ===\n`);
+  console.log(`${C.cyan}${C.bold}=== rateLimits ${key}${C.reset} ${C.dim}(${userRows.length}人)${C.reset} ${C.cyan}${C.bold}===${C.reset}\n`);
 
   const labelCache = new Map();
   async function labelFor(uid) {
@@ -563,7 +613,7 @@ async function cmdRatelimits(dateKey, n) {
     const primary = await getUserPrimaryLabel(uid);
     // suspended 状態は users/{uid} を別途見る（getUserPrimaryLabel は参照してない）
     const userSnap = await db.doc(`users/${uid}`).get();
-    const susp = userSnap.exists && userSnap.data()?.suspended ? ' [SUSP]' : '';
+    const susp = userSnap.exists && userSnap.data()?.suspended ? ` ${C.red}${C.bold}[SUSP]${C.reset}` : '';
     const label = `${primary.displayName}#${primary.userCode}${susp}`;
     labelCache.set(uid, label);
     return label;
@@ -574,13 +624,20 @@ async function cmdRatelimits(dateKey, n) {
       .filter((r) => (r[field] || 0) > 0)
       .sort((a, b) => (b[field] || 0) - (a[field] || 0))
       .slice(0, n);
-    console.log(`── ${title} Top${n} ──`);
+    console.log(`${C.gray}── ${title} Top${n} ──${C.reset}`);
     if (sorted.length === 0) {
-      console.log('  (該当なし)');
+      console.log(`  ${C.dim}(該当なし)${C.reset}`);
     } else {
       for (const r of sorted) {
         const label = await labelFor(r.uid);
-        console.log(`  ${String(r[field]).padStart(4)}  ${label}  ${r.uid}`);
+        const count = r[field];
+        // 閾値に応じて色付け: 50+ 赤、10+ 黄、それ以外 default
+        const countColored = count >= 50
+          ? `${C.red}${C.bold}${String(count).padStart(4)}${C.reset}`
+          : count >= 10
+            ? `${C.yellow}${String(count).padStart(4)}${C.reset}`
+            : `${String(count).padStart(4)}`;
+        console.log(`  ${countColored}  ${label}  ${C.dim}${r.uid}${C.reset}`);
       }
     }
     console.log('');
