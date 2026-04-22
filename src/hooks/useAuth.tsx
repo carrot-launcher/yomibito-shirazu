@@ -10,10 +10,13 @@ import { getCrashlytics, setUserId as setCrashlyticsUserId } from '@react-native
 import { auth, db } from '../config/firebase';
 
 const crashlyticsInstance = getCrashlytics();
-const messagingInstance = getMessaging();
 
 async function registerForPushNotifications(uid: string) {
   try {
+    // ネイティブブリッジが準備できた後に解決する（モジュールロード時の getMessaging() は
+    // 環境によって失敗することがあるので、関数内で遅延取得する）。
+    const messagingInstance = getMessaging();
+
     // Android通知チャネル設定
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('new-tanka', {
