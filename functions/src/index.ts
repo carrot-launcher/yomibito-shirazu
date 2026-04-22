@@ -329,11 +329,66 @@ async function unmarkNotificationsForComment(
 
 const todayKey = () => _todayKeyPure();
 
+// ===== Cloud Functions の同時実行上限 =====
+// 1 インスタンス = 最大 80 concurrent requests をさばく（2nd gen default）。
+// DDoS やバグ暴発時の費用青天井を防ぐための「天井」として使う。
+// 通常運用ではまず当たらない水準に設定。
+// 個別の関数で別値にしたくなったらインラインで override すれば OK。
+const MAX_INSTANCES_FREQUENT = 20;   // 頻発するユーザー操作・トリガー（投稿/評/リアクション/ログイン時フェッチ等）
+const MAX_INSTANCES_RARE = 5;         // 稀な操作・管理系（解散/退会/削除/裁き/ブロック管理等）
+const MAX_INSTANCES_SCHEDULED = 1;    // スケジュール実行（同時複数起動しない）
+
+// ===== レートリミット設定 =====
+// config/rateLimits ドキュメントで各閾値を上書き可能。値が無ければ以下のデフォルトを使う。
+// Firebase Console から即時調整したい（spam 対策のバースト遮断など）場合に使用。
+// Cloud Functions インスタンスをまたいで 60 秒間キャッシュする。
+// 予期される doc 形式:
+//   config/rateLimits = {
+//     postPerUser: number      // 1ユーザーあたり 1日の投稿上限（既定 30）
+//     postPerGroup: number     // 1歌会あたり 1日の投稿上限（既定 200）
+//     commentPerUser: number   // 1ユーザーあたり 1日の評上限（既定 50）
+//     reportPerUser: number    // 1ユーザーあたり 1日の通報発信上限（既定 20）
+//   }
+const DEFAULT_RATE_LIMITS = {
+  postPerUser: 30,
+  postPerGroup: 200,
+  commentPerUser: 50,
+  reportPerUser: 20,
+};
+type RateLimits = typeof DEFAULT_RATE_LIMITS;
+
+let cachedRateLimits: RateLimits | null = null;
+let cachedRateLimitsAt = 0;
+const RATE_LIMITS_TTL_MS = 60_000;
+
+async function getRateLimits(): Promise<RateLimits> {
+  const now = Date.now();
+  if (cachedRateLimits && now - cachedRateLimitsAt < RATE_LIMITS_TTL_MS) {
+    return cachedRateLimits;
+  }
+  try {
+    const snap = await db.doc("config/rateLimits").get();
+    const d = snap.exists ? (snap.data() || {}) : {};
+    cachedRateLimits = {
+      postPerUser: typeof d.postPerUser === "number" ? d.postPerUser : DEFAULT_RATE_LIMITS.postPerUser,
+      postPerGroup: typeof d.postPerGroup === "number" ? d.postPerGroup : DEFAULT_RATE_LIMITS.postPerGroup,
+      commentPerUser: typeof d.commentPerUser === "number" ? d.commentPerUser : DEFAULT_RATE_LIMITS.commentPerUser,
+      reportPerUser: typeof d.reportPerUser === "number" ? d.reportPerUser : DEFAULT_RATE_LIMITS.reportPerUser,
+    };
+  } catch (e) {
+    // config 読み込み失敗時はデフォルトにフォールバック（動作継続を優先）
+    console.warn("[getRateLimits] config fetch failed, using defaults", e);
+    cachedRateLimits = { ...DEFAULT_RATE_LIMITS };
+  }
+  cachedRateLimitsAt = now;
+  return cachedRateLimits;
+}
+
 /**
  * createPost — 歌の投稿（レートリミット付き）
  */
 export const createPost = onCall(
-  { region: "asia-northeast1", secrets: [OPENAI_API_KEY, AUTHOR_HANDLE_SALT] },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_FREQUENT, secrets: [OPENAI_API_KEY, AUTHOR_HANDLE_SALT] },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
@@ -372,6 +427,7 @@ export const createPost = onCall(
     const today = todayKey();
     const userCounterRef = db.doc(`rateLimits/${uid}/daily/${today}`);
     const groupCounterRef = db.doc(`rateLimits/group_${groupId}/daily/${today}`);
+    const limits = await getRateLimits();
 
     // レートリミット確認 + 投稿作成をトランザクションで
     const postId = await db.runTransaction(async (tx) => {
@@ -380,8 +436,8 @@ export const createPost = onCall(
       const userPostCount = userCounter.data()?.postCount || 0;
       const groupPostCount = groupCounter.data()?.postCount || 0;
 
-      if (userPostCount > 30) throw new HttpsError("resource-exhausted", "本日の投稿上限に達しました");
-      if (groupPostCount > 200) throw new HttpsError("resource-exhausted", "この歌会の本日の投稿上限に達しました");
+      if (userPostCount >= limits.postPerUser) throw new HttpsError("resource-exhausted", "本日の投稿上限に達しました");
+      if (groupPostCount >= limits.postPerGroup) throw new HttpsError("resource-exhausted", "この歌会の本日の投稿上限に達しました");
 
       const postRef = db.collection("posts").doc();
       tx.set(postRef, {
@@ -431,7 +487,7 @@ export const createPost = onCall(
  * createComment — 評の投稿（レートリミット付き）
  */
 export const createComment = onCall(
-  { region: "asia-northeast1", secrets: [OPENAI_API_KEY, AUTHOR_HANDLE_SALT] },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_FREQUENT, secrets: [OPENAI_API_KEY, AUTHOR_HANDLE_SALT] },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
@@ -482,12 +538,13 @@ export const createComment = onCall(
     const authorHandle = deriveAuthorHandle(uid);
     const today = todayKey();
     const userCounterRef = db.doc(`rateLimits/${uid}/daily/${today}`);
+    const limits = await getRateLimits();
 
     const commentId = await db.runTransaction(async (tx) => {
       const userCounter = await tx.get(userCounterRef);
       const commentCount = userCounter.data()?.commentCount || 0;
 
-      if (commentCount > 50) throw new HttpsError("resource-exhausted", "本日の評の上限に達しました");
+      if (commentCount >= limits.commentPerUser) throw new HttpsError("resource-exhausted", "本日の評の上限に達しました");
 
       const commentRef = db.collection(`posts/${postId}/comments`).doc();
       tx.set(commentRef, {
@@ -512,7 +569,7 @@ export const createComment = onCall(
  * createGroup — 歌会の作成（上限チェック付き）
  */
 export const createGroup = onCall(
-  { region: "asia-northeast1" },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_RARE },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
@@ -608,7 +665,7 @@ export const createGroup = onCall(
  * 非メンバーでも呼べる。isPublic===true のグループのみ。
  */
 export const getPublicGroupPreview = onCall(
-  { region: "asia-northeast1" },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_FREQUENT },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
@@ -693,7 +750,7 @@ export const getPublicGroupPreview = onCall(
  * updatePurpose — 公開歌会の趣意書をオーナーが更新
  */
 export const updatePurpose = onCall(
-  { region: "asia-northeast1" },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_RARE },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
@@ -728,7 +785,7 @@ export const updatePurpose = onCall(
  * private/author の作成をトリガーにすることで、post本体が確実に存在する
  */
 export const onNewPost = onDocumentCreated(
-  { document: "posts/{postId}/private/author", region: "asia-northeast1", secrets: [AUTHOR_HANDLE_SALT] },
+  { document: "posts/{postId}/private/author", region: "asia-northeast1", maxInstances: MAX_INSTANCES_FREQUENT, secrets: [AUTHOR_HANDLE_SALT] },
   async (event) => {
     const authorId = event.data?.data()?.authorId;
     const postId = event.params.postId;
@@ -769,6 +826,7 @@ export const onNewReaction = onDocumentCreated(
   {
     document: "posts/{postId}/reactions/{reactionId}",
     region: "asia-northeast1",
+    maxInstances: MAX_INSTANCES_FREQUENT,
     secrets: [AUTHOR_HANDLE_SALT],
   },
   async (event) => {
@@ -811,6 +869,7 @@ export const onNewComment = onDocumentCreated(
   {
     document: "posts/{postId}/comments/{commentId}/private/author",
     region: "asia-northeast1",
+    maxInstances: MAX_INSTANCES_FREQUENT,
     secrets: [AUTHOR_HANDLE_SALT],
   },
   async (event) => {
@@ -855,7 +914,7 @@ export const onNewComment = onDocumentCreated(
  * getReactionDetails — 詠み人のみリアクション詳細を取得
  */
 export const getReactionDetails = onCall(
-  { region: "asia-northeast1" },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_FREQUENT },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const postId = assertDocId(request.data?.postId, "postId");
@@ -881,7 +940,7 @@ export const getReactionDetails = onCall(
  * deletePost — 歌会単位で自分の投稿を削除
  */
 export const deletePost = onCall(
-  { region: "asia-northeast1" },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_RARE },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const postId = assertDocId(request.data?.postId, "postId");
@@ -942,7 +1001,7 @@ export const deletePost = onCall(
  * deleteComment — 自分の評を削除
  */
 export const deleteComment = onCall(
-  { region: "asia-northeast1" },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_RARE },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const postId = assertDocId(request.data?.postId, "postId");
@@ -980,7 +1039,7 @@ export const deleteComment = onCall(
  * 歌会に関するすべてのデータを削除する
  */
 export const dissolveGroup = onCall(
-  { region: "asia-northeast1", timeoutSeconds: 300 },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_RARE, timeoutSeconds: 300 },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const groupId = assertDocId(request.data?.groupId, "groupId");
@@ -1120,7 +1179,7 @@ export const dissolveGroup = onCall(
  * kickMember — メンバーを追放（オーナーのみ）
  */
 export const kickMember = onCall(
-  { region: "asia-northeast1" },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_RARE },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const groupId = assertDocId(request.data?.groupId, "groupId");
@@ -1166,7 +1225,7 @@ export const kickMember = onCall(
  * judgeContent — 歌や評を裁く（戒告・破門）（オーナーのみ）
  */
 export const judgeContent = onCall(
-  { region: "asia-northeast1" },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_RARE },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const groupId = assertDocId(request.data?.groupId, "groupId");
@@ -1483,7 +1542,7 @@ async function createBanNotification(
  * オーナーは解散 UI を使う必要があるためここでは退会不可。
  */
 export const leaveGroup = onCall(
-  { region: "asia-northeast1" },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_RARE },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
@@ -1523,7 +1582,7 @@ export const leaveGroup = onCall(
  * unbanMember — 追放解除（オーナーのみ）
  */
 export const unbanMember = onCall(
-  { region: "asia-northeast1" },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_RARE },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const groupId = assertDocId(request.data?.groupId, "groupId");
@@ -1547,7 +1606,7 @@ export const unbanMember = onCall(
  * revealAuthor — 解題（作者名の開示）
  */
 export const revealAuthor = onCall(
-  { region: "asia-northeast1" },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_RARE },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const postId = assertDocId(request.data?.postId, "postId");
@@ -1582,7 +1641,7 @@ export const revealAuthor = onCall(
  * deleteAccount — アカウント削除とデータ消去
  */
 export const deleteAccount = onCall(
-  { region: "asia-northeast1", timeoutSeconds: 300 },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_RARE, timeoutSeconds: 300 },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
@@ -1795,7 +1854,7 @@ export const deleteAccount = onCall(
 // ===== 通報（全ユーザー開放） =====
 
 const REPORT_REASONS = ["inappropriate", "spam", "harassment", "other"] as const;
-const REPORT_DAILY_LIMIT = 20;
+// 1日の通報上限は getRateLimits() から取得（config/rateLimits.reportPerUser で調整可能、既定20）。
 const AUTO_PENDING_THRESHOLD = 2;
 
 /**
@@ -1806,7 +1865,7 @@ const AUTO_PENDING_THRESHOLD = 2;
  *  - ユニーク reporter が閾値に達すると自動で hogo=true, hogoType='pending'
  */
 export const reportContent = onCall(
-  { region: "asia-northeast1" },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_FREQUENT },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
@@ -1862,12 +1921,13 @@ export const reportContent = onCall(
     const reporterRateRef = db.doc(`rateLimits/${uid}/daily/${today}`);
     const reportRef = db.collection("reports").doc();
     const contentRef = db.doc(contentPath);
+    const limits = await getRateLimits();
 
     // トランザクション: レート制限確認 + reports 作成 + reportCount インクリメント + 閾値到達なら pending 化
     const willBecomePending = await db.runTransaction(async (tx) => {
       const rateSnap = await tx.get(reporterRateRef);
       const reportCount = (rateSnap.data()?.reportCount as number) || 0;
-      if (reportCount >= REPORT_DAILY_LIMIT) {
+      if (reportCount >= limits.reportPerUser) {
         throw new HttpsError("resource-exhausted", "本日の通報上限に達しました");
       }
 
@@ -2023,7 +2083,7 @@ const BLOCK_LIMIT = 200;
  *   - 自投稿を除外するためのクライアント側フィルタに必要
  */
 export const getMyAuthorHandle = onCall(
-  { region: "asia-northeast1", secrets: [AUTHOR_HANDLE_SALT] },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_FREQUENT, secrets: [AUTHOR_HANDLE_SALT] },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     return { handle: deriveAuthorHandle(request.auth.uid) };
@@ -2038,7 +2098,7 @@ export const getMyAuthorHandle = onCall(
  *   - ルールで reactions/comments 作成を相互に遮断できるようにする
  */
 export const blockAuthor = onCall(
-  { region: "asia-northeast1", secrets: [AUTHOR_HANDLE_SALT] },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_FREQUENT, secrets: [AUTHOR_HANDLE_SALT] },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
@@ -2117,7 +2177,7 @@ export const blockAuthor = onCall(
  *   - blocker.blockedHandles[handle] から targetUid を取り出して相手側も掃除
  */
 export const unblockAuthor = onCall(
-  { region: "asia-northeast1", secrets: [AUTHOR_HANDLE_SALT] },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_FREQUENT, secrets: [AUTHOR_HANDLE_SALT] },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const uid = request.auth.uid;
@@ -2149,7 +2209,7 @@ export const unblockAuthor = onCall(
  *  - 関連する reports の status を 'resolved' にする
  */
 export const resolveReports = onCall(
-  { region: "asia-northeast1" },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_RARE },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const groupId = assertDocId(request.data?.groupId, "groupId");
@@ -2222,7 +2282,7 @@ export const resolveReports = onCall(
  *  - hogoType === 'pending' のコンテンツに限定
  */
 export const getArchivedBody = onCall(
-  { region: "asia-northeast1" },
+  { region: "asia-northeast1", maxInstances: MAX_INSTANCES_RARE },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "ログインが必要です");
     const groupId = assertDocId(request.data?.groupId, "groupId");
@@ -2271,6 +2331,7 @@ export const cleanupNotifications = onSchedule(
     region: "asia-northeast1",
     timeoutSeconds: 540,
     memory: "512MiB",
+    maxInstances: MAX_INSTANCES_SCHEDULED,
   },
   async () => {
     const usersSnap = await db.collection("users").get();
