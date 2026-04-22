@@ -15,8 +15,34 @@
 //   node scripts/monitor.js unsuspend <uid> [--yes]
 //   node scripts/monitor.js purge <uid> <reason> [--yes] [--dry-run]
 //   node scripts/monitor.js orphans [--yes] [--dry-run]
+//   node scripts/monitor.js triage
 const admin = require('firebase-admin');
 const readline = require('readline');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+// triage の「前回どこまで見たか」を保存するキャッシュファイル。
+const TRIAGE_STATE_DIR = path.join(os.homedir(), '.cache', 'yomibito-monitor');
+const TRIAGE_STATE_FILE = path.join(TRIAGE_STATE_DIR, 'triage-state.json');
+
+function loadTriageState() {
+  try {
+    const raw = fs.readFileSync(TRIAGE_STATE_FILE, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return { lastSeenPostAt: 0, lastSeenReportAt: 0 };
+  }
+}
+
+function saveTriageState(state) {
+  try {
+    fs.mkdirSync(TRIAGE_STATE_DIR, { recursive: true });
+    fs.writeFileSync(TRIAGE_STATE_FILE, JSON.stringify(state, null, 2));
+  } catch (e) {
+    console.error('[triage] state save failed', e.message);
+  }
+}
 
 if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
   console.error('環境変数 GOOGLE_APPLICATION_CREDENTIALS にサービスアカウントキーのパスを設定してください。');
@@ -33,12 +59,13 @@ const positional = rawArgs.filter((a) => !a.startsWith('--'));
 const cmd = process.argv[2];
 const args = positional;
 
-function confirm(message) {
+function confirm(message, existingRl) {
   if (flags.has('--yes')) return Promise.resolve(true);
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const rl = existingRl || readline.createInterface({ input: process.stdin, output: process.stdout });
+  const ownRl = !existingRl;
   return new Promise((resolve) => {
     rl.question(`${message} [y/N]: `, (ans) => {
-      rl.close();
+      if (ownRl) rl.close();
       const a = (ans || '').trim().toLowerCase();
       resolve(a === 'y' || a === 'yes');
     });
@@ -648,7 +675,7 @@ async function cmdRatelimits(dateKey, n) {
   await renderTop('通報発信数', 'reportCount');
 }
 
-async function cmdSuspend(uid, reason) {
+async function cmdSuspend(uid, reason, rl) {
   if (!uid || !reason) {
     console.error('使い方: node monitor.js suspend <uid> <reason> [--yes]');
     process.exit(1);
@@ -682,7 +709,7 @@ async function cmdSuspend(uid, reason) {
   console.log('  ※ 発行済み ID トークンは最長 ~1 時間有効なため、即時サインアウトにはならない');
   console.log('');
 
-  const ok = await confirm('実行しますか？');
+  const ok = await confirm('実行しますか？', rl);
   if (!ok) {
     console.log('中止しました。');
     return;
@@ -698,7 +725,7 @@ async function cmdSuspend(uid, reason) {
   console.log(`✓ ${uid} を suspend しました。`);
 }
 
-async function cmdUnsuspend(uid) {
+async function cmdUnsuspend(uid, rl) {
   if (!uid) {
     console.error('使い方: node monitor.js unsuspend <uid> [--yes]');
     process.exit(1);
@@ -725,7 +752,7 @@ async function cmdUnsuspend(uid) {
     return;
   }
 
-  const ok = await confirm('unsuspend（凍結解除）を実行しますか？');
+  const ok = await confirm('unsuspend（凍結解除）を実行しますか？', rl);
   if (!ok) {
     console.log('中止しました。');
     return;
@@ -741,7 +768,7 @@ async function cmdUnsuspend(uid) {
   console.log(`✓ ${uid} を unsuspend しました。`);
 }
 
-async function cmdPurge(uid, reason) {
+async function cmdPurge(uid, reason, rl) {
   if (!uid || !reason) {
     console.error('使い方: node monitor.js purge <uid> <reason> [--yes] [--dry-run]');
     process.exit(1);
@@ -813,7 +840,7 @@ async function cmdPurge(uid, reason) {
     return;
   }
 
-  const ok = await confirm(`${toPurge.length}件の投稿を反故化します。実行しますか？`);
+  const ok = await confirm(`${toPurge.length}件の投稿を反故化します。実行しますか？`, rl);
   if (!ok) {
     console.log('中止しました。');
     return;
@@ -985,6 +1012,355 @@ async function cmdOrphans() {
   console.log(`✓ ${processed}/${total} 件の orphan を削除しました。`);
 }
 
+// ===== triage: インタラクティブな管理 REPL =====
+//
+// posts ビュー: 歌 + 評 を時系列マージして表示。既読は dim 化。
+// reports ビュー: 未処理通報を表示。
+// 各行に [N] インデックスが振られ、1 user / 1 suspend "..." のように
+// 行番号 + アクションで既存コマンドに委譲する。
+
+function parseTriageLine(line) {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+  const m = trimmed.match(/^(\d+)\s+(\w+)(?:\s+(.+))?$/);
+  if (m) {
+    let args = m[3];
+    if (args) args = args.replace(/^["'](.*)["']$/, '$1');
+    return { type: 'row', n: parseInt(m[1]), action: m[2].toLowerCase(), args };
+  }
+  return { type: 'cmd', cmd: trimmed.toLowerCase() };
+}
+
+// ANSI を全て剥がして dim でラップする。既読行の表示用。
+function toDim(text) {
+  return `${C.dim}${text.replace(/\x1b\[[0-9;]*m/g, '')}${C.reset}`;
+}
+
+// 改行を含む本文を 1 行に compress（triage の 1行1件表示を崩さないため）。
+function flattenBody(body) {
+  return (body || '').replace(/[\r\n]+/g, ' / ').replace(/\s+/g, ' ').trim();
+}
+
+// triage 行レンダラ。メタ情報を前に、本文の直前に [N] を再掲する。
+// 左端にも [N] を付ける（renderPage 側）ので、行番号が 2 箇所に現れて
+// 「番号 → 長いメタ → 番号 → 本文」で視線が迷いにくい。
+function renderTriagePost({ p, gId, gName, uid, authorInfo }, n) {
+  const flags = [];
+  if (p.hogo) flags.push(`裁き:${p.hogoType || '?'}${p.hogoReason ? `(${p.hogoReason})` : ''}`);
+  if (p.revealedAuthorName) flags.push(`解題:${p.revealedAuthorName}#${p.revealedAuthorCode || ''}`);
+  const flagStr = flags.length ? ` ${C.yellow}[${flags.join(' / ')}]${C.reset}` : '';
+  const groupPart = `[${gName}${C.dim} / ${gId || '?'}${C.reset}]`;
+  const authorPart = uid
+    ? ` [${authorInfo?.displayName || '(名無し)'}#${authorInfo?.userCode || '------'}${C.dim} / ${uid}${C.reset}]`
+    : ` ${C.dim}[作者不明]${C.reset}`;
+  const bodyStr = p.body
+    ? `${C.bold}${flattenBody(p.body)}${C.reset}`
+    : `${C.red}(反故)${C.reset}`;
+  const typeMarker = `${C.cyan}${C.bold}歌${C.reset}`;
+  const timeStr = `${C.dim}[${fmtTime(p.createdAt)}]${C.reset}`;
+  const inlineN = `${C.bold}[${String(n).padStart(2)}]${C.reset}`;
+  return `${timeStr} ${typeMarker} ${groupPart}${authorPart}${flagStr} ${inlineN} ${bodyStr}`;
+}
+
+function renderTriageComment({ c, postBody, gId, gName, uid, authorInfo }, n) {
+  const flags = [];
+  if (c.hogo) flags.push(`裁き:${c.hogoType || '?'}${c.hogoReason ? `(${c.hogoReason})` : ''}`);
+  const flagStr = flags.length ? ` ${C.yellow}[${flags.join(' / ')}]${C.reset}` : '';
+  const groupPart = `[${gName}${C.dim} / ${gId || '?'}${C.reset}]`;
+  const authorPart = uid
+    ? ` [${authorInfo?.displayName || '(名無し)'}#${authorInfo?.userCode || '------'}${C.dim} / ${uid}${C.reset}]`
+    : ` ${C.dim}[作者不明]${C.reset}`;
+  const postRef = `${C.dim}→[${postBody ? truncate(flattenBody(postBody), 20) : '投稿欠損'}]${C.reset}`;
+  const bodyStr = c.body
+    ? `${C.bold}${flattenBody(c.body)}${C.reset}`
+    : `${C.red}(反故)${C.reset}`;
+  const typeMarker = `${C.magenta}${C.bold}評${C.reset}`;
+  const timeStr = `${C.dim}[${fmtTime(c.createdAt)}]${C.reset}`;
+  const inlineN = `${C.bold}[${String(n).padStart(2)}]${C.reset}`;
+  return `${timeStr} ${typeMarker} ${groupPart}${authorPart}${flagStr} ${postRef} ${inlineN} ${bodyStr}`;
+}
+
+async function cmdTriage() {
+  const state = loadTriageState();
+  let view = 'posts'; // 'posts' | 'reports'
+  let items = [];
+  let page = 0;
+  const PAGE_SIZE = 20;
+  const suspendedCache = new Map(); // uid -> boolean
+
+  async function enrichSuspendedState(list) {
+    const uids = [...new Set(list.map((i) => i.uid).filter(Boolean))];
+    const toFetch = uids.filter((u) => !suspendedCache.has(u));
+    await Promise.all(toFetch.map(async (uid) => {
+      try {
+        const s = await db.doc(`users/${uid}`).get();
+        suspendedCache.set(uid, s.exists && !!s.data()?.suspended);
+      } catch {
+        suspendedCache.set(uid, false);
+      }
+    }));
+    for (const item of list) {
+      item.isSuspended = item.uid ? !!suspendedCache.get(item.uid) : false;
+    }
+  }
+
+  async function loadPosts() {
+    // 投稿 + 評を各 100 件取り、時系列で merge。反故も含む。
+    const [postsSnap, commentsSnap] = await Promise.all([
+      db.collection('posts').orderBy('createdAt', 'desc').limit(100).get(),
+      db.collectionGroup('comments').orderBy('createdAt', 'desc').limit(100).get(),
+    ]);
+    const raw = [];
+    for (const d of postsSnap.docs) raw.push({ kind: 'post', doc: d });
+    for (const d of commentsSnap.docs) raw.push({ kind: 'comment', doc: d });
+    raw.sort((a, b) => {
+      const at = a.doc.data()?.createdAt?.toMillis?.() || 0;
+      const bt = b.doc.data()?.createdAt?.toMillis?.() || 0;
+      return bt - at;
+    });
+    const enriched = await Promise.all(raw.map(async (it) => {
+      const e = it.kind === 'post' ? await enrichPost(it.doc) : await enrichComment(it.doc);
+      if (!e) return null;
+      return { ...e, kind: it.kind, createdAtMs: it.doc.data()?.createdAt?.toMillis?.() || 0 };
+    }));
+    items = enriched.filter(Boolean);
+    await enrichSuspendedState(items);
+  }
+
+  async function loadReports() {
+    const snap = await db.collection('reports')
+      .where('status', '==', 'pending')
+      .orderBy('createdAt', 'desc')
+      .limit(100)
+      .get();
+    const enriched = await Promise.all(snap.docs.map(async (d) => {
+      const r = d.data();
+      const [gName, authorId, contentSnap] = await Promise.all([
+        getGroupName(r.groupId),
+        getContentAuthorId({ targetType: r.targetType, targetId: r.targetId, postId: r.postId }),
+        (r.targetType === 'comment'
+          ? db.doc(`posts/${r.postId}/comments/${r.targetId}`).get()
+          : db.doc(`posts/${r.targetId}`).get()),
+      ]);
+      const content = contentSnap.exists ? contentSnap.data() : null;
+      const authorInfo = authorId ? await getAuthorInfo(r.groupId, authorId) : null;
+      return {
+        kind: 'report',
+        reportId: d.id,
+        r,
+        gName,
+        gId: r.groupId,
+        uid: authorId,
+        authorInfo,
+        content,
+        createdAtMs: r.createdAt?.toMillis?.() || 0,
+      };
+    }));
+    items = enriched;
+    await enrichSuspendedState(items);
+  }
+
+  async function reload() {
+    console.log(`${C.dim}読み込み中...${C.reset}`);
+    if (view === 'posts') await loadPosts();
+    else await loadReports();
+    page = 0;
+  }
+
+  function renderReportRow(item, n) {
+    const r = item.r;
+    const typeMarker = r.targetType === 'comment'
+      ? `${C.magenta}${C.bold}評${C.reset}`
+      : `${C.cyan}${C.bold}歌${C.reset}`;
+    const bodyStr = item.content?.body
+      ? `${C.bold}${flattenBody(item.content.body)}${C.reset}`
+      : `${C.red}(反故)${C.reset}`;
+    const authorStr = item.uid
+      ? `[${item.authorInfo?.displayName || '(名無し)'}#${item.authorInfo?.userCode || '------'}${C.dim} / ${item.uid}${C.reset}]`
+      : `${C.dim}[作者不明]${C.reset}`;
+    const count = item.content?.reportCount ?? '?';
+    const countStr = typeof count === 'number' && count >= 3
+      ? `${C.red}${count}${C.reset}`
+      : `${C.yellow}${count}${C.reset}`;
+    const detail = r.detail ? ` / ${truncate(r.detail, 30)}` : '';
+    const groupPart = `[${item.gName}${C.dim} / ${item.gId || '?'}${C.reset}]`;
+    const timeStr = `${C.dim}[${fmtTime(r.createdAt)}]${C.reset}`;
+    const inlineN = `${C.bold}[${String(n).padStart(2)}]${C.reset}`;
+    return `${timeStr} ${typeMarker} ${groupPart} ${authorStr} ${C.yellow}reason:${r.reason}${C.reset}${detail} ${C.dim}通報:${C.reset}${countStr} ${inlineN} ${bodyStr}`;
+  }
+
+  function renderPage() {
+    const lastSeen = view === 'posts' ? state.lastSeenPostAt : state.lastSeenReportAt;
+    const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+    const pageItems = items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+    const newCount = items.filter((i) => (i.createdAtMs || 0) > lastSeen).length;
+    const readCount = items.length - newCount;
+
+    console.log('');
+    console.log(
+      `${C.bold}${view}${C.reset} ${C.dim}(new:${C.reset}${newCount > 0 ? C.cyan + newCount + C.reset : C.dim + '0' + C.reset}${C.dim} / read:${readCount} / total:${items.length} / page ${page + 1}/${totalPages})${C.reset}`
+    );
+    if (pageItems.length === 0) {
+      console.log(`  ${C.dim}(なし)${C.reset}`);
+    } else {
+      for (let i = 0; i < pageItems.length; i++) {
+        const n = i + 1;
+        const item = pageItems[i];
+        const read = (item.createdAtMs || 0) <= lastSeen;
+        const base = view === 'posts'
+          ? (item.kind === 'post' ? renderTriagePost(item, n) : renderTriageComment(item, n))
+          : renderReportRow(item, n);
+        const susp = item.isSuspended ? ` ${C.red}${C.bold}[SUSP]${C.reset}` : '';
+        const idx = `[${String(n).padStart(2)}]`;
+        const line = read
+          ? `${C.dim}${idx}${C.reset} ${toDim(base)}${susp}`
+          : `${C.bold}${idx}${C.reset} ${base}${susp}`;
+        console.log(line);
+      }
+    }
+    console.log('');
+  }
+
+  function printHelp() {
+    console.log('');
+    console.log(`${C.bold}コマンド${C.reset}`);
+    console.log(`  ${C.cyan}<N> user${C.reset}              → #N の作者の詳細`);
+    console.log(`  ${C.cyan}<N> group${C.reset}             → #N の歌会の詳細`);
+    console.log(`  ${C.cyan}<N> suspend "理由"${C.reset}   → #N の作者を凍結`);
+    console.log(`  ${C.cyan}<N> unsuspend${C.reset}         → #N の作者の凍結解除`);
+    console.log(`  ${C.cyan}<N> purge "理由"${C.reset}     → #N の作者の過去投稿を反故化`);
+    console.log(`  ${C.cyan}more${C.reset} / ${C.cyan}m${C.reset}                  → 古い方へ 20 件`);
+    console.log(`  ${C.cyan}refresh${C.reset} / ${C.cyan}r${C.reset}             → 最新を再取得`);
+    console.log(`  ${C.cyan}mark${C.reset}                     → 読み込み済み全件を既読扱いで即保存`);
+    console.log(`  ${C.cyan}unread${C.reset} / ${C.cyan}unmark${C.reset}          → 現ページ最下端まで未読に戻す`);
+    console.log(`  ${C.cyan}posts${C.reset} / ${C.cyan}reports${C.reset}       → ビュー切替`);
+    console.log(`  ${C.cyan}help${C.reset} / ${C.cyan}?${C.reset}               → このヘルプ`);
+    console.log(`  ${C.cyan}quit${C.reset} / ${C.cyan}q${C.reset}               → 終了（既読位置を保存）`);
+    console.log('');
+  }
+
+  function commitLastSeen() {
+    if (items.length === 0) return;
+    const top = items[0].createdAtMs || 0;
+    if (view === 'posts') state.lastSeenPostAt = Math.max(state.lastSeenPostAt, top);
+    else state.lastSeenReportAt = Math.max(state.lastSeenReportAt, top);
+  }
+
+  // 初期ロード
+  await reload();
+  renderPage();
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+  // REPL
+  while (true) {
+    const line = await new Promise((resolve) => rl.question(`${C.green}${view}>${C.reset} `, resolve));
+    const parsed = parseTriageLine(line);
+    if (!parsed) continue;
+
+    if (parsed.type === 'cmd') {
+      const cmd = parsed.cmd;
+      if (cmd === 'quit' || cmd === 'q' || cmd === 'exit') {
+        commitLastSeen();
+        saveTriageState(state);
+        rl.close();
+        console.log(`${C.green}既読位置を保存しました。${C.reset}`);
+        return;
+      } else if (cmd === 'more' || cmd === 'm') {
+        const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+        if (page + 1 < totalPages) {
+          page++;
+          renderPage();
+        } else {
+          console.log(`${C.dim}(これ以上ありません。refresh で再取得可能)${C.reset}`);
+        }
+      } else if (cmd === 'refresh' || cmd === 'r') {
+        try { await reload(); renderPage(); } catch (e) { console.error(C.red + 'reload 失敗:' + C.reset, e.message); }
+      } else if (cmd === 'mark') {
+        commitLastSeen();
+        saveTriageState(state);
+        console.log(`${C.green}既読位置を保存しました。${C.reset}`);
+        renderPage();
+      } else if (cmd === 'unread' || cmd === 'unmark') {
+        // 現ページの一番下の項目 *まで* を未読に戻す。
+        // lastSeen を「現ページ最下端の createdAt の 1ms 前」に下げることで、
+        // 現ページ + それより新しい全ての項目が再び「未読」として表示される。
+        // 現ページより古い項目（下のページ）は、それらが以前既読だったならそのまま既読。
+        const pageItems = items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+        if (pageItems.length === 0) {
+          console.log(`${C.yellow}表示中の項目がありません${C.reset}`);
+        } else {
+          const oldestOnPage = pageItems[pageItems.length - 1].createdAtMs || 0;
+          const target = Math.max(0, oldestOnPage - 1);
+          if (view === 'posts') state.lastSeenPostAt = target;
+          else state.lastSeenReportAt = target;
+          saveTriageState(state);
+          console.log(`${C.green}現ページ以降を未読に戻しました（${pageItems.length}件）${C.reset}`);
+          renderPage();
+        }
+      } else if (cmd === 'posts' || cmd === 'p') {
+        if (view !== 'posts') { view = 'posts'; await reload(); renderPage(); }
+        else renderPage();
+      } else if (cmd === 'reports' || cmd === 'rep') {
+        if (view !== 'reports') { view = 'reports'; await reload(); renderPage(); }
+        else renderPage();
+      } else if (cmd === 'help' || cmd === 'h' || cmd === '?') {
+        printHelp();
+      } else {
+        console.log(`${C.yellow}不明なコマンド: ${cmd} (help で一覧)${C.reset}`);
+      }
+      continue;
+    }
+
+    // 行アクション
+    const idxInPage = parsed.n - 1;
+    const absIdx = page * PAGE_SIZE + idxInPage;
+    if (absIdx < 0 || absIdx >= items.length) {
+      console.log(`${C.yellow}番号 ${parsed.n} は範囲外${C.reset}`);
+      continue;
+    }
+    const item = items[absIdx];
+    if (!item.uid) {
+      console.log(`${C.yellow}この項目は uid が取得できないため ${parsed.action} できません${C.reset}`);
+      continue;
+    }
+
+    try {
+      switch (parsed.action) {
+        case 'user':
+        case 'u':
+          await cmdUser(item.uid, 20);
+          break;
+        case 'group':
+        case 'g':
+          if (!item.gId) { console.log(`${C.yellow}歌会 ID 不明${C.reset}`); break; }
+          await cmdGroup(item.gId, 30);
+          break;
+        case 'suspend':
+        case 's':
+          if (!parsed.args) { console.log(`${C.yellow}suspend には理由が必要: "${parsed.n} suspend \\"理由\\""${C.reset}`); break; }
+          await cmdSuspend(item.uid, parsed.args, rl);
+          suspendedCache.delete(item.uid);
+          await enrichSuspendedState(items);
+          break;
+        case 'unsuspend':
+          await cmdUnsuspend(item.uid, rl);
+          suspendedCache.delete(item.uid);
+          await enrichSuspendedState(items);
+          break;
+        case 'purge':
+          if (!parsed.args) { console.log(`${C.yellow}purge には理由が必要${C.reset}`); break; }
+          await cmdPurge(item.uid, parsed.args, rl);
+          break;
+        default:
+          console.log(`${C.yellow}アクション不明: ${parsed.action} (help で一覧)${C.reset}`);
+      }
+    } catch (e) {
+      console.error(`${C.red}アクション失敗:${C.reset}`, e.message);
+    }
+  }
+}
+
 async function main() {
   try {
     switch (cmd) {
@@ -1038,6 +1414,9 @@ async function main() {
       case 'orphans':
         await cmdOrphans();
         process.exit(0);
+      case 'triage':
+        await cmdTriage();
+        process.exit(0);
       default:
         console.error('使い方: node scripts/monitor.js <command> [args]');
         console.error('');
@@ -1054,6 +1433,7 @@ async function main() {
         console.error('  unsuspend <uid>              凍結解除');
         console.error('  purge <uid> <reason>         指定ユーザーの過去投稿を一括反故化（原文は archivedBody に退避）');
         console.error('  orphans                      作者 users/{authorId} が存在しない評を検出・削除');
+        console.error('  triage                       インタラクティブな管理 REPL（推奨）');
         console.error('');
         console.error('  共通: --yes で確認プロンプトをスキップ');
         console.error('  purge / orphans: --dry-run で書き込みなしプレビューのみ');
