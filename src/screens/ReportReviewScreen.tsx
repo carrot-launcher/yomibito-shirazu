@@ -24,6 +24,8 @@ import { useAuth } from '../hooks/useAuth';
 import { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeContext';
 import { ReportDoc, ReportReason } from '../types';
+import { breadcrumb } from '../utils/breadcrumb';
+import { describeError } from '../utils/errorMessage';
 
 interface PendingItem {
   targetType: 'post' | 'comment';
@@ -132,6 +134,7 @@ export default function ReportReviewScreen({ route, navigation }: any) {
 
   const handleResolve = async (item: PendingItem) => {
     if (working) return;
+    breadcrumb(`report:resolve target=${item.targetType}/${item.targetId}`);
     setWorking(item.targetId);
     try {
       const fns = getFunctions(undefined, 'asia-northeast1');
@@ -142,7 +145,8 @@ export default function ReportReviewScreen({ route, navigation }: any) {
       });
       alert('解除しました', 'この投稿は通常表示に戻りました。');
     } catch (e: any) {
-      alert('エラー', e?.message || '解除に失敗しました');
+      const { title, message } = describeError(e);
+      alert(title, message || '解除に失敗しました');
     } finally {
       setWorking(null);
     }
@@ -161,6 +165,7 @@ export default function ReportReviewScreen({ route, navigation }: any) {
           text: type === 'caution' ? '戒告する' : '破門する',
           style: type === 'caution' ? 'caution' : 'destructive',
           onPress: async () => {
+            breadcrumb(`report:judge type=${type} target=${item.targetType}/${item.targetId}`);
             setWorking(item.targetId);
             try {
               const fns = getFunctions(undefined, 'asia-northeast1');
@@ -172,7 +177,8 @@ export default function ReportReviewScreen({ route, navigation }: any) {
                 reason: '',
               });
             } catch (e: any) {
-              alert('エラー', e?.message || '処理に失敗しました');
+              const { title, message } = describeError(e);
+              alert(title, message || '処理に失敗しました');
             } finally {
               setWorking(null);
             }

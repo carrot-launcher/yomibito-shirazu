@@ -5,8 +5,12 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import messaging from '@react-native-firebase/messaging';
+import { getMessaging, getToken, registerDeviceForRemoteMessages } from '@react-native-firebase/messaging';
+import { getCrashlytics, setUserId as setCrashlyticsUserId } from '@react-native-firebase/crashlytics';
 import { auth, db } from '../config/firebase';
+
+const crashlyticsInstance = getCrashlytics();
+const messagingInstance = getMessaging();
 
 async function registerForPushNotifications(uid: string) {
   try {
@@ -45,7 +49,7 @@ async function registerForPushNotifications(uid: string) {
     // iOS では APNs 登録を明示的に実行 (FCM が APNs 経由で配信するため)
     if (Platform.OS === 'ios') {
       try {
-        await messaging().registerDeviceForRemoteMessages();
+        await registerDeviceForRemoteMessages(messagingInstance);
       } catch {
         // 既に登録済みの場合は無視
       }
@@ -55,7 +59,7 @@ async function registerForPushNotifications(uid: string) {
     // expo-notifications の getDevicePushTokenAsync は iOS だと APNs トークンを返すため、
     // Firebase Admin SDK の messaging.send() では使えない。@react-native-firebase/messaging
     // の getToken() を使うと両プラットフォームで FCM レジストレーショントークンが得られる。
-    const fcmToken = await messaging().getToken();
+    const fcmToken = await getToken(messagingInstance);
     if (fcmToken) {
       await updateDoc(doc(db, 'users', uid), { fcmToken });
     }
@@ -100,6 +104,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 切替時にユーザードキュメント購読を停止
       unsubUserDoc?.();
       unsubUserDoc = null;
+
+      // Crashlytics に uid を紐付ける（以降のエラーレポートに uid が乗る）。
+      // ログアウト時は空文字をセットして切り離す。
+      try { setCrashlyticsUserId(crashlyticsInstance, firebaseUser?.uid || ''); } catch {}
 
       if (firebaseUser) {
         const userRef = doc(db, 'users', firebaseUser.uid);

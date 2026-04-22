@@ -10,6 +10,8 @@ import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useModalAlert } from '../hooks/useModalAlert';
 import { useTheme } from '../theme/ThemeContext';
+import { breadcrumb } from '../utils/breadcrumb';
+import { describeError } from '../utils/errorMessage';
 
 const MAX_CHARS = 50;
 
@@ -51,6 +53,7 @@ export default function ComposeScreen({ route, navigation }: any) {
     const trimmedBody = body.trim();
     if (trimmedBody.length < 2) { alert('2文字以上入力してください'); return; }
     if (trimmedBody.length > MAX_CHARS) { alert(`${MAX_CHARS}文字以内にしてください`); return; }
+    breadcrumb(`compose:submit groups=${selectedGroups.length} len=${trimmedBody.length}`);
     setSubmitting(true);
     try {
       const fns = getFunctions(undefined, 'asia-northeast1');
@@ -66,7 +69,7 @@ export default function ComposeScreen({ route, navigation }: any) {
     } catch (e: any) {
       const msg = e?.code === 'functions/resource-exhausted'
         ? e.message
-        : e?.message || 'エラーが発生しました';
+        : describeError(e).message;
       alert('エラー', msg);
     }
     finally { setSubmitting(false); }

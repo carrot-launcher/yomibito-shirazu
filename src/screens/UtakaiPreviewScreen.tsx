@@ -11,6 +11,8 @@ import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { ThemeColors } from '../theme/colors';
+import { breadcrumb } from '../utils/breadcrumb';
+import { describeError } from '../utils/errorMessage';
 import { useTheme } from '../theme/ThemeContext';
 import { fs } from '../utils/scale';
 
@@ -116,6 +118,7 @@ export default function UtakaiPreviewScreen({ navigation, route }: any) {
 
   const handleJoinConfirm = async () => {
     if (!user || !data || !displayName.trim() || joining) return;
+    breadcrumb(`group:join-public group=${data.group.id}`);
     setJoining(true);
     try {
       const name = displayName.trim();
@@ -131,7 +134,8 @@ export default function UtakaiPreviewScreen({ navigation, route }: any) {
       setShowNameModal(false);
       navigation.replace('Timeline', { groupId, groupName: data.group.name });
     } catch (e: any) {
-      alert('エラー', e?.message || '参加できませんでした');
+      const { title, message } = describeError(e);
+      alert(title, message || '参加できませんでした');
     } finally {
       setJoining(false);
     }

@@ -12,6 +12,8 @@ import GradientBackground from '../components/GradientBackground';
 import { useAuth } from '../hooks/useAuth';
 import { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeContext';
+import { breadcrumb } from '../utils/breadcrumb';
+import { describeError } from '../utils/errorMessage';
 
 export default function BlockedAuthorsScreen() {
   const { blockedHandles } = useAuth();
@@ -39,12 +41,14 @@ export default function BlockedAuthorsScreen() {
         {
           text: '解除する',
           onPress: async () => {
+            breadcrumb(`unblock:submit`);
             setWorking(handle);
             try {
               const fns = getFunctions(undefined, 'asia-northeast1');
               await httpsCallable(fns, 'unblockAuthor')({ handle });
             } catch (e: any) {
-              alert('エラー', e?.message || '解除に失敗しました');
+              const { title, message } = describeError(e);
+              alert(title, message || '解除に失敗しました');
             } finally {
               setWorking(null);
             }

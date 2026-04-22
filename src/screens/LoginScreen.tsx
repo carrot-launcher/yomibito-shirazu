@@ -12,6 +12,8 @@ import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
 import { auth, WEB_CLIENT_ID } from '../config/firebase';
 import { useTheme } from '../theme/ThemeContext';
+import { breadcrumb } from '../utils/breadcrumb';
+import { describeError } from '../utils/errorMessage';
 
 GoogleSignin.configure({ webClientId: WEB_CLIENT_ID });
 
@@ -25,6 +27,7 @@ export default function LoginScreen() {
 
   const handleGoogleSignIn = async () => {
     if (!agreed) return;
+    breadcrumb('login:google');
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       await GoogleSignin.signOut();
@@ -34,7 +37,8 @@ export default function LoginScreen() {
         await signInWithCredential(auth, credential);
       }
     } catch (error: any) {
-      alert('ログインエラー', `${error.code || ''}: ${error.message}`);
+      const { title, message } = describeError(error);
+      alert(title, message);
     }
   };
 
@@ -43,6 +47,7 @@ export default function LoginScreen() {
   // Apple には hash を渡し Firebase には raw を渡すことで、中間者攻撃を防ぐ。
   const handleAppleSignIn = async () => {
     if (!agreed) return;
+    breadcrumb('login:apple');
     try {
       const rawNonce = [...Array(32)]
         .map(() => Math.floor(Math.random() * 36).toString(36))
@@ -70,7 +75,8 @@ export default function LoginScreen() {
     } catch (error: any) {
       // ユーザーがキャンセルしただけの場合は黙る
       if (error.code === 'ERR_REQUEST_CANCELED') return;
-      alert('ログインエラー', `${error.code || ''}: ${error.message}`);
+      const { title, message } = describeError(error);
+      alert(title, message);
     }
   };
 

@@ -14,7 +14,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import crashlytics from '@react-native-firebase/crashlytics';
+import { getCrashlytics, recordError } from '@react-native-firebase/crashlytics';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
@@ -35,6 +35,10 @@ import { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeContext';
 import { CommentDoc, PostDoc, REACTION_EMOJI } from '../types';
 import { compressNewlines, formatTankaBody } from '../utils/formatTanka';
+import { describeError } from '../utils/errorMessage';
+import { breadcrumb } from '../utils/breadcrumb';
+
+const crashlyticsInstance = getCrashlytics();
 
 function rubyToHtml(escaped: string): string {
   return escaped.replace(/\{([^|{}]+)\|([^|{}]+)\}/g,
@@ -503,7 +507,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
         // 評の購読失敗はインデックス不整合や rules 変更など潜在的に重要な兆候。
         // 黙殺せず Crashlytics にも載せる。
         console.error('[TankaDetail] comments onSnapshot failed', pid, err);
-        try { crashlytics().recordError(err); } catch {}
+        try { recordError(crashlyticsInstance, err); } catch {}
       });
     });
     return () => unsubs.forEach(u => u());
@@ -536,6 +540,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
 
   const handleReaction = async () => {
     if (!user || reacting) return;
+    breadcrumb(`react:toggle post=${postId}`);
     setReacting(true);
     const wasReacted = hasReacted;
     // 楽観的UI更新: 即座に見た目を変える
@@ -563,7 +568,8 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     } catch (e: any) {
       // 失敗時は元に戻す
       setHasReacted(wasReacted);
-      alert('エラー', e.message);
+      const { title, message } = describeError(e);
+      alert(title, message);
     } finally {
       setReacting(false);
     }
@@ -572,6 +578,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   const [bookmarking, setBookmarking] = useState(false);
   const handleBookmark = async () => {
     if (!user || !post || bookmarking) return;
+    breadcrumb(`bookmark:toggle post=${postId}`);
     setBookmarking(true);
     const bmRef = doc(db, 'users', user.uid, 'bookmarks', postId);
     try {
@@ -583,8 +590,10 @@ export default function TankaDetailScreen({ route, navigation }: any) {
           tankaBody: post.body, createdAt: serverTimestamp(),
         });
       }
-    } catch (e: any) { alert('エラー', e.message); }
-    finally { setBookmarking(false); }
+    } catch (e: any) {
+      const { title, message } = describeError(e);
+      alert(title, message);
+    } finally { setBookmarking(false); }
   };
 
   const handleDelete = async () => {
@@ -597,6 +606,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
         {
           text: '削除する', style: 'destructive',
           onPress: async () => {
+            breadcrumb(`post:delete post=${postId}${isBatch ? ' batch' : ''}`);
             try {
               const functions = getFunctions(undefined, 'asia-northeast1');
               const deletePostFn = httpsCallable(functions, 'deletePost');
@@ -630,6 +640,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
         {
           text: '削除する', style: 'destructive',
           onPress: async () => {
+            breadcrumb(`comment:delete comment=${commentId}`);
             try {
               const functions = getFunctions(undefined, 'asia-northeast1');
               const deleteCommentFn = httpsCallable(functions, 'deleteComment');
@@ -676,6 +687,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
 
   const handleJudge = async () => {
     if (!user || !judgmentModal || judging) return;
+    breadcrumb(`judge:submit type=${judgmentModal} target=${judgmentTarget.type}`);
     setJudging(true);
     try {
       const functions = getFunctions(undefined, 'asia-northeast1');
@@ -700,12 +712,14 @@ export default function TankaDetailScreen({ route, navigation }: any) {
           : `${name}を破門しました。`);
       }
     } catch (e: any) {
-      const msg = e.message?.includes('already-exists')
-        ? '既に反故になっています'
-        : e.message?.includes('permission-denied')
-        ? 'オーナーのみ裁くことができます'
-        : e.message;
-      alert('エラー', msg);
+      if (e.message?.includes('already-exists')) {
+        alert('エラー', '既に反故になっています');
+      } else if (e.message?.includes('permission-denied')) {
+        alert('エラー', 'オーナーのみ裁くことができます');
+      } else {
+        const { title, message } = describeError(e);
+        alert(title, message);
+      }
     } finally {
       setJudging(false);
     }
@@ -748,6 +762,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
           text: 'ブロックする',
           style: 'destructive',
           onPress: async () => {
+            breadcrumb(`block:submit target=${target}`);
             try {
               const fns = getFunctions(undefined, 'asia-northeast1');
               await httpsCallable(fns, 'blockAuthor')({
@@ -763,7 +778,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
                 ? 'ブロックできるのは200人までです'
                 : e?.code === 'functions/failed-precondition'
                 ? '自分自身はブロックできません'
-                : e?.message || 'エラーが発生しました';
+                : describeError(e).message;
               alert('ブロックできませんでした', msg);
             }
           },
@@ -782,6 +797,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
 
   const handleReport = async () => {
     if (!user || !reportReason || reporting) return;
+    breadcrumb(`report:submit target=${reportTarget.type} reason=${reportReason}`);
     setReporting(true);
     try {
       const fns = getFunctions(undefined, 'asia-northeast1');
@@ -804,7 +820,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
         ? '本日の通報上限に達しました'
         : e?.code === 'functions/failed-precondition'
         ? e.message || '通報できない内容です'
-        : e?.message || 'エラーが発生しました';
+        : describeError(e).message;
       alert('通報できませんでした', msg);
     } finally {
       setReporting(false);
@@ -814,6 +830,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
   const handleComment = async () => {
     if (!user || !commentText.trim() || submitting) return;
     if (commentText.length > 500) { alert('500文字以内にしてください'); return; }
+    breadcrumb(`comment:submit post=${postId} len=${commentText.length}`);
     setSubmitting(true);
     try {
       const fns = getFunctions(undefined, 'asia-northeast1');
@@ -823,7 +840,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
     } catch (e: any) {
       const msg = e?.code === 'functions/resource-exhausted'
         ? e.message
-        : e?.message || 'エラーが発生しました';
+        : describeError(e).message;
       alert('エラー', msg);
     }
     finally { setSubmitting(false); }
@@ -1019,6 +1036,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
                   {
                     text: '解題する', style: 'destructive',
                     onPress: async () => {
+                      breadcrumb(`reveal:submit post=${postId}`);
                       try {
                         const fns = getFunctions(undefined, 'asia-northeast1');
                         await httpsCallable(fns, 'revealAuthor')({ postId });
@@ -1027,7 +1045,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
                           ? '自分の歌のみ解題できます'
                           : e?.code === 'functions/already-exists'
                           ? '既に解題されています'
-                          : e?.message || 'エラーが発生しました';
+                          : describeError(e).message;
                         alert('エラー', msg);
                       }
                     },

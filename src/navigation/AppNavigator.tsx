@@ -3,7 +3,10 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer, DefaultTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { getAnalytics, logEvent } from '@react-native-firebase/analytics';
+import { getCrashlytics, log as crashlyticsLog, setAttribute as setCrashlyticsAttribute } from '@react-native-firebase/crashlytics';
 import * as Notifications from 'expo-notifications';
+
+const crashlyticsInstance = getCrashlytics();
 import React, { useEffect, useMemo } from 'react';
 import { AppState, Text } from 'react-native';
 
@@ -175,6 +178,12 @@ export default function AppNavigator() {
       onStateChange={async () => {
         const route = navigationRef.getCurrentRoute();
         if (route) {
+          // Crashlytics の attribute と breadcrumb に現在画面を残す。
+          // これでエラー発生時に「どの画面で」が分かる。
+          try {
+            setCrashlyticsAttribute(crashlyticsInstance, 'screen', route.name);
+            crashlyticsLog(crashlyticsInstance, `screen:${route.name}`);
+          } catch {}
           await logEvent(getAnalytics(), 'screen_view', { screen_name: route.name, screen_class: route.name });
         }
       }}

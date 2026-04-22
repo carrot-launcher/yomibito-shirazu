@@ -18,6 +18,8 @@ import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../theme/ThemeContext';
 import { MemberDoc } from '../types';
+import { breadcrumb } from '../utils/breadcrumb';
+import { describeError } from '../utils/errorMessage';
 
 export default function GroupSettingsScreen({ route, navigation }: any) {
   const { groupId } = route.params;
@@ -129,7 +131,8 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
       originalPurpose.current = v;
       showSaved('purpose');
     } catch (e: any) {
-      alert('エラー', e?.message || '更新できませんでした');
+      const { title, message } = describeError(e);
+      alert(title, message || '更新できませんでした');
       setEditingPurpose(originalPurpose.current);
     }
   };
@@ -214,6 +217,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
         {
           text: '追放する', style: 'destructive',
           onPress: async () => {
+            breadcrumb(`group:kick group=${groupId} target=${member.id}`);
             try {
               const functions = getFunctions(undefined, 'asia-northeast1');
               const kickMemberFn = httpsCallable(functions, 'kickMember');
@@ -221,7 +225,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
               setMembers(prev => prev.filter(m => m.id !== member.id));
               setBannedUsers(prev => ({ ...prev, [member.id]: { displayName: member.displayName, userCode: member.userCode } }));
               alert('追放しました');
-            } catch (e: any) { alert('エラー', e.message); }
+            } catch (e: any) { const { title, message } = describeError(e); alert(title, message); }
           },
         },
       ]
@@ -247,7 +251,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
                 return next;
               });
               alert('追放を解除しました');
-            } catch (e: any) { alert('エラー', e.message); }
+            } catch (e: any) { const { title, message } = describeError(e); alert(title, message); }
           },
         },
       ]
@@ -256,6 +260,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
 
   const handleDissolve = async () => {
     if (dissolveConfirmText !== groupName) return;
+    breadcrumb(`group:dissolve group=${groupId} deletePosts=${deleteAllPosts}`);
     setDissolving(true);
     try {
       setShowDissolve(false);

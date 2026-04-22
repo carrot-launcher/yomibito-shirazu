@@ -4,17 +4,18 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts, NotoSerifJP_400Regular, NotoSerifJP_500Medium, NotoSerifJP_700Bold } from '@expo-google-fonts/noto-serif-jp';
 import { IBMPlexMono_600SemiBold } from '@expo-google-fonts/ibm-plex-mono';
-import crashlytics from '@react-native-firebase/crashlytics';
+import { getCrashlytics, recordError } from '@react-native-firebase/crashlytics';
 import { AlertProvider } from './src/components/CustomAlert';
 import { AuthProvider } from './src/hooks/useAuth';
 import AppNavigator from './src/navigation/AppNavigator';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 
 // JS の未捕捉エラーを Crashlytics に送信
+const crashlyticsInstance = getCrashlytics();
 const defaultErrorHandler = (ErrorUtils as any).getGlobalHandler?.();
 (ErrorUtils as any).setGlobalHandler?.((error: Error, isFatal?: boolean) => {
   try {
-    crashlytics().recordError(error);
+    recordError(crashlyticsInstance, error);
   } catch {}
   if (defaultErrorHandler) defaultErrorHandler(error, isFatal);
 });

@@ -13,6 +13,8 @@ import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../theme/ThemeContext';
 import { GroupDoc } from '../types';
+import { breadcrumb } from '../utils/breadcrumb';
+import { describeError } from '../utils/errorMessage';
 import { pickFirstChar } from '../utils/pickFirstChar';
 import { relativeTimeJa } from '../utils/relativeTime';
 import { fs } from '../utils/scale';
@@ -224,7 +226,7 @@ export default function UtakaiListScreen({ navigation }: any) {
       setPendingAction({ type: 'join', groupId: groupDoc.id, groupName: groupDoc.data().name, isPublic: groupDoc.data().isPublic === true });
       setShowJoin(false);
       setShowSetName(true);
-    } catch (e: any) { alert('エラー', e.message); }
+    } catch (e: any) { const { title, message } = describeError(e); alert(title, message); }
     finally { setJoining(false); }
   };
 
@@ -233,6 +235,7 @@ export default function UtakaiListScreen({ navigation }: any) {
 
   const handleConfirmName = async () => {
     if (!user || !pendingAction || !memberDisplayName.trim() || confirming) return;
+    breadcrumb(`group:${pendingAction.type === 'create' ? 'create' : 'join-invite'}${pendingAction.type === 'create' && pendingAction.isPublic ? ' public' : ''}`);
     setConfirming(true);
     const displayName = memberDisplayName.trim();
     try {
@@ -259,7 +262,7 @@ export default function UtakaiListScreen({ navigation }: any) {
     } catch (e: any) {
       const msg = e?.code === 'functions/resource-exhausted'
         ? e.message
-        : e?.message || 'エラーが発生しました';
+        : describeError(e).message;
       alert('エラー', msg);
     } finally {
       setConfirming(false);

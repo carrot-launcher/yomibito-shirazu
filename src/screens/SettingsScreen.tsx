@@ -18,6 +18,8 @@ import GradientBackground from '../components/GradientBackground';
 import { auth, db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../theme/ThemeContext';
+import { breadcrumb } from '../utils/breadcrumb';
+import { describeError } from '../utils/errorMessage';
 
 type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -37,6 +39,7 @@ export default function SettingsScreen({ navigation }: any) {
 
   const handleDeleteAccount = async () => {
     if (!user || deleteConfirmCode !== userCode || deleting) return;
+    breadcrumb('account:delete');
     setDeleting(true);
     try {
       const fns = getFunctions(undefined, 'asia-northeast1');
@@ -46,7 +49,8 @@ export default function SettingsScreen({ navigation }: any) {
       await signOut(auth);
       try { await AsyncStorage.clear(); } catch {}
     } catch (e: any) {
-      alert('エラー', e?.message || 'アカウント削除に失敗しました');
+      const { title, message } = describeError(e);
+      alert(title, message || 'アカウント削除に失敗しました');
       setDeleting(false);
     }
   };
