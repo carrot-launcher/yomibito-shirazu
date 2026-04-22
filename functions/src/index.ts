@@ -1792,6 +1792,10 @@ export const deleteAccount = onCall(
     }
 
     // 5. 他ユーザーの投稿へのリアクション削除
+    // NOTE: collectionGroup('reactions').where('userId', '==', uid) には
+    // `reactions.userId` の COLLECTION_GROUP fieldOverride インデックスが必要。
+    // 以前はインデックス未登録のまま silent catch されていて、退会ユーザーのリアクションが
+    // 永久に残存する orphan 化バグがあった。失敗は握り潰さず console.error に残す。
     try {
       const reactionsSnap = await db.collectionGroup("reactions")
         .where("userId", "==", uid).get();
@@ -1813,12 +1817,12 @@ export const deleteAccount = onCall(
               }
             }
           }
-        } catch {
-          // 個別のリアクション削除失敗は続行
+        } catch (e) {
+          console.error(`[deleteAccount] reaction delete failed path=${reactionDoc.ref.path}`, e);
         }
       }
-    } catch {
-      // collectionGroupクエリ失敗は続行
+    } catch (e) {
+      console.error("[deleteAccount] collectionGroup('reactions') query failed — reactions may be orphaned. uid=", uid, e);
     }
 
     // 6. サブコレクション削除

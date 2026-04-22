@@ -856,15 +856,15 @@ function parseTypeAndN(rawArgs, defaultN) {
 
 async function cmdOrphans() {
   const dryRun = flags.has('--dry-run');
-  console.log(`=== orphan 評スキャン (${dryRun ? 'DRY-RUN' : '本番実行'}) ===`);
-  console.log('全ての評を走査し、作者 users/{authorId} が存在しないものを列挙します。');
+  console.log(`=== orphan スキャン (${dryRun ? 'DRY-RUN' : '本番実行'}) ===`);
+  console.log('退会ユーザーが残した評・リアクションを検出します。');
   console.log('');
 
+  // --- 評 ---
   // データ構造: posts/{postId}/comments/{commentId}/private/author
   // コレクション名は `private`（`author` はドキュメント ID）なので
   // collectionGroup('private') で走査する。
   const privateSnap = await db.collectionGroup('private').get();
-  console.log(`private サブコレクション ドキュメント総数: ${privateSnap.size}`);
 
   // 評の author ドキュメントのみ抽出（authorId フィールドを持ち、パスに /comments/ を含む）
   const commentAuthors = privateSnap.docs.filter((d) =>
@@ -872,35 +872,55 @@ async function cmdOrphans() {
   );
   console.log(`評の author: ${commentAuthors.length}`);
 
-  // 作者別にグルーピング（同一作者の複数評を一括判定）
-  const byAuthor = new Map();
-  for (const d of commentAuthors) {
-    const uid = d.data()?.authorId;
-    if (!uid) continue;
-    if (!byAuthor.has(uid)) byAuthor.set(uid, []);
-    byAuthor.get(uid).push(d);
-  }
-  console.log(`ユニーク作者数: ${byAuthor.size}`);
+  // --- リアクション ---
+  // データ構造: posts/{postId}/reactions/{reactionId}, doc に userId フィールド
+  const reactionsSnap = await db.collectionGroup('reactions').get();
+  const reactionDocs = reactionsSnap.docs.filter((d) => d.data()?.userId);
+  console.log(`リアクション: ${reactionDocs.length}`);
+
+  // uid 集合を集めて一括で users doc 存在チェック
+  const allUids = new Set();
+  for (const d of commentAuthors) allUids.add(d.data().authorId);
+  for (const d of reactionDocs) allUids.add(d.data().userId);
+  console.log(`ユニーク uid: ${allUids.size}`);
+
+  const aliveUids = new Set();
+  await Promise.all([...allUids].map(async (uid) => {
+    const s = await db.doc(`users/${uid}`).get();
+    if (s.exists) aliveUids.add(uid);
+  }));
+  const orphanUids = [...allUids].filter((uid) => !aliveUids.has(uid));
+  console.log(`orphan uid: ${orphanUids.length}`);
   console.log('');
 
-  // 各作者の users doc を確認
-  const orphans = [];
-  for (const [uid, docs] of byAuthor) {
-    const userSnap = await db.doc(`users/${uid}`).get();
-    if (!userSnap.exists) {
-      orphans.push({ uid, docs });
-    }
-  }
+  // orphan ドキュメントを分類
+  const orphanComments = commentAuthors.filter((d) => !aliveUids.has(d.data().authorId));
+  const orphanReactions = reactionDocs.filter((d) => !aliveUids.has(d.data().userId));
 
-  if (orphans.length === 0) {
-    console.log('orphan 評はありません。');
+  if (orphanComments.length === 0 && orphanReactions.length === 0) {
+    console.log('orphan はありません。');
     return;
   }
 
-  const totalOrphanComments = orphans.reduce((sum, o) => sum + o.docs.length, 0);
-  console.log(`── orphan 作者: ${orphans.length}人 / orphan 評: ${totalOrphanComments}件 ──`);
-  for (const { uid, docs } of orphans) {
-    console.log(`  ${uid}  評${docs.length}件`);
+  console.log(`── orphan 評: ${orphanComments.length}件 ──`);
+  const commentsByUid = new Map();
+  for (const d of orphanComments) {
+    const uid = d.data().authorId;
+    commentsByUid.set(uid, (commentsByUid.get(uid) || 0) + 1);
+  }
+  for (const [uid, count] of commentsByUid) {
+    console.log(`  ${uid}  ${count}件`);
+  }
+  console.log('');
+
+  console.log(`── orphan リアクション: ${orphanReactions.length}件 ──`);
+  const reactionsByUid = new Map();
+  for (const d of orphanReactions) {
+    const uid = d.data().userId;
+    reactionsByUid.set(uid, (reactionsByUid.get(uid) || 0) + 1);
+  }
+  for (const [uid, count] of reactionsByUid) {
+    console.log(`  ${uid}  ${count}件`);
   }
   console.log('');
 
@@ -909,33 +929,60 @@ async function cmdOrphans() {
     return;
   }
 
-  const ok = await confirm(`${totalOrphanComments}件の orphan 評を削除しますか？`);
+  const total = orphanComments.length + orphanReactions.length;
+  const ok = await confirm(`orphan 評${orphanComments.length}件 + リアクション${orphanReactions.length}件を削除しますか？`);
   if (!ok) {
     console.log('中止しました。');
     return;
   }
 
   let processed = 0;
-  for (const { docs } of orphans) {
-    for (const authorDoc of docs) {
-      const path = authorDoc.ref.path;
-      try {
-        const parts = path.split('/');
-        const postId = parts[1];
-        const commentId = parts[3];
-        await authorDoc.ref.delete();
-        await db.doc(`posts/${postId}/comments/${commentId}`).delete();
-        // commentCount をデクリメント（post が存在する場合のみ）
-        await db.doc(`posts/${postId}`).update({
-          commentCount: admin.firestore.FieldValue.increment(-1),
-        }).catch(() => {});
-        processed++;
-      } catch (e) {
-        console.error(`  failed: ${path}`, e.message);
-      }
+
+  // 評の削除
+  for (const authorDoc of orphanComments) {
+    const path = authorDoc.ref.path;
+    try {
+      const parts = path.split('/');
+      const postId = parts[1];
+      const commentId = parts[3];
+      await authorDoc.ref.delete();
+      await db.doc(`posts/${postId}/comments/${commentId}`).delete();
+      // commentCount をデクリメント（post が存在する場合のみ）
+      await db.doc(`posts/${postId}`).update({
+        commentCount: admin.firestore.FieldValue.increment(-1),
+      }).catch(() => {});
+      processed++;
+    } catch (e) {
+      console.error(`  comment failed: ${path}`, e.message);
     }
   }
-  console.log(`✓ ${processed}/${totalOrphanComments} 件の orphan 評を削除しました。`);
+
+  // リアクションの削除（reactionSummary デクリメントも含む）
+  for (const reactionDoc of orphanReactions) {
+    const path = reactionDoc.ref.path;
+    try {
+      const emoji = reactionDoc.data()?.emoji;
+      const postId = reactionDoc.ref.parent.parent?.id;
+      await reactionDoc.ref.delete();
+      if (postId && emoji) {
+        const postRef = db.doc(`posts/${postId}`);
+        const postSnap = await postRef.get();
+        if (postSnap.exists) {
+          const current = postSnap.data()?.reactionSummary?.[emoji] || 0;
+          if (current > 0) {
+            await postRef.update({
+              [`reactionSummary.${emoji}`]: Math.max(0, current - 1),
+            });
+          }
+        }
+      }
+      processed++;
+    } catch (e) {
+      console.error(`  reaction failed: ${path}`, e.message);
+    }
+  }
+
+  console.log(`✓ ${processed}/${total} 件の orphan を削除しました。`);
 }
 
 async function main() {
