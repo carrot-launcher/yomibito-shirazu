@@ -144,6 +144,38 @@ function formatPrimaryLabel(primary) {
   return ph ? `${C.dim}${core}${C.reset}` : core;
 }
 
+// 管理 CLI 用の verbose 版。`[name#code / uid]` 形式で uid を併記する（検証作業で
+// uid を直接コピペできるように）。プレースホルダや uid 欠落時は dim。
+function formatAuthorPillVerbose(displayName, userCode, uid) {
+  if (!uid) return `${C.dim}[〈作者不明〉]${C.reset}`;
+  const name = displayName || '〈名無し〉';
+  const code = userCode || '------';
+  const core = `${name}#${code}`;
+  const ph = isPlaceholderName(name) || code === '------';
+  return ph
+    ? `${C.dim}[${core} / ${uid}]${C.reset}`
+    : `[${core}${C.dim} / ${uid}${C.reset}]`;
+}
+
+// 管理 CLI 用 verbose 歌会ピル。`[gName / gid]`。
+function formatGroupPillVerbose(gName, gid) {
+  return isPlaceholderName(gName)
+    ? `${C.dim}[${gName} / ${gid || '?'}]${C.reset}`
+    : `[${gName}${C.dim} / ${gid || '?'}${C.reset}]`;
+}
+
+// 投稿/評の状態フラグ（裁き・解題）を整形。何も無ければ空文字。
+function formatContentFlags(doc, { includeRevealed = false } = {}) {
+  const flags = [];
+  if (doc?.hogo) {
+    flags.push(`裁き:${doc.hogoType || '?'}${doc.hogoReason ? `(${doc.hogoReason})` : ''}`);
+  }
+  if (includeRevealed && doc?.revealedAuthorName) {
+    flags.push(`解題:${doc.revealedAuthorName}#${doc.revealedAuthorCode || ''}`);
+  }
+  return flags.length ? ` ${C.yellow}[${flags.join(' / ')}]${C.reset}` : '';
+}
+
 // ANSI カラー。NO_COLOR / FORCE_COLOR 環境変数と TTY 判定に従う。
 const useColor = process.env.NO_COLOR
   ? false
@@ -305,31 +337,10 @@ async function enrichPost(postDoc) {
 }
 
 function renderPost({ p, gId, gName, uid, authorInfo }) {
-  const flags = [];
-  if (p.hogo) {
-    flags.push(`裁き:${p.hogoType || '?'}${p.hogoReason ? `(${p.hogoReason})` : ''}`);
-  }
-  if (p.revealedAuthorName) flags.push(`解題:${p.revealedAuthorName}#${p.revealedAuthorCode || ''}`);
-  const flagStr = flags.length ? ` ${C.yellow}[${flags.join(' / ')}]${C.reset}` : '';
-
-  const groupPart = isPlaceholderName(gName)
-    ? `${C.dim}[${gName} / ${gId || '?'}]${C.reset}`
-    : `[${gName}${C.dim} / ${gId || '?'}${C.reset}]`;
-  let authorPart;
-  if (!uid) {
-    authorPart = ` ${C.dim}[〈作者不明〉]${C.reset}`;
-  } else {
-    const name = authorInfo?.displayName || '〈名無し〉';
-    const code = authorInfo?.userCode || '------';
-    const core = `${name}#${code}`;
-    const ph = isPlaceholderName(name) || code === '------';
-    authorPart = ph
-      ? ` ${C.dim}[${core} / ${uid}]${C.reset}`
-      : ` [${core}${C.dim} / ${uid}${C.reset}]`;
-  }
-  const bodyStr = p.body
-    ? `${C.bold}${p.body}${C.reset}`
-    : `${C.red}(反故)${C.reset}`;
+  const flagStr = formatContentFlags(p, { includeRevealed: true });
+  const groupPart = formatGroupPillVerbose(gName, gId);
+  const authorPart = ' ' + formatAuthorPillVerbose(authorInfo?.displayName, authorInfo?.userCode, uid);
+  const bodyStr = p.body ? `${C.bold}${p.body}${C.reset}` : `${C.red}(反故)${C.reset}`;
   const typeMarker = `${C.cyan}${C.bold}歌${C.reset}`;
   const timeStr = `${C.dim}[${fmtTime(p.createdAt)}]${C.reset}`;
   return `${timeStr} ${typeMarker} ${groupPart}${authorPart}${flagStr} ${bodyStr}`;
@@ -362,31 +373,11 @@ async function enrichComment(commentDoc) {
 }
 
 function renderComment({ c, postBody, gId, gName, uid, authorInfo }) {
-  const flags = [];
-  if (c.hogo) {
-    flags.push(`裁き:${c.hogoType || '?'}${c.hogoReason ? `(${c.hogoReason})` : ''}`);
-  }
-  const flagStr = flags.length ? ` ${C.yellow}[${flags.join(' / ')}]${C.reset}` : '';
-
-  const groupPart = isPlaceholderName(gName)
-    ? `${C.dim}[${gName} / ${gId || '?'}]${C.reset}`
-    : `[${gName}${C.dim} / ${gId || '?'}${C.reset}]`;
-  let authorPart;
-  if (!uid) {
-    authorPart = ` ${C.dim}[〈作者不明〉]${C.reset}`;
-  } else {
-    const name = authorInfo?.displayName || '〈名無し〉';
-    const code = authorInfo?.userCode || '------';
-    const core = `${name}#${code}`;
-    const ph = isPlaceholderName(name) || code === '------';
-    authorPart = ph
-      ? ` ${C.dim}[${core} / ${uid}]${C.reset}`
-      : ` [${core}${C.dim} / ${uid}${C.reset}]`;
-  }
+  const flagStr = formatContentFlags(c);
+  const groupPart = formatGroupPillVerbose(gName, gId);
+  const authorPart = ' ' + formatAuthorPillVerbose(authorInfo?.displayName, authorInfo?.userCode, uid);
   const postRef = `${C.dim}→[${postBody ? truncate(postBody, 20) : '〈投稿欠損〉'}]${C.reset} `;
-  const bodyStr = c.body
-    ? `${C.bold}${c.body}${C.reset}`
-    : `${C.red}(反故)${C.reset}`;
+  const bodyStr = c.body ? `${C.bold}${c.body}${C.reset}` : `${C.red}(反故)${C.reset}`;
   const typeMarker = `${C.magenta}${C.bold}評${C.reset}`;
   const timeStr = `${C.dim}[${fmtTime(c.createdAt)}]${C.reset}`;
   return `${timeStr} ${typeMarker} ${groupPart}${authorPart}${flagStr} ${postRef}${bodyStr}`;
