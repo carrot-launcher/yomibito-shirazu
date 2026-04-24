@@ -3,7 +3,6 @@ import * as Clipboard from 'expo-clipboard';
 import { collection, doc, getDoc, getDocs, updateDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useRef, useState } from 'react';
-import GradientBackground from '../components/GradientBackground';
 import {
   Modal,
   ScrollView,
@@ -14,6 +13,7 @@ import {
 import { AppButton } from '../components/AppButton';
 import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
+import GradientBackground from '../components/GradientBackground';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../theme/ThemeContext';
@@ -420,7 +420,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
             {'　'}投稿を反故にし、著者に警告を与えます。同じ歌人への戒告が3回に達すると、自動的に破門されます。{'\n\n'}
             <AppText variant="caption" weight="medium">🔴 破門</AppText>
             {'　'}投稿を反故にし、著者を即座に歌会から追放します。追放されたユーザーは招待コードで再参加できなくなります。{'\n\n'}
-            裁かれた投稿は「反故」として跡地が残り、本文は見えなくなります。裁きは匿名のまま行われ、オーナーにも著者は分かりません。破門が発生した場合のみ、メンバー全員に通知されます。
+            裁かれた投稿は「反故」として跡地が残り、本文は見えなくなります。オーナーにも著者は分かりません。破門が発生した場合のみ、メンバー全員に通知されます。
           </AppText>
           <View style={styles.sectionGap} />
         </>

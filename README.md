@@ -1,17 +1,5 @@
 # よみ人しらず
 
-名を伏せて短歌を詠み合うモバイルアプリ。
-
-歌会（グループ）を作り、招待コードで仲間を集め、匿名で短歌を投稿し合います。誰が詠んだかは分かりません。寄せられた評もまた、よみ人しらず。
-
-## 技術スタック
-
-- **フロントエンド**: React Native (Expo) + TypeScript
-- **バックエンド**: Firebase (Firestore, Cloud Functions, Authentication, Analytics, Crashlytics)
-- **認証**: Google Sign-In
-- **通知**: Firebase Cloud Messaging
-- **モデレーション**: OpenAI Moderation API（投稿前のフィルタリング、別途セットアップが必要
-
 ## セットアップ
 
 ### 前提条件

@@ -63,7 +63,7 @@ export default function BlockedAuthorsScreen() {
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <AppText variant="caption" tone="secondary" style={styles.intro}>
           ブロック中の歌人とは、互いの歌・評が見えなくなり、互いにリアクションや評も送れなくなります。相手にブロックしたことは通知されません。解除するとまた表示されるようになります。{'\n\n'}
-          歌人は匿名のため、歌会での表示名ではなく、歌のサンプルで見分けてください。
+          歌人は歌のサンプルで見分けてください。
         </AppText>
 
         {entries.length === 0 && (

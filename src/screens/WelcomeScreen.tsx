@@ -24,7 +24,7 @@ export default function WelcomeScreen() {
       <Animated.View style={[styles.content, { opacity }]}>
         <View style={styles.body}>
           <AppText variant="bodyLg" tone="secondary" style={styles.text}>
-            ここは、名を伏せて短歌を詠み合う場所
+            ここは、静かに短歌を詠み合う場所
           </AppText>
           <AppText variant="bodyLg" tone="secondary" style={styles.text}>
             あなたの詠草は{'\n'}誰が詠んだか知られることなく{'\n'}歌会の仲間に届きます

@@ -47,7 +47,7 @@ export function describeError(error: any): { title: string; message: string } {
   if (code === 'permission-denied') {
     // 具体原因（ブロック、追放、歌会解散など）は伝えない。
     // ブロックされている場合、そのことを相手（ブロックされた側）に明示的に知らせると
-    // 匿名ブロックの前提が崩れるため、中立的な表現に留める。
+    // 相手に知られない前提が崩れるため、中立的な表現に留める。
     return {
       title: '操作できません',
       message: 'この操作は現在できません。少し時間をおいてお試しください。',
