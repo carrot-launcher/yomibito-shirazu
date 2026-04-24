@@ -318,12 +318,24 @@ async function getUserPrimaryLabel(uid) {
   }
 }
 
+// 反故化されたコンテンツの原文は private/archivedBody に退避される。hogo=true の
+// 時にこのパスを引いて原文を取得する（存在しないケース: 古い hogo でデータ未退避）。
+async function fetchArchivedBody(contentPath) {
+  try {
+    const snap = await db.doc(`${contentPath}/private/archivedBody`).get();
+    return snap.exists ? (snap.data()?.body || null) : null;
+  } catch {
+    return null;
+  }
+}
+
 // post doc を renderPost が使える形に整える（author 情報も resolve する）。
 async function enrichPost(postDoc) {
   const p = postDoc.data();
-  const [gName, authorId] = await Promise.all([
+  const [gName, authorId, archivedBody] = await Promise.all([
     getGroupName(p.groupId),
     getContentAuthorId({ targetType: 'post', targetId: postDoc.id }),
+    p.hogo ? fetchArchivedBody(`posts/${postDoc.id}`) : Promise.resolve(null),
   ]);
   const authorInfo = authorId ? await getAuthorInfo(p.groupId, authorId) : null;
   return {
@@ -333,14 +345,23 @@ async function enrichPost(postDoc) {
     gName,
     uid: authorId,
     authorInfo,
+    archivedBody,
   };
 }
 
-function renderPost({ p, gId, gName, uid, authorInfo }) {
+// 反故化済みで archivedBody がある場合は `[反故] <原文>` 形式で原文を可視化する。
+// body が残っている通常ケースは bold でそのまま、body 無し archivedBody 無しは単に (反故)。
+function formatBodyOrArchived(body, archivedBody) {
+  if (body) return `${C.bold}${body}${C.reset}`;
+  if (archivedBody) return `${C.red}[反故]${C.reset} ${C.dim}${archivedBody}${C.reset}`;
+  return `${C.red}(反故)${C.reset}`;
+}
+
+function renderPost({ p, gId, gName, uid, authorInfo, archivedBody }) {
   const flagStr = formatContentFlags(p, { includeRevealed: true });
   const groupPart = formatGroupPillVerbose(gName, gId);
   const authorPart = ' ' + formatAuthorPillVerbose(authorInfo?.displayName, authorInfo?.userCode, uid);
-  const bodyStr = p.body ? `${C.bold}${p.body}${C.reset}` : `${C.red}(反故)${C.reset}`;
+  const bodyStr = formatBodyOrArchived(p.body, archivedBody);
   const typeMarker = `${C.cyan}${C.bold}歌${C.reset}`;
   const timeStr = `${C.dim}[${fmtTime(p.createdAt)}]${C.reset}`;
   return `${timeStr} ${typeMarker} ${groupPart}${authorPart}${flagStr} ${bodyStr}`;
@@ -352,9 +373,10 @@ async function enrichComment(commentDoc) {
   const c = commentDoc.data();
   const postId = commentDoc.ref.parent.parent?.id;
   if (!postId) return null;
-  const [postSnap, authorId] = await Promise.all([
+  const [postSnap, authorId, archivedBody] = await Promise.all([
     db.doc(`posts/${postId}`).get(),
     getContentAuthorId({ targetType: 'comment', targetId: commentDoc.id, postId }),
+    c.hogo ? fetchArchivedBody(`posts/${postId}/comments/${commentDoc.id}`) : Promise.resolve(null),
   ]);
   const p = postSnap.exists ? postSnap.data() : null;
   const gId = p?.groupId || null;
@@ -369,15 +391,16 @@ async function enrichComment(commentDoc) {
     gName,
     uid: authorId,
     authorInfo,
+    archivedBody,
   };
 }
 
-function renderComment({ c, postBody, gId, gName, uid, authorInfo }) {
+function renderComment({ c, postBody, gId, gName, uid, authorInfo, archivedBody }) {
   const flagStr = formatContentFlags(c);
   const groupPart = formatGroupPillVerbose(gName, gId);
   const authorPart = ' ' + formatAuthorPillVerbose(authorInfo?.displayName, authorInfo?.userCode, uid);
   const postRef = `${C.dim}→[${postBody ? truncate(postBody, 20) : '〈投稿欠損〉'}]${C.reset} `;
-  const bodyStr = c.body ? `${C.bold}${c.body}${C.reset}` : `${C.red}(反故)${C.reset}`;
+  const bodyStr = formatBodyOrArchived(c.body, archivedBody);
   const typeMarker = `${C.magenta}${C.bold}評${C.reset}`;
   const timeStr = `${C.dim}[${fmtTime(c.createdAt)}]${C.reset}`;
   return `${timeStr} ${typeMarker} ${groupPart}${authorPart}${flagStr} ${postRef}${bodyStr}`;
@@ -550,22 +573,23 @@ async function cmdReports(n) {
     return;
   }
 
-  // 対象コンテンツと作者 uid を並列で引く
+  // 対象コンテンツと作者 uid を並列で引く。hogo の場合は archivedBody も取る。
   const enriched = await Promise.all(snap.docs.map(async (d) => {
     const r = d.data();
+    const contentPath = r.targetType === 'comment'
+      ? `posts/${r.postId}/comments/${r.targetId}`
+      : `posts/${r.targetId}`;
     const [gName, authorId, contentSnap] = await Promise.all([
       getGroupName(r.groupId),
       getContentAuthorId({ targetType: r.targetType, targetId: r.targetId, postId: r.postId }),
-      (r.targetType === 'comment'
-        ? db.doc(`posts/${r.postId}/comments/${r.targetId}`).get()
-        : db.doc(`posts/${r.targetId}`).get()),
+      db.doc(contentPath).get(),
     ]);
     const content = contentSnap.exists ? contentSnap.data() : null;
-    return { id: d.id, r, gName, authorId, content };
+    const archivedBody = content?.hogo ? await fetchArchivedBody(contentPath) : null;
+    return { id: d.id, r, gName, authorId, content, archivedBody };
   }));
 
-  for (const { id, r, gName, authorId, content } of enriched) {
-    const body = content?.body || '(反故)';
+  for (const { id, r, gName, authorId, content, archivedBody } of enriched) {
     const reportCount = content?.reportCount ?? '?';
     const hogo = content?.hogo ? ` ${C.yellow}裁き:${content.hogoType || '?'}${C.reset}` : '';
     const typeMarker = r.targetType === 'comment'
@@ -574,9 +598,13 @@ async function cmdReports(n) {
     const countColored = typeof reportCount === 'number'
       ? (reportCount >= 3 ? `${C.red}${reportCount}${C.reset}` : `${C.yellow}${reportCount}${C.reset}`)
       : reportCount;
-    const bodyStr = content?.body
-      ? `${C.bold}${truncate(body, 60)}${C.reset}`
-      : `${C.red}${body}${C.reset}`;
+    const bodyStr = content === null
+      ? `${C.dim}(削除済み)${C.reset}`
+      : content.body
+        ? `${C.bold}${truncate(content.body, 60)}${C.reset}`
+        : archivedBody
+          ? `${C.red}[反故]${C.reset} ${C.dim}${truncate(archivedBody, 60)}${C.reset}`
+          : `${C.red}(反故)${C.reset}`;
     console.log(`${C.dim}[${fmtTime(r.createdAt)}]${C.reset} [${gName}] ${typeMarker}${hogo}`);
     console.log(`  ${C.dim}通報理由:${C.reset} ${C.yellow}${r.reason}${C.reset}${r.detail ? ` / ${truncate(r.detail, 60)}` : ''}`);
     console.log(`  ${C.dim}対象:${C.reset} ${bodyStr} ${C.dim}(通報数:${C.reset}${countColored}${C.dim})${C.reset}`);
@@ -1216,7 +1244,7 @@ async function main() {
           fmtTime, displayWidth, padRightToWidth, toDim, flattenBody, truncate,
           formatGroupPill, formatAuthorPill, formatPrimaryLabel,
           getGroupName, getAuthorInfo, getUserPrimaryLabel, getContentAuthorId,
-          enrichPost, enrichComment,
+          enrichPost, enrichComment, fetchArchivedBody,
           cmdGroup, cmdSuspend, cmdUnsuspend, cmdPurge,
           loadTriageState, saveTriageState,
         });

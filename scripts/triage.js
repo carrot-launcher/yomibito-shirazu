@@ -34,6 +34,7 @@ module.exports = async function runTriage(deps) {
     getUserPrimaryLabel,
     enrichPost,
     enrichComment,
+    fetchArchivedBody,
     // 委譲先コマンド
     cmdGroup,
     cmdSuspend,
@@ -86,7 +87,14 @@ module.exports = async function runTriage(deps) {
   // 行番号 n を padWidth 幅の右寄せ文字列にしてブラケットで囲む。
   const fmtIdx = (n, padWidth) => String(n).padStart(padWidth);
 
-  function renderTriagePost({ p, gName, uid, authorInfo }, n, padWidth) {
+  // 反故化されていて archivedBody がある場合は `[反故] <原文>` で原文可視化。
+  function bodyCell(body, archivedBody) {
+    if (body) return `${C.bold}${flattenBody(body)}${C.reset}`;
+    if (archivedBody) return `${C.red}[反故]${C.reset} ${C.dim}${flattenBody(archivedBody)}${C.reset}`;
+    return `${C.red}(反故)${C.reset}`;
+  }
+
+  function renderTriagePost({ p, gName, uid, authorInfo, archivedBody }, n, padWidth) {
     const revealed = !!p.revealedAuthorName;
     const flags = [];
     if (p.hogo) flags.push(`裁き:${p.hogoType || '?'}${p.hogoReason ? `(${p.hogoReason})` : ''}`);
@@ -95,15 +103,13 @@ module.exports = async function runTriage(deps) {
     const authorStr = uid
       ? authorPill(authorInfo?.displayName, authorInfo?.userCode, { revealed })
       : `${C.dim}[〈作者不明〉]${C.reset}`;
-    const bodyStr = p.body
-      ? `${C.bold}${flattenBody(p.body)}${C.reset}`
-      : `${C.red}(反故)${C.reset}`;
+    const bodyStr = bodyCell(p.body, archivedBody);
     const timeStr = `${C.dim}[${fmtTime(p.createdAt)}]${C.reset}`;
     const inlineN = `${C.bold}[${fmtIdx(n, padWidth)}]${C.reset}`;
     return { time: timeStr, group: groupStr, author: authorStr, extras, inlineN, body: bodyStr, trailing: '' };
   }
 
-  function renderTriageComment({ c, postBody, gName, uid, authorInfo }, n, padWidth) {
+  function renderTriageComment({ c, postBody, gName, uid, authorInfo, archivedBody }, n, padWidth) {
     const flags = [];
     if (c.hogo) flags.push(`裁き:${c.hogoType || '?'}${c.hogoReason ? `(${c.hogoReason})` : ''}`);
     const extras = flags.length ? `${C.yellow}[${flags.join(' / ')}]${C.reset}` : '';
@@ -112,9 +118,7 @@ module.exports = async function runTriage(deps) {
       ? authorPill(authorInfo?.displayName, authorInfo?.userCode)
       : `${C.dim}[〈作者不明〉]${C.reset}`;
     const postRef = `${C.dim}→[${postBody ? truncate(flattenBody(postBody), 20) : '〈投稿欠損〉'}]${C.reset}`;
-    const bodyStr = c.body
-      ? `${C.bold}${flattenBody(c.body)}${C.reset}`
-      : `${C.red}(反故)${C.reset}`;
+    const bodyStr = bodyCell(c.body, archivedBody);
     const timeStr = `${C.dim}[${fmtTime(c.createdAt)}]${C.reset}`;
     const inlineN = `${C.bold}[${fmtIdx(n, padWidth)}]${C.reset}`;
     return { time: timeStr, group: groupStr, author: authorStr, extras, inlineN, body: bodyStr, trailing: ` ${postRef}` };
@@ -122,9 +126,9 @@ module.exports = async function runTriage(deps) {
 
   function renderReportRow(item, n, padWidth) {
     const r = item.r;
-    const bodyStr = item.content?.body
-      ? `${C.bold}${flattenBody(item.content.body)}${C.reset}`
-      : `${C.red}(反故)${C.reset}`;
+    const bodyStr = item.content === null
+      ? `${C.dim}(削除済み)${C.reset}`
+      : bodyCell(item.content?.body, item.archivedBody);
     const authorStr = item.uid
       ? authorPill(item.authorInfo?.displayName, item.authorInfo?.userCode)
       : `${C.dim}[〈作者不明〉]${C.reset}`;
@@ -192,15 +196,17 @@ module.exports = async function runTriage(deps) {
     // Firestore 側で DESC 済みなのでそのまま使う（top=new）
     const enriched = await Promise.all(snap.docs.map(async (d) => {
       const r = d.data();
+      const contentPath = r.targetType === 'comment'
+        ? `posts/${r.postId}/comments/${r.targetId}`
+        : `posts/${r.targetId}`;
       const [gName, authorId, contentSnap] = await Promise.all([
         getGroupName(r.groupId),
         deps.getContentAuthorId({ targetType: r.targetType, targetId: r.targetId, postId: r.postId }),
-        (r.targetType === 'comment'
-          ? db.doc(`posts/${r.postId}/comments/${r.targetId}`).get()
-          : db.doc(`posts/${r.targetId}`).get()),
+        db.doc(contentPath).get(),
       ]);
       const content = contentSnap.exists ? contentSnap.data() : null;
       const authorInfo = authorId ? await getAuthorInfo(r.groupId, authorId) : null;
+      const archivedBody = content?.hogo ? await fetchArchivedBody(contentPath) : null;
       return {
         kind: 'report',
         reportId: d.id,
@@ -210,6 +216,7 @@ module.exports = async function runTriage(deps) {
         uid: authorId,
         authorInfo,
         content,
+        archivedBody,
         createdAtMs: r.createdAt?.toMillis?.() || 0,
       };
     }));
@@ -547,6 +554,9 @@ module.exports = async function runTriage(deps) {
 
     if (doc?.body) {
       for (const line of doc.body.split(/\r?\n/)) out.push(`  ${C.bold}${line}${C.reset}`);
+    } else if (item.archivedBody) {
+      out.push(`  ${C.red}[反故]${C.reset}`);
+      for (const line of item.archivedBody.split(/\r?\n/)) out.push(`  ${C.dim}${line}${C.reset}`);
     } else {
       out.push(`  ${C.red}(反故)${C.reset}`);
     }
