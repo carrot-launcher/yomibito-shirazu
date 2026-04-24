@@ -4,9 +4,11 @@
 
 ### 前提条件
 
-- Node.js 18+
+- Node.js 18+（Cloud Functions のビルド・デプロイを行う場合は Node.js 22。`functions/package.json` の `engines.node` が 22 のため）
 - Firebase プロジェクト
 - Google Cloud Console で OAuth 2.0 クライアント ID を取得済み
+- iOS ビルドを行う場合は Xcode と CocoaPods、および Apple Developer アカウント（`usesAppleSignIn: true` のため Sign in with Apple の Capability が必要）
+- EAS Build / Submit を使う場合は `eas-cli` と Expo アカウント
 
 ### 手順
 
@@ -41,9 +43,10 @@
    cd functions && npm run build && firebase deploy --only functions
    ```
 
-5. Firestore Security Rules をデプロイ
+5. Firestore Security Rules / インデックスをデプロイ
    ```bash
    firebase deploy --only firestore:rules
+   firebase deploy --only firestore:indexes
    ```
 
 6. 開発サーバーを起動
@@ -55,6 +58,18 @@
    ```bash
    npx expo prebuild --clean && npx expo run:android --device
    ```
+
+8. iOS ビルド（初回のみ、macOS 環境）
+   ```bash
+   npx expo prebuild --clean && npx expo run:ios --device
+   ```
+
+### 補足
+
+- `app.config.ts` は `.env.local` の値を `expo.extra` に流し込む仕組み。`dotenv/config` を読み込んでいるので、`expo start` 実行時にも自動で反映される。
+- `google-services.json` / `GoogleService-Info.plist` の配置先は環境変数 `GOOGLE_SERVICES_JSON` / `GOOGLE_SERVICES_INFO_PLIST` で上書き可能（EAS Build ではこちらを使う想定）。
+- `plugins/` 配下の自作 Expo Config Plugin（`with-firebase-static-framework`, `with-android-japanese-locale`）は `app.config.ts` から参照されているので、リポジトリのルートから実行する必要がある。
+- リリースビルドは EAS（`eas.json` に設定済み）を利用。例：`eas build -p android --profile production`。Google Play への自動 submit には `./google-play-key.json` が必要。
 
 ## ライセンス
 
