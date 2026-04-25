@@ -14,6 +14,9 @@
 //   node scripts/monitor.js suspend <uid> <reason> [--yes]
 //   node scripts/monitor.js unsuspend <uid> [--yes]
 //   node scripts/monitor.js purge <uid> <reason> [--yes] [--dry-run]
+//   node scripts/monitor.js delete <postId> [--yes]
+//   node scripts/monitor.js ghosts
+//   node scripts/monitor.js purgeUser <uid> [--yes] [--dry-run]
 //   node scripts/monitor.js orphans [--yes] [--dry-run]
 //   node scripts/monitor.js triage
 const admin = require('firebase-admin');
@@ -978,6 +981,531 @@ async function cmdPurge(uid, reason, rl) {
   console.log(`✓ ${processed}件の投稿を反故化しました。`);
 }
 
+// 投稿削除に伴って、その歌を参照する通知 (new_post / reaction) の本文を「削除済み」に
+// 書き換える。functions/src/index.ts の markNotificationsForPost(postId, "deleted")
+// と同じロジックを admin SDK で再現したもの。
+async function markPostNotificationsAsDeleted(postId) {
+  const snap = await db.collectionGroup('notifications').where('postId', '==', postId).get();
+  const updates = { targetState: 'deleted', tankaBody: '' };
+  const BATCH_SIZE = 400;
+  for (let i = 0; i < snap.docs.length; i += BATCH_SIZE) {
+    const batch = db.batch();
+    for (const d of snap.docs.slice(i, i + BATCH_SIZE)) {
+      const t = d.data()?.type;
+      if (t !== 'new_post' && t !== 'reaction') continue;
+      batch.update(d.ref, updates);
+    }
+    await batch.commit();
+  }
+}
+
+// bulk 版。purgeUser のように複数投稿を一気に掃除する場面で使う。
+// Firestore 'in' クエリは 30 件上限なので chunk 化。
+async function markPostNotificationsAsDeletedBulk(postIds) {
+  if (postIds.length === 0) return;
+  const IN_CHUNK = 30;
+  const BATCH_CHUNK = 400;
+  const matched = [];
+  for (let i = 0; i < postIds.length; i += IN_CHUNK) {
+    const chunk = postIds.slice(i, i + IN_CHUNK);
+    const snap = await db.collectionGroup('notifications').where('postId', 'in', chunk).get();
+    matched.push(...snap.docs);
+  }
+  const updates = { targetState: 'deleted', tankaBody: '' };
+  for (let i = 0; i < matched.length; i += BATCH_CHUNK) {
+    const batch = db.batch();
+    for (const d of matched.slice(i, i + BATCH_CHUNK)) {
+      const t = d.data()?.type;
+      if (t !== 'new_post' && t !== 'reaction') continue;
+      batch.update(d.ref, updates);
+    }
+    await batch.commit();
+  }
+}
+
+async function markCommentNotificationsAsDeletedBulk(commentIds) {
+  if (commentIds.length === 0) return;
+  const IN_CHUNK = 30;
+  const BATCH_CHUNK = 400;
+  const matched = [];
+  for (let i = 0; i < commentIds.length; i += IN_CHUNK) {
+    const chunk = commentIds.slice(i, i + IN_CHUNK);
+    const snap = await db.collectionGroup('notifications').where('commentId', 'in', chunk).get();
+    matched.push(...snap.docs);
+  }
+  const updates = { targetState: 'deleted', commentBody: '' };
+  for (let i = 0; i < matched.length; i += BATCH_CHUNK) {
+    const batch = db.batch();
+    for (const d of matched.slice(i, i + BATCH_CHUNK)) {
+      if (d.data()?.type !== 'comment') continue;
+      batch.update(d.ref, updates);
+    }
+    await batch.commit();
+  }
+}
+
+// 単一の投稿を「本人削除と同じ最終状態」になるように消す。
+// 最終状態は functions/src/index.ts の deletePost callable と同じ:
+//   - posts/{postId}/reactions/*, comments/* (+ private/*), private/*, posts/{postId} が消える
+//   - groups/{groupId}.postCount を -1（歌会現存時のみ）
+//   - 関連通知 (new_post / reaction) の本文が「削除済み」になる
+//   - users/{authorId}/myPosts のうち postId 一致が消える
+//   - rateLimits は減算しない
+//
+// ただし書き込みは dissolveGroup と同じ per-resource batch 方式に分割する。
+// callable の単一 batch だと 500 ops 上限に当たる巨大投稿（コメント・リアクション多数）で
+// 削除自体が失敗するため、管理操作では取りこぼしを減らす方を優先する。
+// 中途で失敗した場合は orphan が残り得るが、`monitor.js orphans` で掃除可能。
+//
+// 戻り値: 実行したら true、ユーザがキャンセルしたら false
+async function cmdDeletePost(postId, rl) {
+  if (!postId) {
+    console.error('使い方: node monitor.js delete <postId>');
+    return false;
+  }
+  const postSnap = await db.doc(`posts/${postId}`).get();
+  if (!postSnap.exists) {
+    console.log(`posts/${postId} は既に存在しません。`);
+    return false;
+  }
+  const p = postSnap.data();
+  const groupId = p.groupId || null;
+
+  const authorSnap = await db.doc(`posts/${postId}/private/author`).get();
+  const authorId = authorSnap.exists ? (authorSnap.data()?.authorId || null) : null;
+
+  const [gName, authorInfo] = await Promise.all([
+    groupId ? getGroupName(groupId) : Promise.resolve('〈不明〉'),
+    authorId && groupId ? getAuthorInfo(groupId, authorId) : Promise.resolve(null),
+  ]);
+
+  console.log(`=== delete post ===`);
+  console.log(`  postId: ${postId}`);
+  console.log(`  group:  ${gName} (${groupId || '?'})`);
+  console.log(`  author: ${authorInfo?.displayName || '〈名無し〉'}#${authorInfo?.userCode || '------'} (${authorId || '〈取得不可〉'})`);
+  console.log(`  body:   ${truncate(p.body || '', 80)}`);
+  console.log('');
+  console.log('この操作で起きること（本人削除と同じ最終状態）:');
+  console.log(`  - posts/${postId}/reactions/* を全削除`);
+  console.log(`  - posts/${postId}/comments/* と comments/.../private/* を全削除`);
+  console.log(`  - posts/${postId}/private/* を全削除`);
+  console.log(`  - posts/${postId} を削除`);
+  if (groupId) console.log(`  - groups/${groupId}.postCount を -1（歌会現存時のみ）`);
+  console.log(`  - 関連通知 (new_post / reaction) の本文を「削除済み」に`);
+  if (authorId) console.log(`  - users/${authorId}/myPosts の postId=${postId} を削除`);
+  console.log(`  ※ rateLimits は減算しない`);
+  console.log('');
+
+  const ok = await confirm('実行しますか？', rl);
+  if (!ok) {
+    console.log('中止しました。');
+    return false;
+  }
+
+  // ops を細かく分割していく。500 ops 制限を避けるため chunkSize=400 で安全側。
+  const CHUNK = 400;
+  async function deleteRefsInChunks(refs) {
+    for (let i = 0; i < refs.length; i += CHUNK) {
+      const batch = db.batch();
+      for (const ref of refs.slice(i, i + CHUNK)) batch.delete(ref);
+      await batch.commit();
+    }
+  }
+
+  // 1. reactions を全削除（chunked batch）。
+  const reactionsSnap = await db.collection(`posts/${postId}/reactions`).get();
+  await deleteRefsInChunks(reactionsSnap.docs.map((d) => d.ref));
+
+  // 2. comments: dissolveGroup に揃えて 1 コメントごとに 1 batch（private + 本体）。
+  //    1 件失敗しても他は続行する。
+  const commentsSnap = await db.collection(`posts/${postId}/comments`).get();
+  let commentFails = 0;
+  for (const commentDoc of commentsSnap.docs) {
+    try {
+      const privSnap = await db.collection(`posts/${postId}/comments/${commentDoc.id}/private`).get();
+      const batchC = db.batch();
+      privSnap.docs.forEach((d) => batchC.delete(d.ref));
+      batchC.delete(commentDoc.ref);
+      await batchC.commit();
+    } catch (e) {
+      commentFails++;
+      console.error(`  comment delete failed: ${commentDoc.id}: ${e.message}`);
+    }
+  }
+  if (commentFails > 0) {
+    console.error(`  ${commentFails}件のコメント削除に失敗しました（orphan として残存。orphans コマンドで掃除可）。`);
+  }
+
+  // 3. post の private/* + 本体 + group.postCount を 1 batch で。
+  //    private は通常 author + (反故時のみ archivedBody) なので 500 ops に当たることはまず無い。
+  //    ここは「最終的な消滅」を atomic にしたい部分（中途半端だと post だけ残る等）。
+  const postPrivateSnap = await db.collection(`posts/${postId}/private`).get();
+  const batchPost = db.batch();
+  postPrivateSnap.docs.forEach((d) => batchPost.delete(d.ref));
+  batchPost.delete(db.doc(`posts/${postId}`));
+  if (groupId) {
+    const gSnap = await db.doc(`groups/${groupId}`).get();
+    if (gSnap.exists) {
+      batchPost.update(db.doc(`groups/${groupId}`), {
+        postCount: admin.firestore.FieldValue.increment(-1),
+      });
+    }
+  }
+  await batchPost.commit();
+
+  // 4. 通知の本文書き換え（既に chunked 実装）
+  try {
+    await markPostNotificationsAsDeleted(postId);
+  } catch (e) {
+    console.error(`通知マーク失敗: ${e.message}`);
+  }
+
+  // 5. myPosts 削除（作者 uid が分かるとき）。歌会数だけ高々N件なので CHUNK 内に収まる想定。
+  if (authorId) {
+    const myPostsSnap = await db.collection(`users/${authorId}/myPosts`).where('postId', '==', postId).get();
+    await deleteRefsInChunks(myPostsSnap.docs.map((d) => d.ref));
+  }
+
+  console.log(`✓ posts/${postId} を削除しました。`);
+  return true;
+}
+
+// Firestore に users/{uid} は存在するが Firebase Auth に該当 uid が無い「ghost」を検出する。
+// 想定ケース: Firebase Console から直接 Auth ユーザーを削除したり、deleteAccount callable を
+// 通さずアカウントを消した結果、Firestore 側のクリーンアップ (joinedGroups 脱退・所有歌会の
+// ソフト解散・他人の歌への評/リアクション削除など) が走らないまま放置されている状態。
+// 検出だけ行い、削除は purgeUser で別途実施する。
+async function cmdGhosts() {
+  console.log(`${C.cyan}${C.bold}=== ghost ユーザー検出 ===${C.reset}`);
+  console.log('users/* に存在するが Firebase Auth に存在しない uid を炙り出します。');
+  console.log('');
+
+  const usersSnap = await db.collection('users').get();
+  console.log(`Firestore users: ${C.bold}${usersSnap.size}${C.reset}人`);
+  if (usersSnap.empty) return;
+
+  const allUids = usersSnap.docs.map((d) => d.id);
+  // admin.auth().getUsers は最大 100 件
+  const CHUNK = 100;
+  const ghostUids = [];
+  for (let i = 0; i < allUids.length; i += CHUNK) {
+    const chunk = allUids.slice(i, i + CHUNK);
+    const result = await admin.auth().getUsers(chunk.map((uid) => ({ uid })));
+    for (const nf of result.notFound) {
+      // notFound は { uid: '...' } の形
+      if (nf.uid) ghostUids.push(nf.uid);
+    }
+  }
+
+  if (ghostUids.length === 0) {
+    console.log(`${C.green}ghost ユーザーは見つかりませんでした。${C.reset}`);
+    return;
+  }
+
+  console.log(`${C.red}${C.bold}ghost: ${ghostUids.length}人${C.reset}`);
+  console.log('');
+
+  for (const uid of ghostUids) {
+    const userSnap = await db.doc(`users/${uid}`).get();
+    const u = userSnap.exists ? userSnap.data() : {};
+    const primary = await getUserPrimaryLabel(uid);
+    const ownedSnap = await db.collection('groups').where('createdBy', '==', uid).get();
+    const joinedCount = (u.joinedGroups || []).length;
+    const myPostsSnap = await db.collection(`users/${uid}/myPosts`).get();
+
+    console.log(`  ${C.bold}${uid}${C.reset}`);
+    console.log(`    ${C.dim}name:${C.reset}     ${formatPrimaryLabel(primary)}`);
+    console.log(`    ${C.dim}所有歌会:${C.reset} ${ownedSnap.size === 0 ? '0件' : `${C.red}${ownedSnap.size}件${C.reset}`}`);
+    console.log(`    ${C.dim}参加歌会:${C.reset} ${joinedCount}件`);
+    console.log(`    ${C.dim}myPosts:${C.reset}  ${myPostsSnap.size}件`);
+    console.log('');
+  }
+  console.log(`${C.dim}掃除コマンド: ${C.reset}node monitor.js purgeUser <uid> ${C.dim}[--dry-run] [--yes]${C.reset}`);
+}
+
+// ghost ユーザーの Firestore データを deleteAccount callable と同じ手順で掃除する。
+// ステップ 9 (Auth ユーザー削除) はスキップ（前提として既に Auth から消えている／消えていない場合は警告）。
+// 各ステップは部分失敗を許容（dissolveGroup / deleteAccount と同じ思想）。
+//
+// ⚠ functions/src/index.ts の deleteAccount callable と並行実装。ロジックは同一に保つ
+// 必要がある。あちらを変更したら必ずこちらも追従すること。parity を自動テストで
+// 担保していないので、片方だけ更新するとズレる。
+async function cmdPurgeUser(uid, rl) {
+  if (!uid) {
+    console.error('使い方: node monitor.js purgeUser <uid> [--yes] [--dry-run]');
+    return;
+  }
+  const dryRun = flags.has('--dry-run');
+
+  // Auth 上に存在するか確認 (普通は ghost 用途なので NO のはず)
+  let authExists = false;
+  try {
+    await admin.auth().getUser(uid);
+    authExists = true;
+  } catch {
+    // user-not-found = ghost、想定通り
+  }
+
+  const userSnap = await db.doc(`users/${uid}`).get();
+  if (!userSnap.exists) {
+    console.log(`users/${uid} は存在しません。`);
+    return;
+  }
+  const u = userSnap.data();
+  const primary = await getUserPrimaryLabel(uid);
+  const joinedGroups = u.joinedGroups || [];
+  const ownedSnap = await db.collection('groups').where('createdBy', '==', uid).get();
+  const myPostsSnap = await db.collection(`users/${uid}/myPosts`).get();
+
+  console.log(`${C.cyan}${C.bold}=== purgeUser ===${C.reset}`);
+  console.log(`  uid:        ${uid}`);
+  console.log(`  name:       ${formatPrimaryLabel(primary)}`);
+  console.log(`  Auth 存在:  ${authExists ? `${C.red}${C.bold}YES${C.reset} ${C.red}(本当に Firestore データを掃除して良いか確認してください)${C.reset}` : `${C.green}NO (ghost)${C.reset}`}`);
+  console.log(`  所有歌会:   ${ownedSnap.size === 0 ? '0件' : `${C.red}${ownedSnap.size}件 (ソフト解散される)${C.reset}`}`);
+  console.log(`  参加歌会:   ${joinedGroups.length}件`);
+  console.log(`  myPosts:    ${myPostsSnap.size}件`);
+  console.log(`  mode:       ${dryRun ? `${C.yellow}DRY-RUN (書き込みなし)${C.reset}` : `${C.bold}本番実行${C.reset}`}`);
+  console.log('');
+  console.log('この操作で起きること（deleteAccount callable のステップ 1〜8 と同等、9 = Auth 削除はスキップ）:');
+  console.log('  1. 所有歌会をソフト解散（メンバ全員 joinedGroups 解除 + members 削除 + group 本体 + group rateLimits 削除）');
+  console.log('  2. 他歌会のメンバーシップ削除（memberCount -1）');
+  console.log('  3. 自分の歌を削除 (reactions / comments + private / post + group.postCount -N)');
+  console.log('  4. 他人の歌への評を削除（commentCount -1）');
+  console.log('  4b. 関連通知の本文を「削除済み」に');
+  console.log('  5. 他人の歌へのリアクションを削除（reactionSummary -1）');
+  console.log('  6. myPosts / bookmarks / notifications 削除');
+  console.log('  7. rateLimits 削除');
+  console.log('  8. users/{uid} 削除');
+  console.log('');
+
+  if (dryRun) {
+    console.log('DRY-RUN モードのため書き込みは行いません。');
+    return;
+  }
+
+  const ok = await confirm('実行しますか？', rl);
+  if (!ok) {
+    console.log('中止しました。');
+    return;
+  }
+
+  // 共通: chunked delete helper
+  const CHUNK = 400;
+  async function deleteRefsInChunks(refs) {
+    for (let i = 0; i < refs.length; i += CHUNK) {
+      const batch = db.batch();
+      refs.slice(i, i + CHUNK).forEach((ref) => batch.delete(ref));
+      await batch.commit();
+    }
+  }
+
+  // ----- 1. 所有歌会のソフト解散 -----
+  console.log(`${C.gray}1. 所有歌会をソフト解散...${C.reset}`);
+  let ownedDissolved = 0;
+  for (const groupDoc of ownedSnap.docs) {
+    const groupId = groupDoc.id;
+    try {
+      const membersSnap = await db.collection(`groups/${groupId}/members`).get();
+      for (const memberDoc of membersSnap.docs) {
+        const memberId = memberDoc.id;
+        await db.doc(`users/${memberId}`).update({
+          joinedGroups: admin.firestore.FieldValue.arrayRemove(groupId),
+        }).catch(() => {});
+        await memberDoc.ref.delete();
+      }
+      await groupDoc.ref.delete();
+      const groupDailySnap = await db.collection(`rateLimits/group_${groupId}/daily`).get();
+      if (groupDailySnap.size > 0) {
+        const b = db.batch();
+        groupDailySnap.docs.forEach((d) => b.delete(d.ref));
+        b.delete(db.doc(`rateLimits/group_${groupId}`));
+        await b.commit();
+      }
+      ownedDissolved++;
+    } catch (e) {
+      console.error(`  解散失敗 ${groupId}: ${e.message}`);
+    }
+  }
+  console.log(`  ${C.green}✓${C.reset} ${ownedDissolved}/${ownedSnap.size}件 解散`);
+
+  // ----- 2. 他歌会から脱退 -----
+  console.log(`${C.gray}2. 他歌会から脱退...${C.reset}`);
+  let leftCount = 0;
+  for (const groupId of joinedGroups) {
+    try {
+      const memberRef = db.doc(`groups/${groupId}/members/${uid}`);
+      const memberSnap = await memberRef.get();
+      if (memberSnap.exists) {
+        await memberRef.delete();
+        await db.doc(`groups/${groupId}`).update({
+          memberCount: admin.firestore.FieldValue.increment(-1),
+        }).catch(() => {});
+        leftCount++;
+      }
+    } catch {
+      // 歌会が既に消えているなど
+    }
+  }
+  console.log(`  ${C.green}✓${C.reset} ${leftCount}/${joinedGroups.length}件 脱退`);
+
+  // ----- 3. 自分の歌を削除 -----
+  console.log(`${C.gray}3. 自分の歌を削除...${C.reset}`);
+  const deletedPostIds = new Set();
+  const deletedCommentIds = [];
+  const deletionsByGroup = new Map();
+  for (const myPost of myPostsSnap.docs) {
+    const postId = myPost.data().postId;
+    const postGroupId = myPost.data().groupId;
+    if (!postId || deletedPostIds.has(postId)) continue;
+    deletedPostIds.add(postId);
+    try {
+      // reactions chunked
+      const reactionsSnap = await db.collection(`posts/${postId}/reactions`).get();
+      await deleteRefsInChunks(reactionsSnap.docs.map((d) => d.ref));
+      // comments per-comment batch
+      const commentsSnap = await db.collection(`posts/${postId}/comments`).get();
+      for (const commentDoc of commentsSnap.docs) {
+        const privSnap = await db.collection(`posts/${postId}/comments/${commentDoc.id}/private`).get();
+        const cBatch = db.batch();
+        privSnap.docs.forEach((d) => cBatch.delete(d.ref));
+        cBatch.delete(commentDoc.ref);
+        await cBatch.commit();
+        deletedCommentIds.push(commentDoc.id);
+      }
+      // post private + post 本体
+      const postPrivateSnap = await db.collection(`posts/${postId}/private`).get();
+      const pBatch = db.batch();
+      postPrivateSnap.docs.forEach((d) => pBatch.delete(d.ref));
+      pBatch.delete(db.doc(`posts/${postId}`));
+      await pBatch.commit();
+      if (postGroupId) {
+        deletionsByGroup.set(postGroupId, (deletionsByGroup.get(postGroupId) || 0) + 1);
+      }
+    } catch (e) {
+      console.error(`  post 削除失敗 ${postId}: ${e.message}`);
+    }
+  }
+  // 3b. group.postCount を歌会単位でまとめて減算
+  for (const [gid, count] of deletionsByGroup) {
+    try {
+      const gSnap = await db.doc(`groups/${gid}`).get();
+      if (gSnap.exists) {
+        await db.doc(`groups/${gid}`).update({
+          postCount: admin.firestore.FieldValue.increment(-count),
+        });
+      }
+    } catch {
+      // 歌会が既に消えているなど
+    }
+  }
+  console.log(`  ${C.green}✓${C.reset} ${deletedPostIds.size}件 削除`);
+
+  // ----- 4. 他人の歌への評を削除 -----
+  console.log(`${C.gray}4. 他人の歌への評を削除...${C.reset}`);
+  let commentCleanups = 0;
+  try {
+    const authorSnap = await db.collectionGroup('private').where('authorId', '==', uid).get();
+    for (const authorDoc of authorSnap.docs) {
+      const path = authorDoc.ref.path;
+      // 投稿側 author は step 3 で消えているので /comments/ 限定
+      if (!path.includes('/comments/')) continue;
+      try {
+        const parts = path.split('/');
+        const postId = parts[1];
+        const commentId = parts[3];
+        await authorDoc.ref.delete();
+        await db.doc(`posts/${postId}/comments/${commentId}`).delete();
+        await db.doc(`posts/${postId}`).update({
+          commentCount: admin.firestore.FieldValue.increment(-1),
+        }).catch(() => {});
+        deletedCommentIds.push(commentId);
+        commentCleanups++;
+      } catch (e) {
+        console.error(`  評削除失敗 ${path}: ${e.message}`);
+      }
+    }
+  } catch (e) {
+    console.error(`  collectionGroup('private') クエリ失敗: ${e.message}`);
+    console.error('  → orphan 評が残る可能性があります。後で orphans コマンドを走らせてください。');
+  }
+  console.log(`  ${C.green}✓${C.reset} ${commentCleanups}件 削除`);
+
+  // ----- 4b. 関連通知の本文を「削除済み」に -----
+  console.log(`${C.gray}4b. 関連通知の本文を「削除済み」に...${C.reset}`);
+  try {
+    await markPostNotificationsAsDeletedBulk([...deletedPostIds]);
+    await markCommentNotificationsAsDeletedBulk(deletedCommentIds);
+    console.log(`  ${C.green}✓${C.reset}`);
+  } catch (e) {
+    console.error(`  通知マーク失敗: ${e.message}`);
+  }
+
+  // ----- 5. 他人の歌へのリアクションを削除 -----
+  console.log(`${C.gray}5. 他人の歌へのリアクションを削除...${C.reset}`);
+  let reactionCleanups = 0;
+  try {
+    const reactionsSnap = await db.collectionGroup('reactions').where('userId', '==', uid).get();
+    for (const reactionDoc of reactionsSnap.docs) {
+      try {
+        const emoji = reactionDoc.data().emoji;
+        const postId = reactionDoc.ref.parent.parent?.id;
+        await reactionDoc.ref.delete();
+        if (postId && emoji) {
+          const postRef = db.doc(`posts/${postId}`);
+          const postSnap = await postRef.get();
+          if (postSnap.exists) {
+            const current = postSnap.data()?.reactionSummary?.[emoji] || 0;
+            if (current > 0) {
+              await postRef.update({
+                [`reactionSummary.${emoji}`]: Math.max(0, current - 1),
+              });
+            }
+          }
+        }
+        reactionCleanups++;
+      } catch (e) {
+        console.error(`  リアクション削除失敗: ${e.message}`);
+      }
+    }
+  } catch (e) {
+    console.error(`  collectionGroup('reactions') クエリ失敗: ${e.message}`);
+    console.error('  → orphan リアクションが残る可能性があります。後で orphans コマンドを走らせてください。');
+  }
+  console.log(`  ${C.green}✓${C.reset} ${reactionCleanups}件 削除`);
+
+  // ----- 6. myPosts / bookmarks / notifications -----
+  console.log(`${C.gray}6. myPosts / bookmarks / notifications 削除...${C.reset}`);
+  for (const sub of ['myPosts', 'bookmarks', 'notifications']) {
+    const snap = await db.collection(`users/${uid}/${sub}`).get();
+    await deleteRefsInChunks(snap.docs.map((d) => d.ref));
+  }
+  console.log(`  ${C.green}✓${C.reset}`);
+
+  // ----- 7. rateLimits -----
+  console.log(`${C.gray}7. rateLimits 削除...${C.reset}`);
+  try {
+    const dailySnap = await db.collection(`rateLimits/${uid}/daily`).get();
+    const rlBatch = db.batch();
+    dailySnap.docs.forEach((d) => rlBatch.delete(d.ref));
+    rlBatch.delete(db.doc(`rateLimits/${uid}`));
+    await rlBatch.commit();
+    console.log(`  ${C.green}✓${C.reset}`);
+  } catch (e) {
+    console.log(`  ${C.dim}(rateLimits なし or 失敗: ${e.message})${C.reset}`);
+  }
+
+  // ----- 8. users/{uid} -----
+  console.log(`${C.gray}8. users/${uid} 削除...${C.reset}`);
+  await db.doc(`users/${uid}`).delete();
+  console.log(`  ${C.green}✓${C.reset}`);
+
+  console.log('');
+  console.log(`${C.green}${C.bold}✓ purgeUser 完了: ${uid}${C.reset}`);
+  if (authExists) {
+    console.log(`${C.yellow}${C.bold}⚠ Firebase Auth にはまだ ${uid} が残っています。必要なら admin.auth().deleteUser('${uid}') で別途削除してください。${C.reset}`);
+  }
+}
+
 // latest / watch / hogo の第 1 引数が `posts` | `comments` | `all` なら type として扱う。
 // 数値や省略時は既存互換で type=posts。N は常にその次の引数 or 単独の数値として解釈。
 function parseTypeAndN(rawArgs, defaultN) {
@@ -1235,6 +1763,15 @@ async function main() {
       case 'purge':
         await cmdPurge(args[0], args.slice(1).join(' '));
         process.exit(0);
+      case 'delete':
+        await cmdDeletePost(args[0]);
+        process.exit(0);
+      case 'ghosts':
+        await cmdGhosts();
+        process.exit(0);
+      case 'purgeUser':
+        await cmdPurgeUser(args[0]);
+        process.exit(0);
       case 'orphans':
         await cmdOrphans();
         process.exit(0);
@@ -1245,7 +1782,7 @@ async function main() {
           formatGroupPill, formatAuthorPill, formatPrimaryLabel,
           getGroupName, getAuthorInfo, getUserPrimaryLabel, getContentAuthorId,
           enrichPost, enrichComment, fetchArchivedBody,
-          cmdGroup, cmdSuspend, cmdUnsuspend, cmdPurge,
+          cmdGroup, cmdSuspend, cmdUnsuspend, cmdPurge, cmdDeletePost,
           loadTriageState, saveTriageState,
         });
         process.exit(0);
@@ -1264,6 +1801,9 @@ async function main() {
         console.error('  suspend <uid> <reason>       ユーザーを凍結: Auth disabled + refresh token revoke + users/{uid}.suspended 記録');
         console.error('  unsuspend <uid>              凍結解除');
         console.error('  purge <uid> <reason>         指定ユーザーの過去投稿を一括反故化（原文は archivedBody に退避）');
+        console.error('  delete <postId>              指定の歌を削除（本人削除と同等の挙動）');
+        console.error('  ghosts                       Firestore に居て Auth に居ない uid を検出（list-only）');
+        console.error('  purgeUser <uid>              指定 uid の Firestore データを掃除（deleteAccount のステップ 1〜8 と同等）');
         console.error('  orphans                      作者 users/{authorId} が存在しない評を検出・削除');
         console.error('  triage                       インタラクティブな管理 REPL（推奨）');
         console.error('');

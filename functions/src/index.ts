@@ -1645,6 +1645,10 @@ export const revealAuthor = onCall(
 
 /**
  * deleteAccount — アカウント削除とデータ消去
+ *
+ * ⚠ 並行実装あり: scripts/monitor.js の cmdPurgeUser がステップ 1〜8 を admin SDK で
+ * 再現している（Auth 削除済みの ghost user 救済用）。ロジックを変更したら必ず
+ * scripts/monitor.js 側も追従すること。parity を自動テストで担保していない。
  */
 export const deleteAccount = onCall(
   { region: "asia-northeast1", maxInstances: MAX_INSTANCES_RARE, timeoutSeconds: 300 },

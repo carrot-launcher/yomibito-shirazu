@@ -40,6 +40,7 @@ module.exports = async function runTriage(deps) {
     cmdSuspend,
     cmdUnsuspend,
     cmdPurge,
+    cmdDeletePost,
     // state
     loadTriageState,
     saveTriageState,
@@ -739,7 +740,7 @@ module.exports = async function runTriage(deps) {
       return `${globals} ${C.dim}|${C.reset} ${k('詳細', '0-9')} ${k('任意番号', 'i')} ${k('unmark', 'u')}`;
     }
     if (m === 'tanka') {
-      return `${globals} ${C.dim}|${C.reset} ${k('group', 'g')} ${k('purge', 'P')} ${k('suspend', 'S')} ${k('unsuspend', 'U')} ${k('歌', '0-9/i')}`;
+      return `${globals} ${C.dim}|${C.reset} ${k('group', 'g')} ${k('delete', 'D')} ${k('purge', 'P')} ${k('suspend', 'S')} ${k('unsuspend', 'U')} ${k('歌', '0-9/i')}`;
     }
     if (m === 'group') {
       return `${globals} ${C.dim}|${C.reset} ${k('歌', '0-9/i')}`;
@@ -812,6 +813,7 @@ module.exports = async function runTriage(deps) {
     console.log(`${C.cyan}[tanka mode]${C.reset}  詠草/評の詳細 + 作者情報統合ビュー`);
     console.log(`                 作者情報セクション: 参加歌会 / ブロック / rateLimits / 歌`);
     console.log(`  ${C.cyan}g${C.reset} 歌会の詳細へ`);
+    console.log(`  ${C.cyan}D${C.reset} この歌を削除（本人削除と同じ挙動。歌のみ、評は対象外）`);
     console.log(`  ${C.cyan}P${C.reset} purge（大文字、理由を入力）`);
     console.log(`  ${C.cyan}S${C.reset} suspend（大文字、理由を入力）`);
     console.log(`  ${C.cyan}U${C.reset} unsuspend`);
@@ -1089,6 +1091,24 @@ module.exports = async function runTriage(deps) {
       const reason = await promptText('purge 理由');
       if (!reason) { await redraw(); return; }
       await runInAlt(async (rl) => { await cmdPurge(tankaItem.uid, reason, rl); });
+      return;
+    }
+    // D: この歌だけを削除（本人削除と同じ挙動）。評は対象外。
+    // 削除に成功したら一つ戻る（tankaItem が指す投稿はもう存在しないため）。
+    if (key === 'D') {
+      if (tankaItem.kind !== 'post' || !tankaItem.postId) return;
+      let deleted = false;
+      await runInAlt(async (rl) => {
+        deleted = await cmdDeletePost(tankaItem.postId, rl);
+      });
+      if (deleted) {
+        if (!goBack()) {
+          // 履歴が無い（直接 tanka に着地していた）場合はそのまま再描画
+          tankaItem = null;
+          userCtx = null;
+        }
+        await redraw();
+      }
       return;
     }
     // 以下は統合された user 操作（作者が存在する場合のみ）。
