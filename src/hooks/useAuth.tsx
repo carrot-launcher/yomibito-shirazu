@@ -6,10 +6,7 @@ import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { getMessaging, getToken, registerDeviceForRemoteMessages } from '@react-native-firebase/messaging';
-import { getCrashlytics, setUserId as setCrashlyticsUserId } from '@react-native-firebase/crashlytics';
 import { auth, db } from '../config/firebase';
-
-const crashlyticsInstance = getCrashlytics();
 
 async function registerForPushNotifications(uid: string) {
   try {
@@ -107,10 +104,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 切替時にユーザードキュメント購読を停止
       unsubUserDoc?.();
       unsubUserDoc = null;
-
-      // Crashlytics に uid を紐付ける（以降のエラーレポートに uid が乗る）。
-      // ログアウト時は空文字をセットして切り離す。
-      try { setCrashlyticsUserId(crashlyticsInstance, firebaseUser?.uid || ''); } catch {}
 
       if (firebaseUser) {
         const userRef = doc(db, 'users', firebaseUser.uid);
