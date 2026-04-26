@@ -16,7 +16,7 @@
 //   node scripts/monitor.js purge <uid> <reason> [--yes] [--dry-run]
 //   node scripts/monitor.js delete <postId> [--yes]
 //   node scripts/monitor.js ghosts
-//   node scripts/monitor.js purgeUser <uid> [--yes] [--dry-run]
+//   node scripts/monitor.js purgeUser <uid> [uid2 ...] [--yes] [--dry-run]
 //   node scripts/monitor.js orphans [--yes] [--dry-run]
 //   node scripts/monitor.js triage
 const admin = require('firebase-admin');
@@ -1224,70 +1224,46 @@ async function cmdGhosts() {
 }
 
 // ghost ユーザーの Firestore データを deleteAccount callable と同じ手順で掃除する。
-// ステップ 9 (Auth ユーザー削除) はスキップ（前提として既に Auth から消えている／消えていない場合は警告）。
+// ステップ 9 (Auth ユーザー削除) は、Auth に当該 uid が残っている場合のみ実行する
+// （ghost = もともと Auth にいない、なら no-op）。
 // 各ステップは部分失敗を許容（dissolveGroup / deleteAccount と同じ思想）。
 //
 // ⚠ functions/src/index.ts の deleteAccount callable と並行実装。ロジックは同一に保つ
 // 必要がある。あちらを変更したら必ずこちらも追従すること。parity を自動テストで
 // 担保していないので、片方だけ更新するとズレる。
-async function cmdPurgeUser(uid, rl) {
-  if (!uid) {
-    console.error('使い方: node monitor.js purgeUser <uid> [--yes] [--dry-run]');
-    return;
-  }
-  const dryRun = flags.has('--dry-run');
-
-  // Auth 上に存在するか確認 (普通は ghost 用途なので NO のはず)
+// 単一 uid に対して deleteAccount のステップ 1〜9 を実行する内部関数。
+// プロンプトはせず、各ステップの進捗のみログ出力。cmdPurgeUser から呼ばれる。
+// 戻り値: { ok, authDeleted } — ok は何かしら削除したかどうか。
+async function purgeUserData(uid) {
+  // Auth 存在を直前にもう一度チェック（プレビュー時から状態が変わっている可能性）
   let authExists = false;
   try {
     await admin.auth().getUser(uid);
     authExists = true;
   } catch {
-    // user-not-found = ghost、想定通り
+    // user-not-found = ghost
   }
 
   const userSnap = await db.doc(`users/${uid}`).get();
   if (!userSnap.exists) {
-    console.log(`users/${uid} は存在しません。`);
-    return;
+    console.log(`  ${C.dim}users/${uid} は存在しません。Firestore 側はスキップ。${C.reset}`);
+    // Auth だけ残っているなら消す
+    if (authExists) {
+      try {
+        await admin.auth().deleteUser(uid);
+        console.log(`  ${C.green}✓${C.reset} Auth ユーザーのみ削除`);
+        return { ok: true, authDeleted: true };
+      } catch (e) {
+        console.error(`  ${C.red}Auth 削除失敗: ${e.message}${C.reset}`);
+        return { ok: false, authDeleted: false };
+      }
+    }
+    return { ok: false, authDeleted: false };
   }
   const u = userSnap.data();
-  const primary = await getUserPrimaryLabel(uid);
   const joinedGroups = u.joinedGroups || [];
   const ownedSnap = await db.collection('groups').where('createdBy', '==', uid).get();
   const myPostsSnap = await db.collection(`users/${uid}/myPosts`).get();
-
-  console.log(`${C.cyan}${C.bold}=== purgeUser ===${C.reset}`);
-  console.log(`  uid:        ${uid}`);
-  console.log(`  name:       ${formatPrimaryLabel(primary)}`);
-  console.log(`  Auth 存在:  ${authExists ? `${C.red}${C.bold}YES${C.reset} ${C.red}(本当に Firestore データを掃除して良いか確認してください)${C.reset}` : `${C.green}NO (ghost)${C.reset}`}`);
-  console.log(`  所有歌会:   ${ownedSnap.size === 0 ? '0件' : `${C.red}${ownedSnap.size}件 (ソフト解散される)${C.reset}`}`);
-  console.log(`  参加歌会:   ${joinedGroups.length}件`);
-  console.log(`  myPosts:    ${myPostsSnap.size}件`);
-  console.log(`  mode:       ${dryRun ? `${C.yellow}DRY-RUN (書き込みなし)${C.reset}` : `${C.bold}本番実行${C.reset}`}`);
-  console.log('');
-  console.log('この操作で起きること（deleteAccount callable のステップ 1〜8 と同等、9 = Auth 削除はスキップ）:');
-  console.log('  1. 所有歌会をソフト解散（メンバ全員 joinedGroups 解除 + members 削除 + group 本体 + group rateLimits 削除）');
-  console.log('  2. 他歌会のメンバーシップ削除（memberCount -1）');
-  console.log('  3. 自分の歌を削除 (reactions / comments + private / post + group.postCount -N)');
-  console.log('  4. 他人の歌への評を削除（commentCount -1）');
-  console.log('  4b. 関連通知の本文を「削除済み」に');
-  console.log('  5. 他人の歌へのリアクションを削除（reactionSummary -1）');
-  console.log('  6. myPosts / bookmarks / notifications 削除');
-  console.log('  7. rateLimits 削除');
-  console.log('  8. users/{uid} 削除');
-  console.log('');
-
-  if (dryRun) {
-    console.log('DRY-RUN モードのため書き込みは行いません。');
-    return;
-  }
-
-  const ok = await confirm('実行しますか？', rl);
-  if (!ok) {
-    console.log('中止しました。');
-    return;
-  }
 
   // 共通: chunked delete helper
   const CHUNK = 400;
@@ -1499,11 +1475,139 @@ async function cmdPurgeUser(uid, rl) {
   await db.doc(`users/${uid}`).delete();
   console.log(`  ${C.green}✓${C.reset}`);
 
-  console.log('');
-  console.log(`${C.green}${C.bold}✓ purgeUser 完了: ${uid}${C.reset}`);
+  // ----- 9. Firebase Auth ユーザー削除 -----
+  // ghost ケース（authExists=false）ではスキップ。Auth に居る場合のみ消す。
+  // ここまでで Firestore 側は整合済みなので、最後に Auth を消すと「データなし→Auth なし」の順で
+  // 中途半端な状態が短時間に留まる（逆順だと「Auth なし→データ生存」の ghost が再生成される）。
+  let authDeleted = false;
   if (authExists) {
-    console.log(`${C.yellow}${C.bold}⚠ Firebase Auth にはまだ ${uid} が残っています。必要なら admin.auth().deleteUser('${uid}') で別途削除してください。${C.reset}`);
+    console.log(`${C.gray}9. Firebase Auth ユーザー削除...${C.reset}`);
+    try {
+      await admin.auth().deleteUser(uid);
+      console.log(`  ${C.green}✓${C.reset}`);
+      authDeleted = true;
+    } catch (e) {
+      console.error(`  ${C.red}Auth 削除失敗: ${e.message}${C.reset}`);
+      console.error(`  ${C.yellow}手動で admin.auth().deleteUser('${uid}') を実行してください。${C.reset}`);
+    }
+  } else {
+    console.log(`${C.gray}9. Firebase Auth ユーザー削除${C.reset} ${C.dim}(ghost のためスキップ)${C.reset}`);
   }
+  return { ok: true, authDeleted };
+}
+
+// 1 つ以上の uid に対して purgeUserData を順次実行する。
+// 共通プレビュー → 一回だけ確認 → 各 uid を順に処理する流れ。
+// 並列化は意図的にしていない（A/B が同じ歌会のメンバで group.memberCount を競合更新するなど、
+// クロスユーザーの副作用が読みにくいため）。
+async function cmdPurgeUser(uids, rl) {
+  if (!uids || uids.length === 0) {
+    console.error('使い方: node monitor.js purgeUser <uid> [uid2 ...] [--yes] [--dry-run]');
+    return;
+  }
+  // 重複除去（運用ミスで同じ uid が並んだとき 2 回目が「users なし」で空振りするだけだが念のため）
+  uids = [...new Set(uids)];
+  const dryRun = flags.has('--dry-run');
+
+  // Auth 存在を bulk チェック（最大 100 件 / 呼び出し）
+  const authExistsMap = new Map();
+  const AUTH_CHUNK = 100;
+  for (let i = 0; i < uids.length; i += AUTH_CHUNK) {
+    const chunk = uids.slice(i, i + AUTH_CHUNK);
+    try {
+      const result = await admin.auth().getUsers(chunk.map((u) => ({ uid: u })));
+      for (const u of result.users) authExistsMap.set(u.uid, true);
+      for (const nf of result.notFound) if (nf.uid) authExistsMap.set(nf.uid, false);
+    } catch (e) {
+      // bulk が失敗したら個別フォールバック
+      console.error(`getUsers bulk 失敗: ${e.message} (個別チェックにフォールバック)`);
+      for (const u of chunk) {
+        try { await admin.auth().getUser(u); authExistsMap.set(u, true); }
+        catch { authExistsMap.set(u, false); }
+      }
+    }
+  }
+
+  // 各 uid のプレビュー情報を集める
+  const previews = [];
+  let totalOwned = 0, totalJoined = 0, totalMyPosts = 0, totalAuthExists = 0, totalMissing = 0;
+  for (const uid of uids) {
+    const userSnap = await db.doc(`users/${uid}`).get();
+    const authExists = !!authExistsMap.get(uid);
+    if (!userSnap.exists) {
+      previews.push({ uid, missing: true, authExists });
+      totalMissing++;
+      if (authExists) totalAuthExists++;
+      continue;
+    }
+    const u = userSnap.data();
+    const primary = await getUserPrimaryLabel(uid);
+    const joinedGroups = u.joinedGroups || [];
+    const ownedSnap = await db.collection('groups').where('createdBy', '==', uid).get();
+    const myPostsSnap = await db.collection(`users/${uid}/myPosts`).get();
+    if (authExists) totalAuthExists++;
+    totalOwned += ownedSnap.size;
+    totalJoined += joinedGroups.length;
+    totalMyPosts += myPostsSnap.size;
+    previews.push({
+      uid, missing: false, authExists, primary,
+      ownedCount: ownedSnap.size, joinedCount: joinedGroups.length, myPostsCount: myPostsSnap.size,
+    });
+  }
+
+  console.log(`${C.cyan}${C.bold}=== purgeUser (${uids.length}人) ===${C.reset}`);
+  console.log(`mode: ${dryRun ? `${C.yellow}DRY-RUN (書き込みなし)${C.reset}` : `${C.bold}本番実行${C.reset}`}`);
+  console.log('');
+  for (const p of previews) {
+    const authMark = p.authExists ? `${C.red}${C.bold}Auth+${C.reset}` : `${C.green}ghost${C.reset}`;
+    if (p.missing) {
+      console.log(`  ${C.dim}${p.uid}  [${authMark}${C.dim}]  (users doc なし、Firestore はスキップ)${C.reset}`);
+      continue;
+    }
+    const ownedMark = p.ownedCount === 0 ? '0' : `${C.red}${p.ownedCount}${C.reset}`;
+    console.log(`  ${C.bold}${p.uid}${C.reset}  [${authMark}]  ${formatPrimaryLabel(p.primary)}`);
+    console.log(`    ${C.dim}所有歌会:${C.reset}${ownedMark}件 ${C.dim}/ 参加歌会:${C.reset}${p.joinedCount}件 ${C.dim}/ myPosts:${C.reset}${p.myPostsCount}件`);
+  }
+  console.log('');
+  console.log(`${C.dim}合計:${C.reset} Auth削除:${totalAuthExists}人 / 所有歌会:${totalOwned}件 / 参加歌会:${totalJoined}件 / myPosts:${totalMyPosts}件 / users欠損:${totalMissing}人`);
+  console.log('');
+  console.log('各 uid に対して deleteAccount callable のステップ 1〜9 を実行します。');
+  console.log('  1. 所有歌会のソフト解散  2. 他歌会から脱退  3. 自分の歌を削除');
+  console.log('  4. 他人の歌への評を削除  4b. 関連通知の本文を「削除済み」に');
+  console.log('  5. 他人の歌へのリアクションを削除  6. myPosts/bookmarks/notifications 削除');
+  console.log('  7. rateLimits 削除  8. users/{uid} 削除  9. Auth ユーザー削除（authExists のときのみ）');
+  console.log('');
+
+  if (dryRun) {
+    console.log('DRY-RUN モードのため書き込みは行いません。');
+    return;
+  }
+
+  const ok = await confirm(`${uids.length}人を purge します。実行しますか？`, rl);
+  if (!ok) {
+    console.log('中止しました。');
+    return;
+  }
+
+  let okCount = 0;
+  let failCount = 0;
+  let authDeletedCount = 0;
+  for (let i = 0; i < uids.length; i++) {
+    const uid = uids[i];
+    console.log('');
+    console.log(`${C.cyan}${C.bold}── [${i + 1}/${uids.length}] ${uid} ──${C.reset}`);
+    try {
+      const result = await purgeUserData(uid);
+      if (result.ok) okCount++;
+      if (result.authDeleted) authDeletedCount++;
+    } catch (e) {
+      console.error(`${C.red}${C.bold}失敗:${C.reset} ${e.message}`);
+      failCount++;
+    }
+  }
+
+  console.log('');
+  console.log(`${C.green}${C.bold}✓ purgeUser 完了${C.reset}  処理:${okCount}/${uids.length} ${C.dim}/${C.reset} Auth削除:${authDeletedCount}${failCount > 0 ? ` ${C.dim}/${C.reset} ${C.red}失敗:${failCount}${C.reset}` : ''}`);
 }
 
 // latest / watch / hogo の第 1 引数が `posts` | `comments` | `all` なら type として扱う。
@@ -1770,7 +1874,7 @@ async function main() {
         await cmdGhosts();
         process.exit(0);
       case 'purgeUser':
-        await cmdPurgeUser(args[0]);
+        await cmdPurgeUser(args);
         process.exit(0);
       case 'orphans':
         await cmdOrphans();
@@ -1803,7 +1907,7 @@ async function main() {
         console.error('  purge <uid> <reason>         指定ユーザーの過去投稿を一括反故化（原文は archivedBody に退避）');
         console.error('  delete <postId>              指定の歌を削除（本人削除と同等の挙動）');
         console.error('  ghosts                       Firestore に居て Auth に居ない uid を検出（list-only）');
-        console.error('  purgeUser <uid>              指定 uid の Firestore データを掃除（deleteAccount のステップ 1〜8 と同等）');
+        console.error('  purgeUser <uid> [uid2 ...]   指定 uid（複数可）の Firestore + Auth を掃除（deleteAccount と同等。ghost なら Auth はスキップ）');
         console.error('  orphans                      作者 users/{authorId} が存在しない評を検出・削除');
         console.error('  triage                       インタラクティブな管理 REPL（推奨）');
         console.error('');
