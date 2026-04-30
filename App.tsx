@@ -6,6 +6,7 @@ import { useFonts, NotoSerifJP_400Regular, NotoSerifJP_500Medium, NotoSerifJP_70
 import { IBMPlexMono_600SemiBold } from '@expo-google-fonts/ibm-plex-mono';
 import { getCrashlytics, recordError } from '@react-native-firebase/crashlytics';
 import { AlertProvider } from './src/components/CustomAlert';
+import { KeyboardDoneAccessory } from './src/components/KeyboardDoneAccessory';
 import { AuthProvider } from './src/hooks/useAuth';
 import AppNavigator from './src/navigation/AppNavigator';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
@@ -70,6 +71,7 @@ function AppInner() {
     <>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <AppNavigator />
+      <KeyboardDoneAccessory />
     </>
   );
 }

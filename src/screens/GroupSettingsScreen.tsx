@@ -14,6 +14,7 @@ import { AppButton } from '../components/AppButton';
 import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
+import { KEYBOARD_DONE_ID } from '../components/KeyboardDoneAccessory';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../theme/ThemeContext';
@@ -297,6 +298,7 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
                 maxLength={200}
                 multiline
                 textAlignVertical="top"
+                inputAccessoryViewID={KEYBOARD_DONE_ID}
               />
               <AppText variant="caption" tone="tertiary" style={styles.savedHint}>
                 {savedHint === 'purpose' ? '保存しました' : `${editingPurpose.trim().length} / 200`}

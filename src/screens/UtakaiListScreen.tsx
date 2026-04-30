@@ -3,12 +3,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { arrayUnion, collection, doc, getDoc, getDocs, increment, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
-import { Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { AppButton } from '../components/AppButton';
 import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
+import { KEYBOARD_DONE_ID } from '../components/KeyboardDoneAccessory';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../theme/ThemeContext';
@@ -474,6 +475,7 @@ export default function UtakaiListScreen({ navigation }: any) {
 
       {/* 趣意書入力モーダル */}
       <Modal visible={showPurpose} transparent animationType="fade">
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}><View style={[styles.modal, { backgroundColor: colors.surface }]}>
           <AppText variant="sectionTitle" style={styles.modalTitle}>趣意書</AppText>
           <AppText variant="caption" tone="secondary" style={styles.modalHint}>この歌会でどのような歌を詠んでほしいかを10〜200文字で。{'\n'}発見画面や歌会のヘッダーなどで、参加前の人にも公開されます。</AppText>
@@ -486,6 +488,7 @@ export default function UtakaiListScreen({ navigation }: any) {
             maxLength={200}
             multiline
             textAlignVertical="top"
+            inputAccessoryViewID={KEYBOARD_DONE_ID}
           />
           <AppText variant="caption" tone="tertiary" style={styles.counterText}>{newPurpose.trim().length} / 200</AppText>
           <View style={styles.modalButtons}>
@@ -493,6 +496,7 @@ export default function UtakaiListScreen({ navigation }: any) {
             <AppButton label="次へ" variant="primary" onPress={handlePurposeNext} disabled={newPurpose.trim().length < 10} />
           </View>
         </View></View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* 招待コードモーダル */}

@@ -6,6 +6,7 @@ import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'r
 import { AppButton } from '../components/AppButton';
 import { AppText } from '../components/AppText';
 import GradientBackground from '../components/GradientBackground';
+import { KEYBOARD_DONE_ID } from '../components/KeyboardDoneAccessory';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useModalAlert } from '../hooks/useModalAlert';
@@ -153,6 +154,7 @@ export default function ComposeScreen({ route, navigation }: any) {
           multiline
           maxLength={MAX_CHARS}
           autoFocus
+          inputAccessoryViewID={KEYBOARD_DONE_ID}
         />
         <View style={{ height: 20 }} />
         {hintText ? <AppText variant="meta" tone="tertiary" style={dynamicStyles.hint}>{hintText}</AppText> : null}

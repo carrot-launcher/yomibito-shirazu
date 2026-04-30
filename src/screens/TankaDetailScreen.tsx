@@ -17,7 +17,9 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getCrashlytics, recordError } from '@react-native-firebase/crashlytics';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -29,6 +31,7 @@ import { AppButton } from '../components/AppButton';
 import { AppText } from '../components/AppText';
 import { useAlert } from '../components/CustomAlert';
 import GradientBackground from '../components/GradientBackground';
+import { KEYBOARD_DONE_ID } from '../components/KeyboardDoneAccessory';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { ThemeColors } from '../theme/colors';
@@ -981,6 +984,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
                 placeholder="評を書く..."
                 placeholderTextColor={colors.textTertiary}
                 multiline maxLength={500}
+                inputAccessoryViewID={KEYBOARD_DONE_ID}
               />
               <AppButton
                 label="送る"
@@ -1127,6 +1131,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
 
       {/* 通報モーダル */}
       <Modal visible={reportModalVisible} transparent animationType="fade" onRequestClose={() => { if (!reporting) setReportModalVisible(false); }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <View style={styles.judgmentOverlay}>
           <View style={styles.judgmentModal}>
             <AppText variant="sectionTitle" style={styles.judgmentTitle}>通報</AppText>
@@ -1164,6 +1169,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
                 placeholderTextColor={colors.disabled}
                 multiline
                 maxLength={500}
+                inputAccessoryViewID={KEYBOARD_DONE_ID}
               />
             )}
 
@@ -1186,10 +1192,12 @@ export default function TankaDetailScreen({ route, navigation }: any) {
             </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* 裁き確認モーダル */}
       <Modal visible={judgmentModal !== null} transparent animationType="fade" onRequestClose={() => { if (!judging) setJudgmentModal(null); }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <View style={styles.judgmentOverlay}>
           <View style={styles.judgmentModal}>
             <AppText variant="sectionTitle" style={styles.judgmentTitle}>
@@ -1210,6 +1218,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
               placeholderTextColor={colors.disabled}
               multiline
               maxLength={50}
+              inputAccessoryViewID={KEYBOARD_DONE_ID}
             />
 
             <View style={styles.judgmentButtons}>
@@ -1231,6 +1240,7 @@ export default function TankaDetailScreen({ route, navigation }: any) {
             </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     </GradientBackground>
   );
